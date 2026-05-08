@@ -1,10 +1,9 @@
 package=boost
-$(package)_version=1_83_0
-$(package)_download_path=https://boostorg.jfrog.io/artifactory/main/release/$(subst _,.,$($(package)_version))/source/
+$(package)_version=1_91_0
+$(package)_download_path=https://archives.boost.io/release/$(subst _,.,$($(package)_version))/source
 $(package)_file_name=boost_$($(package)_version).tar.bz2
-$(package)_sha256_hash=6478edfe2f3305127cffe8caf73ea0176c53769f4bf1585be237eb30798c3b8e
+$(package)_sha256_hash=de5e6b0e4913395c6bdfa90537febd9028ea4c0735d2cdb0cd9b45d5f51264f5
 $(package)_dependencies=native_b2
-$(package)_patches=6753-signals2-function-fix.patch
 
 ifneq ($(host_os),darwin)
 $(package)_dependencies+=libcxx
@@ -28,7 +27,7 @@ $(package)_toolset_$(host_os)=clang
 else
 $(package)_toolset_$(host_os)=gcc
 endif
-$(package)_config_libraries=chrono,filesystem,program_options,system,thread,test
+$(package)_config_libraries=chrono,filesystem,program_options,thread,test
 $(package)_cxxflags+=-std=c++17 -fvisibility=hidden
 $(package)_cxxflags_linux=-fPIC
 $(package)_cxxflags_freebsd=-fPIC
@@ -42,7 +41,6 @@ endif
 endef
 
 define $(package)_preprocess_cmds
-  patch -p1 < $($(package)_patch_dir)/6753-signals2-function-fix.patch && \
   echo "using $($(package)_toolset_$(host_os)) : : $($(package)_cxx) : <cflags>\"$($(package)_cflags)\" <cxxflags>\"$($(package)_cxxflags)\" <compileflags>\"$($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\" <archiver>\"$($(package)_ar)\" <striper>\"$(host_STRIP)\"  <ranlib>\"$(host_RANLIB)\" <rc>\"$(host_WINDRES)\" : ;" > user-config.jam
 endef
 

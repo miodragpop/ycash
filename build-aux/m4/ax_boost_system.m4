@@ -108,7 +108,11 @@ AC_DEFUN([AX_BOOST_SYSTEM],
 
             fi
             if test "x$ax_lib" = "x"; then
-                AC_MSG_ERROR(Could not find a version of the Boost::System library!)
+                dnl boost_system is header-only since Boost 1.69; no library file is expected
+                AC_MSG_NOTICE([boost_system library file not found - assuming header-only (Boost >= 1.69)])
+                BOOST_SYSTEM_LIB=""
+                AC_SUBST(BOOST_SYSTEM_LIB)
+                link_system="yes"
             fi
 			if test "x$link_system" = "xno"; then
 				AC_MSG_ERROR(Could not link against $ax_lib !)
