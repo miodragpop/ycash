@@ -6868,7 +6868,16 @@ bool RewindBlockIndex(const CChainParams& chainparams, bool& clearWitnessCaches)
     //
     // - BLOCK_ACTIVATES_UPGRADE is set only on blocks that activate upgrades.
     // - nCachedBranchId for each block matches what we expect.
+    //
+    // Entries below BLOCK_VALID_CONSENSUS have not run ConnectBlock, so
+    // nCachedBranchId is not applicable to them (see chain.h). Treat them as
+    // retained — erasing them forces redundant re-download of headers and
+    // block data already on disk after an interrupted sync.
     auto sufficientlyValidated = [&chainparams](const CBlockIndex* pindex) {
+        if (!pindex->IsValid(BLOCK_VALID_CONSENSUS))
+            return true;
+
+        // Connected: must have run under the expected consensus branch.
         const Consensus::Params& consensus = chainparams.GetConsensus();
         bool fFlagSet = pindex->nStatus & BLOCK_ACTIVATES_UPGRADE;
         bool fFlagExpected = IsActivationHeightForAnyUpgrade(pindex->nHeight, consensus);
