@@ -102,6 +102,14 @@ fs::path AbsPathForConfigVal(const fs::path& path, bool net_specific = true);
 /** Returns privacy notice (for -version, -help and metrics screen) */
 std::string PrivacyInfo();
 
+/**
+ * Trim the malloc heap to return freed memory to the OS.
+ * Effective on glibc (Linux). Best-effort hint on macOS and Windows.
+ * Only call after large allocations have been freed (e.g. large RPC responses).
+ * Logs elapsed time via LogPrint("malloc_trim") on glibc platforms.
+ */
+void TrimMallocHeap(const char* context = nullptr);
+
 /** Returns licensing information (for -version) */
 std::string LicenseInfo();
 

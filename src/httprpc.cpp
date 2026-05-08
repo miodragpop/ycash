@@ -178,10 +178,8 @@ static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string &)
         if (valRequest.isObject()) {
             jreq.parse(valRequest);
 
-            UniValue result = tableRPC.execute(jreq.strMethod, jreq.params);
-
-            // Send reply
-            strReply = JSONRPCReply(result, NullUniValue, jreq.id);
+            // Send reply — execute() result destroyed immediately after serialization
+            strReply = JSONRPCReply(tableRPC.execute(jreq.strMethod, jreq.params), NullUniValue, jreq.id);
 
         // array of requests
         } else if (valRequest.isArray())
@@ -190,7 +188,7 @@ static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string &)
             throw JSONRPCError(RPC_PARSE_ERROR, "Top-level object parse error");
 
         req->WriteHeader("Content-Type", "application/json");
-        req->WriteReply(HTTP_OK, strReply);
+        req->WriteReply(HTTP_OK, std::move(strReply));
     } catch (const UniValue& objError) {
         JSONErrorReply(req, objError, jreq.id);
         return false;

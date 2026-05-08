@@ -21,6 +21,12 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#if defined(__GLIBC__) && !defined(_WIN32)
+#include <malloc.h>          // malloc_trim
+#elif defined(__APPLE__)
+#include <malloc/malloc.h>   // malloc_zone_pressure_relief
+#endif
+
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
 #include <pthread.h>
 #include <pthread_np.h>
@@ -669,6 +675,23 @@ std::string LicenseInfo()
            "\n" +
            FormatParagraph(_("Distributed under the MIT software license, see the accompanying file COPYING or <https://www.opensource.org/licenses/mit-license.php>.")) +
            "\n";
+}
+
+void TrimMallocHeap(const char* context)
+{
+#if defined(__GLIBC__) && !defined(_WIN32)
+    int64_t t0 = GetTimeMicros();
+    malloc_trim(0);
+    int64_t elapsed = GetTimeMicros() - t0;
+    if (context)
+        LogPrint("malloc_trim", "malloc_trim(%s): %dµs\n", context, elapsed);
+    else
+        LogPrint("malloc_trim", "malloc_trim: %dµs\n", elapsed);
+#elif defined(__APPLE__)
+    malloc_zone_pressure_relief(nullptr, 0);
+#elif defined(WIN32)
+    HeapCompact(GetProcessHeap(), 0);
+#endif
 }
 
 int GetNumCores()
