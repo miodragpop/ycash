@@ -3190,13 +3190,16 @@ static int64_t nTimeTotal = 0;
  * of the following are true:
  *   - we're currently in initial block download
  *   - the `-ibdskiptxverification` flag is set
- *   - the block under inspection is an ancestor of the latest checkpoint.
+ *   - the block's height is at or below the last hardcoded checkpoint
+ *     height. ContextualCheckBlockHeader enforces hash equality at
+ *     checkpoint heights, so any block that reaches validation below
+ *     the last checkpoint is on the checkpointed chain.
  */
 static bool ShouldCheckTransactions(const CChainParams& chainparams, const CBlockIndex* pindex) {
     return !(fIBDSkipTxVerification
              && fCheckpointsEnabled
              && IsInitialBlockDownload(chainparams.GetConsensus())
-             && Checkpoints::IsAncestorOfLastCheckpoint(chainparams.Checkpoints(), pindex));
+             && Checkpoints::IsBelowOrAtLastCheckpointHeight(chainparams.Checkpoints(), pindex));
 }
 
 static bool CheckBlockBodyAuthCommitment(
@@ -3236,8 +3239,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         assert(false);
     }
 
-    // If this block is an ancestor of a checkpoint, disable expensive checks
-    if (fCheckpointsEnabled && Checkpoints::IsAncestorOfLastCheckpoint(chainparams.Checkpoints(), pindex)) {
+    // If this block is at or below the last hardcoded checkpoint height,
+    // disable expensive checks. This is safe because ContextualCheckBlockHeader
+    // enforces that any block reaching validation at a checkpoint height has
+    // the expected hash, so all blocks that reach here below the last checkpoint
+    // height are on the checkpointed chain. Unlike `IsAncestorOfLastCheckpoint`,
+    // this works from the very first block of a reindex (when `mapBlockIndex`
+    // is empty and `GetLastCheckpoint` would return null).
+    if (fCheckpointsEnabled && Checkpoints::IsBelowOrAtLastCheckpointHeight(chainparams.Checkpoints(), pindex)) {
         fExpensiveChecks = false;
     }
 
@@ -3254,8 +3263,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     std::optional<rust::Box<orchard::BatchValidator>> orchardAuth = fExpensiveChecks ?
         std::optional(orchard::init_batch_validator(fCacheResults)) : std::nullopt;
 
-    // If in initial block download, and this block is an ancestor of a checkpoint,
-    // and -ibdskiptxverification is set, disable all transaction checks.
+    // If in initial block download, this block is at or below the last
+    // hardcoded checkpoint height, and -ibdskiptxverification is set,
+    // disable all transaction checks.
     bool fCheckTransactions = ShouldCheckTransactions(chainparams, pindex);
 
     // Check it again to verify JoinSplit proofs, and in case a previous version let a bad block in
@@ -5721,6 +5731,21 @@ bool ContextualCheckBlockHeader(
     }
 
     if (fCheckpointsEnabled) {
+        // Enforce hardcoded checkpoint-height hashes. This makes "block height
+        // is at or below the last checkpoint height" a sufficient predicate for
+        // "block is on the checkpointed chain", which lets us skip expensive
+        // checks below the last checkpoint from the very first block of an IBD
+        // or reindex (without waiting for `mapBlockIndex` to contain the
+        // checkpoint blocks themselves, which is what `GetLastCheckpoint`
+        // depends on).
+        const auto& checkpoints = chainParams.Checkpoints().mapCheckpoints;
+        auto it = checkpoints.find(nHeight);
+        if (it != checkpoints.end() && hash != it->second) {
+            return state.DoS(100, error("%s: block at checkpoint height %d has hash %s, expected %s",
+                                        __func__, nHeight, hash.ToString(), it->second.ToString()),
+                             REJECT_CHECKPOINT, "checkpoint mismatch");
+        }
+
         // Don't accept any forks from the main chain prior to last checkpoint
         CBlockIndex* pcheckpoint = Checkpoints::GetLastCheckpoint(chainParams.Checkpoints());
         if (pcheckpoint && nHeight < pcheckpoint->nHeight) {

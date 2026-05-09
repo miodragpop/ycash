@@ -85,6 +85,12 @@ namespace Checkpoints {
         return pindexLastCheckpoint && pindexLastCheckpoint->GetAncestor(pindex->nHeight) == pindex;
     }
 
-
+    bool IsBelowOrAtLastCheckpointHeight(const CCheckpointData& data, const CBlockIndex* pindex)
+    {
+        const MapCheckpoints& checkpoints = data.mapCheckpoints;
+        if (checkpoints.empty())
+            return false;
+        return pindex->nHeight <= checkpoints.rbegin()->first;
+    }
 
 } // namespace Checkpoints

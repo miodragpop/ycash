@@ -29,6 +29,14 @@ CBlockIndex* GetLastCheckpoint(const CCheckpointData& data);
 double GuessVerificationProgress(const CCheckpointData& data, CBlockIndex* pindex, bool fSigchecks = true);
 
 bool IsAncestorOfLastCheckpoint(const CCheckpointData& data, const CBlockIndex* pindex);
+
+//! Height-based equivalent that does not depend on `mapBlockIndex` containing
+//! the checkpoint blocks. Returns true iff `pindex->nHeight` is at or below the
+//! highest hardcoded checkpoint height. Safe to use as a "skip expensive checks"
+//! gate only in combination with checkpoint-hash enforcement at known heights
+//! (see ContextualCheckBlockHeader), which guarantees that any block reaching
+//! validation at a checkpoint height is on the checkpointed chain.
+bool IsBelowOrAtLastCheckpointHeight(const CCheckpointData& data, const CBlockIndex* pindex);
 } //namespace Checkpoints
 
 #endif // BITCOIN_CHECKPOINTS_H
