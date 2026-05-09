@@ -1,4 +1,5 @@
 use core::mem::size_of_val;
+use std::sync::OnceLock;
 
 use incrementalmerkletree::{
     frontier::{CommitmentTree, Frontier},
@@ -77,9 +78,22 @@ impl<H: Copy + Hashable + HashSer> MerkleFrontier<H> {
 }
 
 /// Returns the root of an empty Orchard Merkle tree.
+///
+/// The result is a deterministic constant determined entirely by
+/// `NOTE_COMMITMENT_TREE_DEPTH`, but computing it requires walking the depth-32
+/// empty subtree via Sinsemilla hashing on the Pallas curve, which is
+/// CPU-heavy (`pasta_curves::fields::fp::Fp::square` dominates). It is called
+/// from multiple block-validation hot paths (`ConnectBlock`,
+/// `GetOrchardAnchorAt`, `ChainTipAdded` notifications) once per pre-NU5
+/// block, where the recomputation is pure waste. Sapling and Sprout already
+/// hard-code their empty-root tables (`pedersen_empty_roots`,
+/// `sha256_empty_roots`); we cache Orchard's at first call instead.
 pub(crate) fn orchard_empty_root() -> [u8; 32] {
-    let level = Level::from(NOTE_COMMITMENT_TREE_DEPTH);
-    MerkleHashOrchard::empty_root(level).to_bytes()
+    static CACHED: OnceLock<[u8; 32]> = OnceLock::new();
+    *CACHED.get_or_init(|| {
+        let level = Level::from(NOTE_COMMITMENT_TREE_DEPTH);
+        MerkleHashOrchard::empty_root(level).to_bytes()
+    })
 }
 
 /// An Orchard incremental Merkle frontier.
