@@ -3270,7 +3270,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // Check it again to verify JoinSplit proofs, and in case a previous version let a bad block in
     if (!CheckBlock(block, state, chainparams, verifier,
-        !fJustCheck, !fJustCheck, fCheckTransactions))
+        !fJustCheck, !fJustCheck, fCheckTransactions, pindex))
     {
         return false;
     }
@@ -5612,16 +5612,24 @@ bool CheckBlock(const CBlock& block,
                 ProofVerifier& verifier,
                 bool fCheckPOW,
                 bool fCheckMerkleRoot,
-                bool fCheckTransactions)
+                bool fCheckTransactions,
+                const CBlockIndex* pindex)
 {
     // These are checks that are independent of context.
 
     if (block.fChecked)
         return true;
 
+    // Skip header re-verification (equihash + PoW) when the block index already
+    // records this block as having a valid header. Equihash verification is
+    // CPU-heavy; without this short-circuit it runs once in AcceptBlockHeader
+    // and then again here on every read-from-disk during reindex / VerifyDB /
+    // re-connect, even though the result cannot change.
+    bool fNeedPOW = fCheckPOW && !(pindex && pindex->IsValid(BLOCK_VALID_HEADER));
+
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-    if (!CheckBlockHeader(block, state, chainparams, fCheckPOW))
+    if (!CheckBlockHeader(block, state, chainparams, fNeedPOW))
         return false;
 
     // Check the merkle root.
@@ -5994,7 +6002,7 @@ static bool AcceptBlock(const CBlock& block, CValidationState& state, const CCha
     auto verifier = ProofVerifier::Disabled();
 
     bool fCheckTransactions = ShouldCheckTransactions(chainparams, pindex);
-    if ((!CheckBlock(block, state, chainparams, verifier, true, true, fCheckTransactions)) ||
+    if ((!CheckBlock(block, state, chainparams, verifier, true, true, fCheckTransactions, pindex)) ||
          !ContextualCheckBlock(block, state, chainparams, pindex->pprev, fCheckTransactions)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
             pindex->nStatus |= BLOCK_FAILED_VALID;
@@ -6608,7 +6616,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
 
         // check level 1: verify block validity
         fCheckTransactions = ShouldCheckTransactions(chainparams, pindex);
-        if (nCheckLevel >= 1 && !CheckBlock(block, state, chainparams, verifier, true, true, fCheckTransactions))
+        if (nCheckLevel >= 1 && !CheckBlock(block, state, chainparams, verifier, true, true, fCheckTransactions, pindex))
             return error("VerifyDB(): *** found bad block at %d, hash=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
 
         // check level 2: verify undo validity

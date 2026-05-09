@@ -559,7 +559,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
                 ProofVerifier& verifier,
                 bool fCheckPOW,
                 bool fCheckMerkleRoot,
-                bool fCheckTransactions);
+                bool fCheckTransactions,
+                const CBlockIndex* pindex = nullptr);
 
 /** Context-dependent validity checks.
  *  By "context", we mean only the previous block headers, but not the UTXO
