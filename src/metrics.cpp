@@ -345,10 +345,18 @@ int printStats(MetricsStats stats, bool isScreen, bool mining)
 
     if (IsInitialBlockDownload(Params().GetConsensus())) {
         if (fReindex) {
+            // During reindex, `chainActive.Height()` (in `stats.height`) lags
+            // significantly behind the reindex front, since blocks are accepted
+            // into `mapBlockIndex` long before they are connected by
+            // `ActivateBestChain`. `pindexBestHeader` advances in lockstep with
+            // accepted headers, so it is the right value to surface as the
+            // height reached during reindex.
             int downloadPercent = nSizeReindexed * 100 / nFullSizeToReindex;
+            int indexHeight = stats.currentHeadersHeight < 0 ? 0 : (int)stats.currentHeadersHeight;
             std::cout << "      " << _("Reindexing blocks") << " | "
                 << DisplaySize(nSizeReindexed) << " / " << DisplaySize(nFullSizeToReindex)
-                << " (" << downloadPercent << "%, " << stats.height << " " << _("blocks") << ")" << std::endl;
+                << " (" << downloadPercent << "%, " << _("index") << " " << indexHeight
+                << ", " << _("connected") << " " << stats.height << ")" << std::endl;
         } else {
             int nHeaders = stats.currentHeadersHeight;
             if (nHeaders < 0)
