@@ -100,6 +100,7 @@ bool fIsBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG;
 bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 bool fIBDSkipTxVerification = DEFAULT_IBD_SKIP_TX_VERIFICATION;
+bool fReindexOnePhase = DEFAULT_REINDEX_ONE_PHASE;
 bool fCoinbaseEnforcedShieldingEnabled = true;
 size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
@@ -7227,9 +7228,18 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
 
                 // process in case the block isn't known yet
                 if (mapBlockIndex.count(hash) == 0 || (mapBlockIndex[hash]->nStatus & BLOCK_HAVE_DATA) == 0) {
-                    LOCK(cs_main);
                     CValidationState state;
-                    if (AcceptBlock(block, state, chainparams, NULL, true, dbp))
+                    bool ok;
+                    if (fReindexOnePhase) {
+                        // One-phase reindex: accept and connect this block before
+                        // moving to the next. `ProcessNewBlock` takes `cs_main`
+                        // internally, so we must not hold it here.
+                        ok = ProcessNewBlock(state, chainparams, NULL, &block, true, dbp);
+                    } else {
+                        LOCK(cs_main);
+                        ok = AcceptBlock(block, state, chainparams, NULL, true, dbp);
+                    }
+                    if (ok)
                         nLoaded++;
                     if (state.IsError())
                         break;
@@ -7259,10 +7269,15 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
                         {
                             LogPrint("reindex", "%s: Processing out of order child %s of %s\n", __func__, block.GetHash().ToString(),
                                     head.ToString());
-                            LOCK(cs_main);
                             CValidationState dummy;
-                            if (AcceptBlock(block, dummy, chainparams, NULL, true, &(range.first->second)))
-                            {
+                            bool ok;
+                            if (fReindexOnePhase) {
+                                ok = ProcessNewBlock(dummy, chainparams, NULL, &block, true, &(range.first->second));
+                            } else {
+                                LOCK(cs_main);
+                                ok = AcceptBlock(block, dummy, chainparams, NULL, true, &(range.first->second));
+                            }
+                            if (ok) {
                                 nLoaded++;
                                 queue.push_back(block.GetHash());
                             }
