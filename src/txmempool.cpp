@@ -457,10 +457,10 @@ void CTxMemPool::addAddressIndex(const CTxMemPoolEntry &entry, const CCoinsViewC
     for (unsigned int j = 0; j < tx.vin.size(); j++) {
         const CTxIn input = tx.vin[j];
         const CTxOut &prevout = view.GetOutputFor(input);
-        CScript::ScriptType type = prevout.scriptPubKey.GetType();
+        auto [type, addrHash] = prevout.scriptPubKey.AddressIndexKey();
         if (type == CScript::UNKNOWN)
             continue;
-        CMempoolAddressDeltaKey key(type, prevout.scriptPubKey.AddressHash(), txhash, j, 1);
+        CMempoolAddressDeltaKey key(type, addrHash, txhash, j, 1);
         CMempoolAddressDelta delta(entry.GetTime(), prevout.nValue * -1, input.prevout.hash, input.prevout.n);
         mapAddress.insert(make_pair(key, delta));
         inserted.push_back(key);
@@ -468,10 +468,10 @@ void CTxMemPool::addAddressIndex(const CTxMemPoolEntry &entry, const CCoinsViewC
 
     for (unsigned int j = 0; j < tx.vout.size(); j++) {
         const CTxOut &out = tx.vout[j];
-        CScript::ScriptType type = out.scriptPubKey.GetType();
+        auto [type, addrHash] = out.scriptPubKey.AddressIndexKey();
         if (type == CScript::UNKNOWN)
             continue;
-        CMempoolAddressDeltaKey key(type, out.scriptPubKey.AddressHash(), txhash, j, 0);
+        CMempoolAddressDeltaKey key(type, addrHash, txhash, j, 0);
         mapAddress.insert(make_pair(key, CMempoolAddressDelta(entry.GetTime(), out.nValue)));
         inserted.push_back(key);
     }
@@ -517,10 +517,10 @@ void CTxMemPool::addSpentIndex(const CTxMemPoolEntry &entry, const CCoinsViewCac
     for (unsigned int j = 0; j < tx.vin.size(); j++) {
         const CTxIn input = tx.vin[j];
         const CTxOut &prevout = view.GetOutputFor(input);
+        auto [type, addrHash] = prevout.scriptPubKey.AddressIndexKey();
         CSpentIndexKey key = CSpentIndexKey(input.prevout.hash, input.prevout.n);
         CSpentIndexValue value = CSpentIndexValue(txhash, j, -1, prevout.nValue,
-            prevout.scriptPubKey.GetType(),
-            prevout.scriptPubKey.AddressHash());
+            type, addrHash);
         mapSpent.insert(make_pair(key, value));
         inserted.push_back(key);
     }

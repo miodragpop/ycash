@@ -6,6 +6,7 @@
 
 #include "script.h"
 
+#include "hash.h"
 #include "tinyformat.h"
 #include "util/strencodings.h"
 
@@ -219,6 +220,25 @@ bool CScript::IsPayToScriptHash() const
             (*this)[22] == OP_EQUAL);
 }
 
+bool CScript::IsPayToPublicKey() const
+{
+    // Bare P2PK: `<pubkey> OP_CHECKSIG`. Pubkey is either compressed
+    // (33 bytes, leading 0x02 or 0x03) or uncompressed (65 bytes,
+    // leading 0x04); the script's leading byte is the push-N opcode
+    // matching the pubkey length.
+    if (this->size() == 35) {
+        return (*this)[0] == 0x21 &&
+               ((*this)[1] == 0x02 || (*this)[1] == 0x03) &&
+               (*this)[34] == OP_CHECKSIG;
+    }
+    if (this->size() == 67) {
+        return (*this)[0] == 0x41 &&
+               (*this)[1] == 0x04 &&
+               (*this)[66] == OP_CHECKSIG;
+    }
+    return false;
+}
+
 bool CScript::IsPushOnly(const_iterator pc) const
 {
     while (pc < end())
@@ -248,6 +268,8 @@ CScript::ScriptType CScript::GetType() const
         return CScript::P2PKH;
     if (this->IsPayToScriptHash())
         return CScript::P2SH;
+    if (this->IsPayToPublicKey())
+        return CScript::P2PK;
     // We don't know this script type
     return CScript::UNKNOWN;
 }
@@ -269,4 +291,24 @@ uint160 CScript::AddressHash() const
     }
     vector<unsigned char> hashBytes(this->begin()+start, this->begin()+start+20);
     return uint160(hashBytes);
+}
+
+// insightexplorer
+std::pair<CScript::ScriptType, uint160> CScript::AddressIndexKey() const
+{
+    // P2PK is folded into the P2PKH index space so that the same pubkey
+    // under either form is indexed under one key and `getaddress*` RPCs
+    // (which only know how to decode P2PKH and P2SH entries) return
+    // uniform results. The hash used is Hash160(pubkey) — exactly what
+    // the corresponding P2PKH script would embed.
+    if (this->IsPayToPublicKey()) {
+        // Skip the leading push-N opcode (1 byte) and trailing OP_CHECKSIG
+        // (1 byte); what remains is the pubkey itself.
+        return {CScript::P2PKH, Hash160(this->begin() + 1, this->end() - 1)};
+    }
+    CScript::ScriptType type = this->GetType();
+    if (type == CScript::UNKNOWN) {
+        return {type, uint160()};
+    }
+    return {type, this->AddressHash()};
 }

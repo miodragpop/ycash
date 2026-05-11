@@ -599,11 +599,25 @@ public:
         UNKNOWN = 0,
         P2PKH = 1,
         P2SH = 2,
+        P2PK = 3,
     };
     bool IsPayToPublicKeyHash() const;
     bool IsPayToScriptHash() const;
+    bool IsPayToPublicKey() const;
     ScriptType GetType() const;
     uint160 AddressHash() const;
+
+    /**
+     * Returns the (ScriptType, hash) pair to use for the address index.
+     *
+     * For known hash-bearing script types (P2PKH, P2SH) this returns the
+     * type and embedded hash directly. For P2PK, the script bears no
+     * hash; the indexer treats the output as P2PKH over `Hash160(pubkey)`
+     * so that the same pubkey under either form (P2PK or P2PKH) is
+     * indexed under one key and `getaddress*` RPCs return uniform
+     * results. For unknown types, returns `{UNKNOWN, 0}`.
+     */
+    std::pair<ScriptType, uint160> AddressIndexKey() const;
 
     /** Called by IsStandardTx and P2SH/BIP62 VerifyScript (which makes it consensus-critical). */
     bool IsPushOnly(const_iterator pc) const;
