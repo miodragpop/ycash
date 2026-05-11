@@ -404,6 +404,9 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
 CBlockTreeDB::CBlockTreeDB(size_t nCacheSize, bool fMemory, bool fWipe) : CDBWrapper(GetDataDir() / "blocks" / "index", nCacheSize, fMemory, fWipe) {
 }
 
+CInsightExplorerDB::CInsightExplorerDB(size_t nCacheSize, bool fMemory, bool fWipe) : CDBWrapper(GetDataDir() / "blocks" / "insight-index", nCacheSize, fMemory, fWipe) {
+}
+
 bool CBlockTreeDB::ReadBlockFileInfo(int nFile, CBlockFileInfo &info) const {
     return Read(make_pair(DB_BLOCK_FILES, nFile), info);
 }
@@ -524,7 +527,7 @@ bool CBlockTreeDB::WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos>
 
 // START insightexplorer
 // https://github.com/bitpay/bitcoin/commit/017f548ea6d89423ef568117447e61dd5707ec42#diff-81e4f16a1b5d5b7ca25351a63d07cb80R183
-bool CBlockTreeDB::UpdateAddressUnspentIndex(const std::vector<CAddressUnspentDbEntry> &vect)
+bool CInsightExplorerDB::UpdateAddressUnspentIndex(const std::vector<CAddressUnspentDbEntry> &vect)
 {
     CDBBatch batch(*this);
     for (std::vector<CAddressUnspentDbEntry>::const_iterator it=vect.begin(); it!=vect.end(); it++) {
@@ -537,7 +540,7 @@ bool CBlockTreeDB::UpdateAddressUnspentIndex(const std::vector<CAddressUnspentDb
     return WriteBatch(batch);
 }
 
-bool CBlockTreeDB::ReadAddressUnspentIndex(uint160 addressHash, int type, std::vector<CAddressUnspentDbEntry> &unspentOutputs)
+bool CInsightExplorerDB::ReadAddressUnspentIndex(uint160 addressHash, int type, std::vector<CAddressUnspentDbEntry> &unspentOutputs)
 {
     boost::scoped_ptr<CDBIterator> pcursor(NewIterator());
 
@@ -557,21 +560,21 @@ bool CBlockTreeDB::ReadAddressUnspentIndex(uint160 addressHash, int type, std::v
     return true;
 }
 
-bool CBlockTreeDB::WriteAddressIndex(const std::vector<CAddressIndexDbEntry> &vect) {
+bool CInsightExplorerDB::WriteAddressIndex(const std::vector<CAddressIndexDbEntry> &vect) {
     CDBBatch batch(*this);
     for (std::vector<CAddressIndexDbEntry>::const_iterator it=vect.begin(); it!=vect.end(); it++)
         batch.Write(make_pair(DB_ADDRESSINDEX, it->first), it->second);
     return WriteBatch(batch);
 }
 
-bool CBlockTreeDB::EraseAddressIndex(const std::vector<CAddressIndexDbEntry> &vect) {
+bool CInsightExplorerDB::EraseAddressIndex(const std::vector<CAddressIndexDbEntry> &vect) {
     CDBBatch batch(*this);
     for (std::vector<CAddressIndexDbEntry>::const_iterator it=vect.begin(); it!=vect.end(); it++)
         batch.Erase(make_pair(DB_ADDRESSINDEX, it->first));
     return WriteBatch(batch);
 }
 
-bool CBlockTreeDB::ReadAddressIndex(
+bool CInsightExplorerDB::ReadAddressIndex(
         uint160 addressHash, int type,
         std::vector<CAddressIndexDbEntry> &addressIndex,
         int start, int end)
@@ -600,11 +603,11 @@ bool CBlockTreeDB::ReadAddressIndex(
     return true;
 }
 
-bool CBlockTreeDB::ReadSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value) const {
+bool CInsightExplorerDB::ReadSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value) const {
     return Read(make_pair(DB_SPENTINDEX, key), value);
 }
 
-bool CBlockTreeDB::UpdateSpentIndex(const std::vector<CSpentIndexDbEntry> &vect) {
+bool CInsightExplorerDB::UpdateSpentIndex(const std::vector<CSpentIndexDbEntry> &vect) {
     CDBBatch batch(*this);
     for (std::vector<CSpentIndexDbEntry>::const_iterator it=vect.begin(); it!=vect.end(); it++) {
         if (it->second.IsNull()) {
@@ -616,13 +619,13 @@ bool CBlockTreeDB::UpdateSpentIndex(const std::vector<CSpentIndexDbEntry> &vect)
     return WriteBatch(batch);
 }
 
-bool CBlockTreeDB::WriteTimestampIndex(const CTimestampIndexKey &timestampIndex) {
+bool CInsightExplorerDB::WriteTimestampIndex(const CTimestampIndexKey &timestampIndex) {
     CDBBatch batch(*this);
     batch.Write(make_pair(DB_TIMESTAMPINDEX, timestampIndex), 0);
     return WriteBatch(batch);
 }
 
-bool CBlockTreeDB::ReadTimestampIndex(unsigned int high, unsigned int low,
+bool CInsightExplorerDB::ReadTimestampIndex(unsigned int high, unsigned int low,
     const bool fActiveOnly, std::vector<std::pair<uint256, unsigned int> > &hashes)
 {
     boost::scoped_ptr<CDBIterator> pcursor(NewIterator());
@@ -648,7 +651,7 @@ bool CBlockTreeDB::ReadTimestampIndex(unsigned int high, unsigned int low,
     return true;
 }
 
-bool CBlockTreeDB::WriteTimestampBlockIndex(const CTimestampBlockIndexKey &blockhashIndex,
+bool CInsightExplorerDB::WriteTimestampBlockIndex(const CTimestampBlockIndexKey &blockhashIndex,
     const CTimestampBlockIndexValue &logicalts)
 {
     CDBBatch batch(*this);
@@ -656,13 +659,25 @@ bool CBlockTreeDB::WriteTimestampBlockIndex(const CTimestampBlockIndexKey &block
     return WriteBatch(batch);
 }
 
-bool CBlockTreeDB::ReadTimestampBlockIndex(const uint256 &hash, unsigned int &ltimestamp) const
+bool CInsightExplorerDB::ReadTimestampBlockIndex(const uint256 &hash, unsigned int &ltimestamp) const
 {
     CTimestampBlockIndexValue(lts);
     if (!Read(std::make_pair(DB_BLOCKHASHINDEX, hash), lts))
         return false;
 
     ltimestamp = lts.ltimestamp;
+    return true;
+}
+
+bool CInsightExplorerDB::WriteFlag(const std::string &name, bool fValue) {
+    return Write(std::make_pair(DB_FLAG, name), fValue ? '1' : '0');
+}
+
+bool CInsightExplorerDB::ReadFlag(const std::string &name, bool &fValue) const {
+    char ch;
+    if (!Read(std::make_pair(DB_FLAG, name), ch))
+        return false;
+    fValue = ch == '1';
     return true;
 }
 // END insightexplorer

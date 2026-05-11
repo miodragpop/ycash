@@ -108,6 +108,11 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         fs::create_directories(pathTemp);
         mapArgs["-datadir"] = pathTemp.string();
         pblocktree = new CBlockTreeDB(1 << 20, true);
+        // Insight indexes used to live on pblocktree; after the split they
+        // need their own in-memory DB so RPC tests that flip
+        // fAddressIndex/fSpentIndex/fTimestampIndex don't deref a null
+        // pinsightExplorerDB.
+        pinsightExplorerDB = new CInsightExplorerDB(1 << 20, true);
         pcoinsdbview = new CCoinsViewDB(1 << 23, true);
         pcoinsTip = new CCoinsViewCache(pcoinsdbview);
         InitBlockIndex(chainparams);
@@ -130,6 +135,8 @@ TestingSetup::~TestingSetup()
         UnloadBlockIndex();
         delete pcoinsTip;
         delete pcoinsdbview;
+        delete pinsightExplorerDB;
+        pinsightExplorerDB = nullptr;
         delete pblocktree;
 
         // Restore the previous current path so temporary directory can be deleted

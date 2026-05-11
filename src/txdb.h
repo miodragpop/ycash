@@ -134,7 +134,34 @@ public:
     bool ReadTxIndex(const uint256 &txid, CDiskTxPos &pos) const;
     bool WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos> > &vect);
 
-    // START insightexplorer
+    bool WriteFlag(const std::string &name, bool fValue);
+    bool ReadFlag(const std::string &name, bool &fValue) const;
+    bool LoadBlockIndexGuts(
+        std::function<CBlockIndex*(const uint256&)> insertBlockIndex,
+        const CChainParams& chainParams);
+};
+
+/**
+ * Access to the insight explorer index database (blocks/insight-index/).
+ *
+ * Houses the addressindex, address-unspent index, spent index, and timestamp
+ * indexes used by the `-insightexplorer` / `-lightwalletd` features. Kept
+ * separate from `CBlockTreeDB` because the two workloads have very different
+ * access patterns: the block tree is mostly random-point reads with rare
+ * bulk writes, while the insight indexes do bulk writes per connected block
+ * and range-scan reads from RPCs. Mixing them in one leveldb instance
+ * caused cache contention and compaction churn that hurt both. Splitting
+ * also lets the operator wipe just the insight indexes (`rm -rf
+ * blocks/insight-index/`) without losing the block tree.
+ */
+class CInsightExplorerDB : public CDBWrapper
+{
+public:
+    CInsightExplorerDB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
+private:
+    CInsightExplorerDB(const CInsightExplorerDB&);
+    void operator=(const CInsightExplorerDB&);
+public:
     bool UpdateAddressUnspentIndex(const std::vector<CAddressUnspentDbEntry> &vect);
     bool ReadAddressUnspentIndex(uint160 addressHash, int type, std::vector<CAddressUnspentDbEntry> &vect);
     bool WriteAddressIndex(const std::vector<CAddressIndexDbEntry> &vect);
@@ -148,13 +175,9 @@ public:
     bool WriteTimestampBlockIndex(const CTimestampBlockIndexKey &blockhashIndex,
             const CTimestampBlockIndexValue &logicalts);
     bool ReadTimestampBlockIndex(const uint256 &hash, unsigned int &logicalTS) const;
-    // END insightexplorer
 
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue) const;
-    bool LoadBlockIndexGuts(
-        std::function<CBlockIndex*(const uint256&)> insertBlockIndex,
-        const CChainParams& chainParams);
 };
 
 #endif // BITCOIN_TXDB_H

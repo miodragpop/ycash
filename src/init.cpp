@@ -228,6 +228,8 @@ void Shutdown()
         pcoinsdbview = NULL;
         delete pblocktree;
         pblocktree = NULL;
+        delete pinsightExplorerDB;
+        pinsightExplorerDB = NULL;
     }
 #ifdef ENABLE_WALLET
     if (pwalletMain)
@@ -1735,19 +1737,33 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         nBlockTreeDBCache = (1 << 21); // block tree db cache shouldn't be larger than 2 MiB
 
     // https://github.com/bitpay/bitcoin/commit/c91d78b578a8700a45be936cb5bb0931df8f4b87#diff-c865a8939105e6350a50af02766291b7R1233
+    int64_t nInsightExplorerDBCache = 0;
     if (GetBoolArg("-insightexplorer", false)) {
         if (!GetBoolArg("-txindex", false)) {
             return InitError(_("-insightexplorer requires -txindex."));
         }
-        // increase cache if additional indices are needed
-        nBlockTreeDBCache = nTotalCache * 3 / 4;
+        // The insight-explorer indexes live in their own leveldb instance
+        // (see CInsightExplorerDB). Carve half of the remaining cache for
+        // it: bulk writes per connected block plus range-scan reads from
+        // getaddress* / getspent* RPCs are very different from the block
+        // tree's random-point read pattern, and giving each its own cache
+        // avoids contention. The split is hidden behind `-dbcache-insight`
+        // (in MiB) for operators with unusual workloads.
+        nInsightExplorerDBCache = (nTotalCache - nBlockTreeDBCache) / 2;
+        int64_t nInsightExplorerDBCacheArg = GetArg("-dbcache-insight", 0) << 20;
+        if (nInsightExplorerDBCacheArg > 0) {
+            nInsightExplorerDBCache = nInsightExplorerDBCacheArg;
+        }
     }
     nTotalCache -= nBlockTreeDBCache;
+    nTotalCache -= nInsightExplorerDBCache;
     int64_t nCoinDBCache = std::min(nTotalCache / 2, (nTotalCache / 4) + (1 << 23)); // use 25%-50% of the remainder for disk cache
     nTotalCache -= nCoinDBCache;
     nCoinCacheUsage = nTotalCache; // the rest goes to in-memory cache
     LogPrintf("Cache configuration:\n");
     LogPrintf("* Using %.1fMiB for block index database\n", nBlockTreeDBCache * (1.0 / 1024 / 1024));
+    if (nInsightExplorerDBCache > 0)
+        LogPrintf("* Using %.1fMiB for insight explorer index database\n", nInsightExplorerDBCache * (1.0 / 1024 / 1024));
     LogPrintf("* Using %.1fMiB for chain state database\n", nCoinDBCache * (1.0 / 1024 / 1024));
     LogPrintf("* Using %.1fMiB for in-memory UTXO set\n", nCoinCacheUsage * (1.0 / 1024 / 1024));
 
@@ -1768,8 +1784,13 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 delete pcoinsdbview;
                 delete pcoinscatcher;
                 delete pblocktree;
+                delete pinsightExplorerDB;
+                pinsightExplorerDB = NULL;
 
                 pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex);
+                if (nInsightExplorerDBCache > 0) {
+                    pinsightExplorerDB = new CInsightExplorerDB(nInsightExplorerDBCache, false, fReindex);
+                }
                 pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex || fReindexChainState);
                 pcoinscatcher = new CCoinsViewErrorCatcher(pcoinsdbview);
                 pcoinsTip = new CCoinsViewCache(pcoinscatcher);
@@ -1805,9 +1826,38 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                     break;
                 }
 
-                // Check for changed -insightexplorer state
+                // Check for changed -insightexplorer state.
+                //
+                // The insightexplorer flag now lives in CInsightExplorerDB
+                // (since the indexes were moved out of pblocktree). When the
+                // current run has -insightexplorer on, the flag is read from
+                // pinsightExplorerDB. When off, fall back to pblocktree to
+                // pick up the legacy location.
+                //
+                // Migration: if the current run has -insightexplorer on but
+                // pinsightExplorerDB has no flag (freshly-created empty DB)
+                // while pblocktree's legacy flag is set, the user is
+                // upgrading from a version that stored insight indexes in
+                // pblocktree. Demand a reindex so the new DB is populated;
+                // the legacy entries in pblocktree are now dead weight that
+                // a full reindex will leave behind to be cleaned up next
+                // time pblocktree compacts (or the user can wipe blocks/
+                // index/ as part of the reindex).
                 bool fInsightExplorerPreviouslySet = false;
-                pblocktree->ReadFlag("insightexplorer", fInsightExplorerPreviouslySet);
+                bool fInsightExplorerInLegacyDB = false;
+                pblocktree->ReadFlag("insightexplorer", fInsightExplorerInLegacyDB);
+                if (pinsightExplorerDB) {
+                    if (!pinsightExplorerDB->ReadFlag("insightexplorer", fInsightExplorerPreviouslySet)) {
+                        if (fInsightExplorerInLegacyDB) {
+                            strLoadError = _(
+                                "Insight explorer indexes have moved to a separate database. "
+                                "You need to rebuild using -reindex.");
+                            break;
+                        }
+                    }
+                } else {
+                    fInsightExplorerPreviouslySet = fInsightExplorerInLegacyDB;
+                }
                 if (fExperimentalInsightExplorer != fInsightExplorerPreviouslySet) {
                     strLoadError = _("You need to rebuild the database using -reindex to change -insightexplorer");
                     break;

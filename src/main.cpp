@@ -657,6 +657,7 @@ CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& loc
 
 CCoinsViewCache *pcoinsTip = NULL;
 CBlockTreeDB *pblocktree = NULL;
+CInsightExplorerDB *pinsightExplorerDB = NULL;
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -2106,7 +2107,7 @@ bool GetTimestampIndex(unsigned int high, unsigned int low, bool fActiveOnly,
         LogPrint("rpc", "Timestamp index not enabled");
         return false;
     }
-    if (!pblocktree->ReadTimestampIndex(high, low, fActiveOnly, hashes)) {
+    if (!pinsightExplorerDB->ReadTimestampIndex(high, low, fActiveOnly, hashes)) {
         LogPrint("rpc", "Unable to get hashes for timestamps");
         return false;
     }
@@ -2123,7 +2124,7 @@ bool GetSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value)
     if (mempool.getSpentIndex(key, value))
         return true;
 
-    if (!pblocktree->ReadSpentIndex(key, value)) {
+    if (!pinsightExplorerDB->ReadSpentIndex(key, value)) {
         LogPrint("rpc", "Unable to get spent index information");
         return false;
     }
@@ -2138,7 +2139,7 @@ bool GetAddressIndex(const uint160& addressHash, int type,
         LogPrint("rpc", "address index not enabled");
         return false;
     }
-    if (!pblocktree->ReadAddressIndex(addressHash, type, addressIndex, start, end)) {
+    if (!pinsightExplorerDB->ReadAddressIndex(addressHash, type, addressIndex, start, end)) {
         LogPrint("rpc", "unable to get txids for address");
         return false;
     }
@@ -2152,7 +2153,7 @@ bool GetAddressUnspent(const uint160& addressHash, int type,
         LogPrint("rpc", "address index not enabled");
         return false;
     }
-    if (!pblocktree->ReadAddressUnspentIndex(addressHash, type, unspentOutputs)) {
+    if (!pinsightExplorerDB->ReadAddressUnspentIndex(addressHash, type, unspentOutputs)) {
         LogPrint("rpc", "unable to get txids for address");
         return false;
     }
@@ -3124,18 +3125,18 @@ static DisconnectResult DisconnectBlock(const CBlock& block, CValidationState& s
 
     // insightexplorer
     if (fAddressIndex && updateIndices) {
-        if (!pblocktree->EraseAddressIndex(addressIndex)) {
+        if (!pinsightExplorerDB->EraseAddressIndex(addressIndex)) {
             AbortNode(state, "Failed to delete address index");
             return DISCONNECT_FAILED;
         }
-        if (!pblocktree->UpdateAddressUnspentIndex(addressUnspentIndex)) {
+        if (!pinsightExplorerDB->UpdateAddressUnspentIndex(addressUnspentIndex)) {
             AbortNode(state, "Failed to write address unspent index");
             return DISCONNECT_FAILED;
         }
     }
     // insightexplorer
     if (fSpentIndex && updateIndices) {
-        if (!pblocktree->UpdateSpentIndex(spentIndex)) {
+        if (!pinsightExplorerDB->UpdateSpentIndex(spentIndex)) {
             AbortNode(state, "Failed to write transaction index");
             return DISCONNECT_FAILED;
         }
@@ -4064,15 +4065,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // START insightexplorer
     if (fAddressIndex) {
-        if (!pblocktree->WriteAddressIndex(addressIndex)) {
+        if (!pinsightExplorerDB->WriteAddressIndex(addressIndex)) {
             return AbortNode(state, "Failed to write address index");
         }
-        if (!pblocktree->UpdateAddressUnspentIndex(addressUnspentIndex)) {
+        if (!pinsightExplorerDB->UpdateAddressUnspentIndex(addressUnspentIndex)) {
             return AbortNode(state, "Failed to write address unspent index");
         }
     }
     if (fSpentIndex) {
-        if (!pblocktree->UpdateSpentIndex(spentIndex)) {
+        if (!pinsightExplorerDB->UpdateSpentIndex(spentIndex)) {
             return AbortNode(state, "Failed to write spent index");
         }
     }
@@ -4082,7 +4083,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         // retrieve logical timestamp of the previous block
         if (pindex->pprev)
-            if (!pblocktree->ReadTimestampBlockIndex(pindex->pprev->GetBlockHash(), prevLogicalTS))
+            if (!pinsightExplorerDB->ReadTimestampBlockIndex(pindex->pprev->GetBlockHash(), prevLogicalTS))
                 LogPrintf("%s: Failed to read previous block's logical timestamp\n", __func__);
 
         if (logicalTS <= prevLogicalTS) {
@@ -4090,10 +4091,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             LogPrintf("%s: Previous logical timestamp is newer Actual[%d] prevLogical[%d] Logical[%d]\n", __func__, pindex->nTime, prevLogicalTS, logicalTS);
         }
 
-        if (!pblocktree->WriteTimestampIndex(CTimestampIndexKey(logicalTS, pindex->GetBlockHash())))
+        if (!pinsightExplorerDB->WriteTimestampIndex(CTimestampIndexKey(logicalTS, pindex->GetBlockHash())))
             return AbortNode(state, "Failed to write timestamp index");
 
-        if (!pblocktree->WriteTimestampBlockIndex(CTimestampBlockIndexKey(pindex->GetBlockHash()), CTimestampBlockIndexValue(logicalTS)))
+        if (!pinsightExplorerDB->WriteTimestampBlockIndex(CTimestampBlockIndexKey(pindex->GetBlockHash()), CTimestampBlockIndexValue(logicalTS)))
             return AbortNode(state, "Failed to write blockhash index");
     }
     // END insightexplorer
@@ -6513,10 +6514,14 @@ bool static LoadBlockIndexDB(const CChainParams& chainparams)
     LogPrintf("%s: transaction index %s\n", __func__, fTxIndex ? "enabled" : "disabled");
 
     // insightexplorer and lightwalletd
-    // Check whether block explorer features are enabled
+    // Check whether block explorer features are enabled. The insightexplorer
+    // flag now lives in pinsightExplorerDB when the feature is on; fall back
+    // to pblocktree for the legacy location (and for the disabled case).
     bool fInsightExplorer = false;
     bool fLightWalletd = false;
-    pblocktree->ReadFlag("insightexplorer", fInsightExplorer);
+    if (!(pinsightExplorerDB && pinsightExplorerDB->ReadFlag("insightexplorer", fInsightExplorer))) {
+        pblocktree->ReadFlag("insightexplorer", fInsightExplorer);
+    }
     pblocktree->ReadFlag("lightwalletd", fLightWalletd);
     LogPrintf("%s: insight explorer %s\n", __func__, fInsightExplorer ? "enabled" : "disabled");
     LogPrintf("%s: light wallet daemon %s\n", __func__, fLightWalletd ? "enabled" : "disabled");
@@ -7114,8 +7119,16 @@ bool InitBlockIndex(const CChainParams& chainparams)
     fTxIndex = GetBoolArg("-txindex", DEFAULT_TXINDEX);
     pblocktree->WriteFlag("txindex", fTxIndex);
 
-    // Use the provided setting for -insightexplorer or -lightwalletd in the new database
-    pblocktree->WriteFlag("insightexplorer", fExperimentalInsightExplorer);
+    // Use the provided setting for -insightexplorer or -lightwalletd in the new database.
+    // The insightexplorer flag is recorded on pinsightExplorerDB (where the
+    // indexes themselves live); when the feature is disabled and pinsightExplorerDB
+    // is not constructed, fall back to recording on pblocktree so a future
+    // toggle is detectable.
+    if (pinsightExplorerDB) {
+        pinsightExplorerDB->WriteFlag("insightexplorer", fExperimentalInsightExplorer);
+    } else {
+        pblocktree->WriteFlag("insightexplorer", fExperimentalInsightExplorer);
+    }
     pblocktree->WriteFlag("lightwalletd", fExperimentalLightWalletd);
     if (fExperimentalInsightExplorer) {
         fAddressIndex = true;

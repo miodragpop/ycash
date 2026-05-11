@@ -50,6 +50,7 @@
 
 class CBlockIndex;
 class CBlockTreeDB;
+class CInsightExplorerDB;
 class CBloomFilter;
 class CChainParams;
 class CInv;
@@ -651,6 +652,13 @@ extern CCoinsViewCache *pcoinsTip;
 
 /** Global variable that points to the active block tree (protected by cs_main) */
 extern CBlockTreeDB *pblocktree;
+
+/**
+ * Global variable that points to the insight explorer index database
+ * (protected by cs_main). Null when `-insightexplorer` / `-lightwalletd`
+ * is not enabled.
+ */
+extern CInsightExplorerDB *pinsightExplorerDB;
 
 /**
  * Return the spend height, which is one more than the inputs.GetBestBlock().
