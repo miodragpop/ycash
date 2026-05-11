@@ -133,6 +133,27 @@ void ThreadNotifyWallets(CBlockIndex *pindexLastTip)
 
         boost::this_thread::interruption_point();
 
+        // Skip the heavy notification work when nothing in this node consumes
+        // it. All of the per-block work below — re-reading every connected
+        // and disconnected block from disk (which re-decompresses every
+        // Sapling/Orchard point), batched trial-decryption, and per-block
+        // signal dispatch — exists to feed wallets, ZMQ subscribers, or other
+        // validation interfaces. With `-disablewallet=1` and no other
+        // consumers registered, this thread otherwise burns a large share of
+        // system CPU on point arithmetic for results that nothing observes.
+        //
+        // Keep `pindexLastTip` advancing so that if a consumer registers
+        // later (e.g. via wallet reload), it starts from the current tip
+        // rather than replaying the entire chain.
+        if (GetMainSignals().GetBatchScanner.empty() &&
+            GetMainSignals().SyncTransaction.empty() &&
+            GetMainSignals().ChainTip.empty() &&
+            GetMainSignals().UpdatedTransaction.empty()) {
+            LOCK(cs_main);
+            pindexLastTip = chainActive.Tip();
+            continue;
+        }
+
         auto chainParams = Params();
 
         //
