@@ -14,6 +14,14 @@ public:
     MOCK_METHOD2(WriteHeader, void(const std::string& hdr, const std::string& value));
     MOCK_METHOD2(WriteReply, void(int nStatus, const std::string& strReply));
 
+    // Forward the rvalue overload to the mocked lvalue one so existing
+    // expectations on WriteReply continue to fire when production code
+    // (or string-literal arguments, which prefer the rvalue overload)
+    // dispatch through the rvalue path.
+    void WriteReply(int nStatus, std::string&& strReply) override {
+        WriteReply(nStatus, static_cast<const std::string&>(strReply));
+    }
+
     MockHTTPRequest() : HTTPRequest(nullptr) {}
     void CleanUp() {
         // So the parent destructor doesn't try to send a reply
