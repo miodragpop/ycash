@@ -121,6 +121,7 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
     CopyNodeStats(vstats);
 
     UniValue ret(UniValue::VARR);
+    ret.reserve(vstats.size());
 
     for (const CNodeStats& stats : vstats) {
         UniValue obj(UniValue::VOBJ);
@@ -153,16 +154,17 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
             obj.pushKV("synced_headers", statestats.nSyncHeight);
             obj.pushKV("synced_blocks", statestats.nCommonHeight);
             UniValue heights(UniValue::VARR);
+            heights.reserve(statestats.vHeightInFlight.size());
             for (int height : statestats.vHeightInFlight) {
                 heights.push_back(height);
             }
-            obj.pushKV("inflight", heights);
+            obj.pushKV("inflight", std::move(heights));
         }
         obj.pushKV("addr_processed", stats.m_addr_processed);
         obj.pushKV("addr_rate_limited", stats.m_addr_rate_limited);
         obj.pushKV("whitelisted", stats.fWhitelisted);
 
-        ret.push_back(obj);
+        ret.push_back(std::move(obj));
     }
 
     return ret;
@@ -300,10 +302,11 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
     UniValue ret(UniValue::VARR);
     if (!fDns)
     {
+        ret.reserve(laddedNodes.size());
         for (const std::string& strAddNode : laddedNodes) {
             UniValue obj(UniValue::VOBJ);
             obj.pushKV("addednode", strAddNode);
-            ret.push_back(obj);
+            ret.push_back(std::move(obj));
         }
         return ret;
     }
@@ -324,12 +327,14 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
     }
 
     LOCK(cs_vNodes);
+    ret.reserve(laddedAddreses.size());
     for (list<pair<string, vector<CService> > >::iterator it = laddedAddreses.begin(); it != laddedAddreses.end(); it++)
     {
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("addednode", it->first);
 
         UniValue addresses(UniValue::VARR);
+        addresses.reserve(it->second.size());
         bool fConnected = false;
         for (const CService& addrNode : it->second) {
             bool fFound = false;
@@ -346,11 +351,11 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
             }
             if (!fFound)
                 node.pushKV("connected", "false");
-            addresses.push_back(node);
+            addresses.push_back(std::move(node));
         }
         obj.pushKV("connected", fConnected);
-        obj.pushKV("addresses", addresses);
-        ret.push_back(obj);
+        obj.pushKV("addresses", std::move(addresses));
+        ret.push_back(std::move(obj));
     }
 
     return ret;
@@ -401,13 +406,14 @@ UniValue getnettotals(const UniValue& params, bool fHelp)
     outboundLimit.pushKV("serve_historical_blocks", !CNode::OutboundTargetReached(targetSpacing, true));
     outboundLimit.pushKV("bytes_left_in_cycle", CNode::GetOutboundTargetBytesLeft());
     outboundLimit.pushKV("time_left_in_cycle", CNode::GetMaxOutboundTimeLeftInCycle());
-    obj.pushKV("uploadtarget", outboundLimit);
+    obj.pushKV("uploadtarget", std::move(outboundLimit));
     return obj;
 }
 
 static UniValue GetNetworksInfo()
 {
     UniValue networks(UniValue::VARR);
+    networks.reserve(NET_MAX);
     for(int n=0; n<NET_MAX; ++n)
     {
         enum Network network = static_cast<enum Network>(n);
@@ -421,7 +427,7 @@ static UniValue GetNetworksInfo()
         obj.pushKV("reachable", IsReachable(network));
         obj.pushKV("proxy", proxy.IsValid() ? proxy.proxy.ToStringIPPort() : string());
         obj.pushKV("proxy_randomize_credentials", proxy.randomize_credentials);
-        networks.push_back(obj);
+        networks.push_back(std::move(obj));
     }
     return networks;
 }
@@ -546,16 +552,17 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp)
     UniValue localAddresses(UniValue::VARR);
     {
         LOCK(cs_mapLocalHost);
+        localAddresses.reserve(mapLocalHost.size());
         for (const std::pair<CNetAddr, LocalServiceInfo> &item : mapLocalHost)
         {
             UniValue rec(UniValue::VOBJ);
             rec.pushKV("address", item.first.ToString());
             rec.pushKV("port", item.second.nPort);
             rec.pushKV("score", item.second.nScore);
-            localAddresses.push_back(rec);
+            localAddresses.push_back(std::move(rec));
         }
     }
-    obj.pushKV("localaddresses", localAddresses);
+    obj.pushKV("localaddresses", std::move(localAddresses));
     auto warnings = GetWarnings("statusbar");
     obj.pushKV("warnings",       warnings.first);
     obj.pushKV("warningstimestamp", warnings.second);
@@ -636,6 +643,7 @@ UniValue listbanned(const UniValue& params, bool fHelp)
     CNode::GetBanned(banMap);
 
     UniValue bannedAddresses(UniValue::VARR);
+    bannedAddresses.reserve(banMap.size());
     for (banmap_t::iterator it = banMap.begin(); it != banMap.end(); it++)
     {
         CBanEntry banEntry = (*it).second;
@@ -645,7 +653,7 @@ UniValue listbanned(const UniValue& params, bool fHelp)
         rec.pushKV("ban_created", banEntry.nCreateTime);
         rec.pushKV("ban_reason", banEntry.banReasonToString());
 
-        bannedAddresses.push_back(rec);
+        bannedAddresses.push_back(std::move(rec));
     }
 
     return bannedAddresses;

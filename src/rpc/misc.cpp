@@ -691,6 +691,7 @@ UniValue getaddressmempool(const UniValue& params, bool fHelp)
            });
 
     UniValue result(UniValue::VARR);
+    result.reserve(indexes.size());
 
     for (const auto& it : indexes) {
         std::string address;
@@ -707,7 +708,7 @@ UniValue getaddressmempool(const UniValue& params, bool fHelp)
             delta.pushKV("prevtxid", it.second.prevhash.GetHex());
             delta.pushKV("prevout", (int)it.second.prevout);
         }
-        result.push_back(delta);
+        result.push_back(std::move(delta));
     }
     return result;
 }
@@ -795,6 +796,7 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
         });
 
     UniValue utxos(UniValue::VARR);
+    utxos.reserve(unspentOutputs.size());
     for (const auto& it : unspentOutputs) {
         UniValue output(UniValue::VOBJ);
         std::string address;
@@ -808,14 +810,14 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
         output.pushKV("script", HexStr(it.second.script.begin(), it.second.script.end()));
         output.pushKV("satoshis", it.second.satoshis);
         output.pushKV("height", it.second.blockHeight);
-        utxos.push_back(output);
+        utxos.push_back(std::move(output));
     }
 
     if (!includeChainInfo)
         return utxos;
 
     UniValue result(UniValue::VOBJ);
-    result.pushKV("utxos", utxos);
+    result.pushKV("utxos", std::move(utxos));
 
     LOCK(cs_main);  // for chainActive
     result.pushKV("hash", chainActive.Tip()->GetBlockHash().GetHex());
@@ -967,6 +969,7 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
     }
 
     UniValue deltas(UniValue::VARR);
+    deltas.reserve(addressIndex.size());
     for (const auto& it : addressIndex) {
         std::string address;
         if (!getAddressFromIndex(it.first.type, it.first.hashBytes, address)) {
@@ -980,7 +983,7 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
         delta.pushKV("index", (int)it.first.index);
         delta.pushKV("satoshis", it.second);
         delta.pushKV("txid", it.first.txhash.GetHex());
-        deltas.push_back(delta);
+        deltas.push_back(std::move(delta));
     }
 
     UniValue result(UniValue::VOBJ);
@@ -1002,9 +1005,9 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
     startInfo.pushKV("height", start);
     endInfo.pushKV("height", end);
 
-    result.pushKV("deltas", deltas);
-    result.pushKV("start", startInfo);
-    result.pushKV("end", endInfo);
+    result.pushKV("deltas", std::move(deltas));
+    result.pushKV("start", std::move(startInfo));
+    result.pushKV("end", std::move(endInfo));
 
     return result;
 }

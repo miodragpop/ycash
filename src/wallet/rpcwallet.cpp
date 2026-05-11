@@ -707,28 +707,31 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
 
         if (!t_generated_dests.empty()) {
             UniValue random_t_addrs(UniValue::VARR);
+            random_t_addrs.reserve(t_generated_dests.size());
             for (const CTxDestination& dest : t_generated_dests) {
                 random_t_addrs.push_back(keyIO.EncodeDestination(dest));
             }
-            random_t.pushKV("addresses", random_t_addrs);
+            random_t.pushKV("addresses", std::move(random_t_addrs));
             hasData = true;
         }
 
         if (!t_generated_change_dests.empty()) {
             UniValue random_t_change_addrs(UniValue::VARR);
+            random_t_change_addrs.reserve(t_generated_change_dests.size());
             for (const CTxDestination& dest : t_generated_change_dests) {
                 random_t_change_addrs.push_back(keyIO.EncodeDestination(dest));
             }
-            random_t.pushKV("changeAddresses", random_t_change_addrs);
+            random_t.pushKV("changeAddresses", std::move(random_t_change_addrs));
             hasData = true;
         }
 
         if (!t_generated_dests.empty() || !t_generated_change_dests.empty()) {
-            entry.pushKV("transparent", random_t);
+            entry.pushKV("transparent", std::move(random_t));
         }
 
         if (!sproutAddresses.empty()) {
             UniValue random_sprout_addrs(UniValue::VARR);
+            random_sprout_addrs.reserve(sproutAddresses.size());
             for (const SproutPaymentAddress& addr : sproutAddresses) {
                 if (pwalletMain->HaveSproutSpendingKey(addr)) {
                     random_sprout_addrs.push_back(keyIO.EncodePaymentAddress(addr));
@@ -736,14 +739,14 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
             }
 
             UniValue random_sprout(UniValue::VOBJ);
-            random_sprout.pushKV("addresses", random_sprout_addrs);
+            random_sprout.pushKV("addresses", std::move(random_sprout_addrs));
 
-            entry.pushKV("sprout", random_sprout);
+            entry.pushKV("sprout", std::move(random_sprout));
             hasData = true;
         }
 
         if (hasData) {
-            ret.push_back(entry);
+            ret.push_back(std::move(entry));
         }
     }
 
@@ -773,8 +776,10 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
 
         {
             UniValue ivk_groups(UniValue::VARR);
+            ivk_groups.reserve(ivkAddrs.size());
             for (const auto& [ivk, addrs] : ivkAddrs) {
                 UniValue sapling_addrs(UniValue::VARR);
+                sapling_addrs.reserve(addrs.size());
                 for (const SaplingPaymentAddress& addr : addrs) {
                     sapling_addrs.push_back(keyIO.EncodePaymentAddress(addr));
                 }
@@ -788,13 +793,13 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
                     }
                 }
 
-                sapling_obj.pushKV("addresses", sapling_addrs);
+                sapling_obj.pushKV("addresses", std::move(sapling_addrs));
 
-                ivk_groups.push_back(sapling_obj);
+                ivk_groups.push_back(std::move(sapling_obj));
             }
 
             if (!ivk_groups.empty()) {
-                entry.pushKV("sapling", ivk_groups);
+                entry.pushKV("sapling", std::move(ivk_groups));
                 hasData = true;
             }
         }
@@ -811,14 +816,15 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
 
         if (!t_imported_dests.empty()) {
             UniValue t_imported_addrs(UniValue::VARR);
+            t_imported_addrs.reserve(t_imported_dests.size());
             for (const CTxDestination& dest: t_imported_dests) {
                 t_imported_addrs.push_back(keyIO.EncodeDestination(dest));
             }
 
             UniValue imported_t(UniValue::VOBJ);
-            imported_t.pushKV("addresses", t_imported_addrs);
+            imported_t.pushKV("addresses", std::move(t_imported_addrs));
 
-            entry.pushKV("transparent", imported_t);
+            entry.pushKV("transparent", std::move(imported_t));
             hasData = true;
         }
 
@@ -832,8 +838,8 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
 
             if (!imported_sprout_addrs.empty()) {
                 UniValue imported_sprout(UniValue::VOBJ);
-                imported_sprout.pushKV("addresses", imported_sprout_addrs);
-                entry.pushKV("sprout", imported_sprout);
+                imported_sprout.pushKV("addresses", std::move(imported_sprout_addrs));
+                entry.pushKV("sprout", std::move(imported_sprout));
                 hasData = true;
             }
         }
@@ -841,7 +847,7 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
         hasData |= add_sapling(saplingAddresses, PaymentAddressSource::Imported, entry);
 
         if (hasData) {
-            ret.push_back(entry);
+            ret.push_back(std::move(entry));
         }
     }
 
@@ -853,14 +859,15 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
 
         if (!t_watchonly_dests.empty()) {
             UniValue watchonly_t_addrs(UniValue::VARR);
+            watchonly_t_addrs.reserve(t_watchonly_dests.size());
             for (const CTxDestination& dest: t_watchonly_dests) {
                 watchonly_t_addrs.push_back(keyIO.EncodeDestination(dest));
             }
 
             UniValue watchonly_t(UniValue::VOBJ);
-            watchonly_t.pushKV("addresses", watchonly_t_addrs);
+            watchonly_t.pushKV("addresses", std::move(watchonly_t_addrs));
 
-            entry.pushKV("transparent", watchonly_t);
+            entry.pushKV("transparent", std::move(watchonly_t));
             hasData = true;
         }
 
@@ -874,8 +881,8 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
 
             if (!watchonly_sprout_addrs.empty()) {
                 UniValue watchonly_sprout(UniValue::VOBJ);
-                watchonly_sprout.pushKV("addresses", watchonly_sprout_addrs);
-                entry.pushKV("sprout", watchonly_sprout);
+                watchonly_sprout.pushKV("addresses", std::move(watchonly_sprout_addrs));
+                entry.pushKV("sprout", std::move(watchonly_sprout));
                 hasData = true;
             }
         }
@@ -883,7 +890,7 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
         hasData |= add_sapling(saplingAddresses, PaymentAddressSource::ImportedWatchOnly, entry);
 
         if (hasData) {
-            ret.push_back(entry);
+            ret.push_back(std::move(entry));
         }
     }
 
@@ -894,7 +901,7 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
 
         bool hasData = add_sapling(saplingAddresses, PaymentAddressSource::LegacyHDSeed, entry);
         if (hasData) {
-            ret.push_back(entry);
+            ret.push_back(std::move(entry));
         }
     }
 
@@ -908,24 +915,26 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
 
         if (!t_mnemonic_dests.empty()) {
             UniValue mnemonic_taddrs(UniValue::VARR);
+            mnemonic_taddrs.reserve(t_mnemonic_dests.size());
             for (const CTxDestination& dest : t_mnemonic_dests) {
                 mnemonic_taddrs.push_back(keyIO.EncodeDestination(dest));
             }
-            mnemonic_transparent.pushKV("addresses", mnemonic_taddrs);
+            mnemonic_transparent.pushKV("addresses", std::move(mnemonic_taddrs));
             hasData = true;
         }
 
         if (!t_mnemonic_change_dests.empty()) {
             UniValue mnemonic_change_taddrs(UniValue::VARR);
+            mnemonic_change_taddrs.reserve(t_mnemonic_change_dests.size());
             for (const CTxDestination& dest : t_mnemonic_change_dests) {
                 mnemonic_change_taddrs.push_back(keyIO.EncodeDestination(dest));
             }
-            mnemonic_transparent.pushKV("changeAddresses", mnemonic_change_taddrs);
+            mnemonic_transparent.pushKV("changeAddresses", std::move(mnemonic_change_taddrs));
             hasData = true;
         }
 
         if (!t_mnemonic_dests.empty() || !t_mnemonic_change_dests.empty()) {
-            entry.pushKV("transparent", mnemonic_transparent);
+            entry.pushKV("transparent", std::move(mnemonic_transparent));
         }
 
         // sapling
@@ -961,25 +970,25 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
                         {
                             UniValue jVal;
                             jVal.setNumStr(ArbitraryIntStr(std::vector(j.begin(), j.end())));
-                            addrEntry.pushKV("diversifier_index", jVal);
+                            addrEntry.pushKV("diversifier_index", std::move(jVal));
                         }
                         addrEntry.pushKV("receiver_types", ReceiverTypesToJSON(receiverTypes));
                         addrEntry.pushKV("address", keyIO.EncodePaymentAddress(addr.first));
-                        unified_addrs.push_back(addrEntry);
+                        unified_addrs.push_back(std::move(addrEntry));
                     }
-                    unified_group.pushKV("addresses", unified_addrs);
-                    unified_groups.push_back(unified_group);
+                    unified_group.pushKV("addresses", std::move(unified_addrs));
+                    unified_groups.push_back(std::move(unified_group));
                 }
             }
         }
 
         if (!unified_groups.empty()) {
-            entry.pushKV("unified", unified_groups);
+            entry.pushKV("unified", std::move(unified_groups));
             hasData = true;
         }
 
         if (hasData) {
-            ret.push_back(entry);
+            ret.push_back(std::move(entry));
         };
     }
 
@@ -1520,13 +1529,14 @@ UniValue ListReceived(const UniValue& params)
         UniValue transactions(UniValue::VARR);
         if (it != mapTally.end())
         {
+            transactions.reserve((*it).second.txids.size());
             for (const uint256& item : (*it).second.txids)
             {
                 transactions.push_back(item.GetHex());
             }
         }
-        obj.pushKV("txids", transactions);
-        ret.push_back(obj);
+        obj.pushKV("txids", std::move(transactions));
+        ret.push_back(std::move(obj));
     }
 
     return ret;
@@ -1621,7 +1631,7 @@ void ListTransactions(const CWalletTx& wtx, int nMinDepth, bool fLong, UniValue&
             if (fLong)
                 WalletTxToJSON(wtx, entry, asOfHeight);
             entry.pushKV("size", static_cast<uint64_t>(GetSerializeSize(static_cast<CTransaction>(wtx), SER_NETWORK, PROTOCOL_VERSION)));
-            ret.push_back(entry);
+            ret.push_back(std::move(entry));
         }
     }
 
@@ -1658,7 +1668,7 @@ void ListTransactions(const CWalletTx& wtx, int nMinDepth, bool fLong, UniValue&
             if (fLong)
                 WalletTxToJSON(wtx, entry, asOfHeight);
             entry.pushKV("size", static_cast<uint64_t>(GetSerializeSize(static_cast<CTransaction>(wtx), SER_NETWORK, PROTOCOL_VERSION)));
-            ret.push_back(entry);
+            ret.push_back(std::move(entry));
         }
     }
 }
@@ -2737,7 +2747,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         entry.pushKV("amountZat", out.tx->vout[out.i].nValue);
         entry.pushKV("confirmations", out.nDepth);
         entry.pushKV("spendable", out.fSpendable);
-        results.push_back(entry);
+        results.push_back(std::move(entry));
     }
 
     return results;
@@ -2867,6 +2877,7 @@ UniValue z_listunspent(const UniValue& params, bool fHelp)
     std::vector<SaplingNoteEntry> saplingEntries;
     std::vector<OrchardNoteMetadata> orchardEntries;
     pwalletMain->GetFilteredNotes(sproutEntries, saplingEntries, orchardEntries, noteFilter, asOfHeight, nMinDepth, nMaxDepth, true, !fIncludeWatchonly, false);
+    results.reserve(sproutEntries.size() + saplingEntries.size() + orchardEntries.size());
 
     for (auto & entry : sproutEntries) {
         UniValue obj(UniValue::VOBJ);
@@ -2883,7 +2894,7 @@ UniValue z_listunspent(const UniValue& params, bool fHelp)
         if (hasSproutSpendingKey) {
             obj.pushKV("change", pwalletMain->IsNoteSproutChange(sproutNullifiers, entry.address, entry.jsop));
         }
-        results.push_back(obj);
+        results.push_back(std::move(obj));
     }
 
     for (auto & entry : saplingEntries) {
@@ -2912,7 +2923,7 @@ UniValue z_listunspent(const UniValue& params, bool fHelp)
                     "change",
                     pwalletMain->IsNoteSaplingChange(saplingNullifiers, entry.address, entry.op));
         }
-        results.push_back(obj);
+        results.push_back(std::move(obj));
     }
 
     for (auto & entry : orchardEntries) {
@@ -2943,7 +2954,7 @@ UniValue z_listunspent(const UniValue& params, bool fHelp)
         if (haveSpendingKey) {
             obj.pushKV("change", isInternal);
         }
-        results.push_back(obj);
+        results.push_back(std::move(obj));
     }
 
     return results;
@@ -3489,22 +3500,23 @@ UniValue z_listaccounts(const UniValue& params, bool fHelp)
         auto ufvk = pwalletMain->GetUnifiedFullViewingKey(ufvkId).value();
 
         UniValue addresses(UniValue::VARR);
+        addresses.reserve(diversifiersMap.size());
         for (const auto& [j, receiverTypes] : diversifiersMap) {
             UniValue addrEntry(UniValue::VOBJ);
 
             UniValue jVal;
             jVal.setNumStr(ArbitraryIntStr(std::vector(j.begin(), j.end())));
-            addrEntry.pushKV("diversifier_index", jVal);
+            addrEntry.pushKV("diversifier_index", std::move(jVal));
 
             auto uaPair = std::get<std::pair<UnifiedAddress, diversifier_index_t>>(ufvk.Address(j, receiverTypes));
             auto ua = uaPair.first;
             addrEntry.pushKV("ua", keyIO.EncodePaymentAddress(ua));
 
-            addresses.push_back(addrEntry);
+            addresses.push_back(std::move(addrEntry));
         }
-        account.pushKV("addresses", addresses);
+        account.pushKV("addresses", std::move(addresses));
 
-        ret.push_back(account);
+        ret.push_back(std::move(account));
     }
 
     return ret;
@@ -3824,7 +3836,7 @@ UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp)
                     obj.pushKV("blockindex", BlockData.index);
                     obj.pushKV("blocktime", BlockData.time);
 
-                    result.push_back(obj);
+                    result.push_back(std::move(obj));
                 }
             }
         }
@@ -3854,7 +3866,7 @@ UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp)
             if (hasSpendingKey) {
                 obj.pushKV("change", pwalletMain->IsNoteSaplingChange(nullifierSet, entry.address, entry.op));
             }
-            result.push_back(obj);
+            result.push_back(std::move(obj));
         }
     };
 
@@ -3883,7 +3895,7 @@ UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp)
                 obj.pushKV("change", isInternal);
             }
 
-            result.push_back(obj);
+            result.push_back(std::move(obj));
         }
     };
 
@@ -3915,7 +3927,7 @@ UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp)
                 if (hasSpendingKey) {
                     obj.pushKV("change", pwalletMain->IsNoteSproutChange(nullifierSet, entry.address, entry.jsop));
                 }
-                result.push_back(obj);
+                result.push_back(std::move(obj));
             }
         },
         [&](const libzcash::SaplingPaymentAddress& addr) {
@@ -4404,7 +4416,7 @@ UniValue z_viewtransaction(const UniValue& params, bool fHelp)
             entry.pushKV("address", keyIO.EncodePaymentAddress(pa));
             entry.pushKV("value", ValueFromAmount(notePt.value()));
             entry.pushKV("valueZat", notePt.value());
-            spends.push_back(entry);
+            spends.push_back(std::move(entry));
         }
     }
 
@@ -4427,7 +4439,7 @@ UniValue z_viewtransaction(const UniValue& params, bool fHelp)
         entry.pushKV("value", ValueFromAmount(notePt.value()));
         entry.pushKV("valueZat", notePt.value());
         AddMemo(entry, notePt.memo());
-        outputs.push_back(entry);
+        outputs.push_back(std::move(entry));
     }
 
     // Collect OutgoingViewingKeys for recovering output information
@@ -4515,7 +4527,7 @@ UniValue z_viewtransaction(const UniValue& params, bool fHelp)
         }
         entry.pushKV("value", ValueFromAmount(notePt.value()));
         entry.pushKV("valueZat", notePt.value());
-        spends.push_back(entry);
+        spends.push_back(std::move(entry));
         i++;
     }
 
@@ -4573,7 +4585,7 @@ UniValue z_viewtransaction(const UniValue& params, bool fHelp)
         entry.pushKV("value", ValueFromAmount(notePt.value()));
         entry.pushKV("valueZat", notePt.value());
         AddMemo(entry, notePt.memo());
-        outputs.push_back(entry);
+        outputs.push_back(std::move(entry));
     }
 
     std::vector<uint256> ovksVector(ovks.begin(), ovks.end());
@@ -4606,7 +4618,7 @@ UniValue z_viewtransaction(const UniValue& params, bool fHelp)
         }
         entry.pushKV("value", ValueFromAmount(noteValue));
         entry.pushKV("valueZat", noteValue);
-        spends.push_back(entry);
+        spends.push_back(std::move(entry));
     }
 
     // Orchard outputs
@@ -4636,11 +4648,11 @@ UniValue z_viewtransaction(const UniValue& params, bool fHelp)
         entry.pushKV("value", ValueFromAmount(noteValue));
         entry.pushKV("valueZat", noteValue);
         AddMemo(entry, orchardActionOutput.GetMemo());
-        outputs.push_back(entry);
+        outputs.push_back(std::move(entry));
     }
 
-    entry.pushKV("spends", spends);
-    entry.pushKV("outputs", outputs);
+    entry.pushKV("spends", std::move(spends));
+    entry.pushKV("outputs", std::move(outputs));
 
     return entry;
 }
@@ -4724,11 +4736,11 @@ UniValue z_getoperationstatus_IMPL(const UniValue& params, bool fRemoveFinishedO
         if (fRemoveFinishedOperations) {
             // Caller is only interested in retrieving finished results
             if ("success"==s || "failed"==s || "cancelled"==s) {
-                ret.push_back(obj);
+                ret.push_back(std::move(obj));
                 q->popOperationForId(id);
             }
         } else {
-            ret.push_back(obj);
+            ret.push_back(std::move(obj));
         }
     }
 

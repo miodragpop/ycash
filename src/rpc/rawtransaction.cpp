@@ -79,18 +79,20 @@ UniValue TxJoinSplitToJSON(const CTransaction& tx) {
 
         {
             UniValue nullifiers(UniValue::VARR);
+            nullifiers.reserve(jsdescription.nullifiers.size());
             for (const uint256 nf : jsdescription.nullifiers) {
                 nullifiers.push_back(nf.GetHex());
             }
-            joinsplit.pushKV("nullifiers", nullifiers);
+            joinsplit.pushKV("nullifiers", std::move(nullifiers));
         }
 
         {
             UniValue commitments(UniValue::VARR);
+            commitments.reserve(jsdescription.commitments.size());
             for (const uint256 commitment : jsdescription.commitments) {
                 commitments.push_back(commitment.GetHex());
             }
-            joinsplit.pushKV("commitments", commitments);
+            joinsplit.pushKV("commitments", std::move(commitments));
         }
 
         joinsplit.pushKV("onetimePubKey", jsdescription.ephemeralKey.GetHex());
@@ -98,10 +100,11 @@ UniValue TxJoinSplitToJSON(const CTransaction& tx) {
 
         {
             UniValue macs(UniValue::VARR);
+            macs.reserve(jsdescription.macs.size());
             for (const uint256 mac : jsdescription.macs) {
                 macs.push_back(mac.GetHex());
             }
-            joinsplit.pushKV("macs", macs);
+            joinsplit.pushKV("macs", std::move(macs));
         }
 
         CDataStream ssProof(SER_NETWORK, PROTOCOL_VERSION);
@@ -111,19 +114,21 @@ UniValue TxJoinSplitToJSON(const CTransaction& tx) {
 
         {
             UniValue ciphertexts(UniValue::VARR);
+            ciphertexts.reserve(jsdescription.ciphertexts.size());
             for (const ZCNoteEncryption::Ciphertext ct : jsdescription.ciphertexts) {
                 ciphertexts.push_back(HexStr(ct.begin(), ct.end()));
             }
-            joinsplit.pushKV("ciphertexts", ciphertexts);
+            joinsplit.pushKV("ciphertexts", std::move(ciphertexts));
         }
 
-        vJoinSplit.push_back(joinsplit);
+        vJoinSplit.push_back(std::move(joinsplit));
     }
     return vJoinSplit;
 }
 
 UniValue TxShieldedSpendsToJSON(const rust::Vec<sapling::Spend>& saplingSpends) {
     UniValue vdesc(UniValue::VARR);
+    vdesc.reserve(saplingSpends.size());
     for (const auto& spendDesc : saplingSpends) {
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("cv", uint256::FromRawBytes(spendDesc.cv()).GetHex());
@@ -132,13 +137,14 @@ UniValue TxShieldedSpendsToJSON(const rust::Vec<sapling::Spend>& saplingSpends) 
         obj.pushKV("rk", uint256::FromRawBytes(spendDesc.rk()).GetHex());
         obj.pushKV("proof", HexStr(spendDesc.zkproof()));
         obj.pushKV("spendAuthSig", HexStr(spendDesc.spend_auth_sig()));
-        vdesc.push_back(obj);
+        vdesc.push_back(std::move(obj));
     }
     return vdesc;
 }
 
 UniValue TxShieldedOutputsToJSON(const rust::Vec<sapling::Output>& saplingOutputs) {
     UniValue vdesc(UniValue::VARR);
+    vdesc.reserve(saplingOutputs.size());
     for (const auto& outputDesc : saplingOutputs) {
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("cv", uint256::FromRawBytes(outputDesc.cv()).GetHex());
@@ -147,7 +153,7 @@ UniValue TxShieldedOutputsToJSON(const rust::Vec<sapling::Output>& saplingOutput
         obj.pushKV("encCiphertext", HexStr(outputDesc.enc_ciphertext()));
         obj.pushKV("outCiphertext", HexStr(outputDesc.out_ciphertext()));
         obj.pushKV("proof", HexStr(outputDesc.zkproof()));
-        vdesc.push_back(obj);
+        vdesc.push_back(std::move(obj));
     }
     return vdesc;
 }
@@ -155,6 +161,7 @@ UniValue TxShieldedOutputsToJSON(const rust::Vec<sapling::Output>& saplingOutput
 UniValue TxActionsToJSON(const rust::Vec<orchard_bundle::Action>& actions)
 {
     UniValue arr(UniValue::VARR);
+    arr.reserve(actions.size());
     for (const auto& action : actions) {
         UniValue obj(UniValue::VOBJ);
         auto cv = action.cv();
@@ -173,7 +180,7 @@ UniValue TxActionsToJSON(const rust::Vec<orchard_bundle::Action>& actions)
         obj.pushKV("outCiphertext", HexStr(outCiphertext.begin(), outCiphertext.end()));
         auto spendAuthSig = action.spend_auth_sig();
         obj.pushKV("spendAuthSig", HexStr(spendAuthSig.begin(), spendAuthSig.end()));
-        arr.push_back(obj);
+        arr.push_back(std::move(obj));
     }
     return arr;
 }
@@ -197,7 +204,7 @@ UniValue TxOrchardBundleToJSON(const CTransaction& tx, UniValue& entry)
             obj_flags.pushKV("enableSpends", enableSpends);
             auto enableOutputs = bundle->enable_outputs();
             obj_flags.pushKV("enableOutputs", enableOutputs);
-            obj.pushKV("flags", obj_flags);
+            obj.pushKV("flags", std::move(obj_flags));
         }
         auto anchor = bundle->anchor();
         obj.pushKV("anchor", HexStr(anchor.begin(), anchor.end()));
@@ -229,6 +236,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
 
     KeyIO keyIO(Params());
     UniValue vin(UniValue::VARR);
+    vin.reserve(tx.vin.size());
     for (const CTxIn& txin : tx.vin) {
         UniValue in(UniValue::VOBJ);
         if (tx.IsCoinBase())
@@ -239,7 +247,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             UniValue o(UniValue::VOBJ);
             o.pushKV("asm", ScriptToAsmStr(txin.scriptSig, true));
             o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
-            in.pushKV("scriptSig", o);
+            in.pushKV("scriptSig", std::move(o));
 
             // Add address and value info if spentindex enabled
             CSpentIndexValue spentInfo;
@@ -256,10 +264,11 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             }
         }
         in.pushKV("sequence", (int64_t)txin.nSequence);
-        vin.push_back(in);
+        vin.push_back(std::move(in));
     }
-    entry.pushKV("vin", vin);
+    entry.pushKV("vin", std::move(vin));
     UniValue vout(UniValue::VARR);
+    vout.reserve(tx.vout.size());
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         const CTxOut& txout = tx.vout[i];
         UniValue out(UniValue::VOBJ);
@@ -269,7 +278,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         out.pushKV("n", (int64_t)i);
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
-        out.pushKV("scriptPubKey", o);
+        out.pushKV("scriptPubKey", std::move(o));
 
         // Add spent information if spentindex is enabled
         CSpentIndexValue spentInfo;
@@ -279,12 +288,12 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             out.pushKV("spentIndex", (int)spentInfo.inputIndex);
             out.pushKV("spentHeight", spentInfo.blockHeight);
         }
-        vout.push_back(out);
+        vout.push_back(std::move(out));
     }
-    entry.pushKV("vout", vout);
+    entry.pushKV("vout", std::move(vout));
 
     UniValue vjoinsplit = TxJoinSplitToJSON(tx);
-    entry.pushKV("vjoinsplit", vjoinsplit);
+    entry.pushKV("vjoinsplit", std::move(vjoinsplit));
 
     if (tx.fOverwintered) {
         if (tx.nVersion >= SAPLING_TX_VERSION) {
@@ -773,7 +782,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
         CTxIn in(COutPoint(txid, nOutput), CScript(), nSequence);
 
-        rawTx.vin.push_back(in);
+        rawTx.vin.push_back(std::move(in));
     }
 
     KeyIO keyIO(Params());
@@ -793,7 +802,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         CAmount nAmount = AmountFromValue(sendTo[name_]);
 
         CTxOut out(nAmount, scriptPubKey);
-        rawTx.vout.push_back(out);
+        rawTx.vout.push_back(std::move(out));
     }
 
     return EncodeHexTx(rawTx);
@@ -950,7 +959,7 @@ static void TxInErrorToJSON(const CTxIn& txin, UniValue& vErrorsRet, const std::
     entry.pushKV("scriptSig", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
     entry.pushKV("sequence", (uint64_t)txin.nSequence);
     entry.pushKV("error", strMessage);
-    vErrorsRet.push_back(entry);
+    vErrorsRet.push_back(std::move(entry));
 }
 
 UniValue signrawtransaction(const UniValue& params, bool fHelp)

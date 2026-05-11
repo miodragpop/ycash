@@ -74,7 +74,7 @@ static void JSONErrorReply(HTTPRequest* req, const UniValue& objError, const Uni
     std::string strReply = JSONRPCReply(NullUniValue, objError, id);
 
     req->WriteHeader("Content-Type", "application/json");
-    req->WriteReply(nStatus, strReply);
+    req->WriteReply(nStatus, std::move(strReply));
 }
 
 //This function checks username and password against -rpcauth

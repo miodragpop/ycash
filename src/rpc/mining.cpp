@@ -743,12 +743,13 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         entry.pushKV("authdigest", tx.GetAuthDigest().GetHex());
 
         UniValue deps(UniValue::VARR);
+        deps.reserve(tx.vin.size());
         for (const CTxIn &in : tx.vin)
         {
             if (setTxIndex.count(in.prevout.hash))
                 deps.push_back(setTxIndex[in.prevout.hash]);
         }
-        entry.pushKV("depends", deps);
+        entry.pushKV("depends", std::move(deps));
 
         int index_in_template = i - 1;
         entry.pushKV("fee", pblocktemplate->vTxFees[index_in_template]);
@@ -763,9 +764,9 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
                 entry.pushKV("foundersreward", nBlockSubsidy / 5);
             }
             entry.pushKV("required", true);
-            txCoinbase = entry;
+            txCoinbase = std::move(entry);
         } else {
-            transactions.push_back(entry);
+            transactions.push_back(std::move(entry));
         }
     }
 
@@ -968,6 +969,8 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
         UniValue fundingstreams(UniValue::VARR);
         UniValue lockboxstreams(UniValue::VARR);
         auto fsinfos = consensus.GetActiveFundingStreams(nHeight);
+        fundingstreams.reserve(fsinfos.size());
+        lockboxstreams.reserve(fsinfos.size());
         for (int idx = 0; idx < fsinfos.size(); idx++) {
             const auto& fsinfo = fsinfos[idx].first;
             CAmount nStreamAmount = fsinfo.Value(nBlockSubsidy);
@@ -988,29 +991,29 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
                     ScriptPubKeyToUniv(scriptPubKey, pubkey, true);
                     auto addressStr = find_value(pubkey, "addresses").get_array()[0].get_str();
                     fsobj.pushKV("address", addressStr);
-                    fundingstreams.push_back(fsobj);
+                    fundingstreams.push_back(std::move(fsobj));
                     nFundingStreamsTotal += nStreamAmount;
                 },
                 [&](const libzcash::SaplingPaymentAddress& pa) {
                     // For shielded funding stream addresses
                     auto addressStr = keyIO.EncodePaymentAddress(pa);
                     fsobj.pushKV("address", addressStr);
-                    fundingstreams.push_back(fsobj);
+                    fundingstreams.push_back(std::move(fsobj));
                     nFundingStreamsTotal += nStreamAmount;
                 },
                 [&](const Consensus::Lockbox& lockbox) {
                     // No address is provided for lockbox streams
-                    lockboxstreams.push_back(fsobj);
+                    lockboxstreams.push_back(std::move(fsobj));
                     nLockboxTotal += nStreamAmount;
                 }
             });
 
         }
         if (fundingstreams.size() > 0) {
-            result.pushKV("fundingstreams", fundingstreams);
+            result.pushKV("fundingstreams", std::move(fundingstreams));
         }
         if (lockboxstreams.size() > 0) {
-            result.pushKV("lockboxstreams", lockboxstreams);
+            result.pushKV("lockboxstreams", std::move(lockboxstreams));
         }
     } else if (nHeight > 0 && nHeight <= consensus.GetLastFoundersRewardBlockHeight(nHeight)) {
         nFoundersReward = nBlockSubsidy/5;

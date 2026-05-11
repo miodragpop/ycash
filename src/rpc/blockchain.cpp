@@ -150,6 +150,7 @@ UniValue blockToDeltasJSON(const CBlock& block, const CBlockIndex* blockindex)
 
     KeyIO keyIO(Params());
     UniValue deltas(UniValue::VARR);
+    deltas.reserve(block.vtx.size());
     for (unsigned int i = 0; i < block.vtx.size(); i++) {
         const CTransaction &tx = block.vtx[i];
         const uint256 txhash = tx.GetHash();
@@ -160,6 +161,7 @@ UniValue blockToDeltasJSON(const CBlock& block, const CBlockIndex* blockindex)
 
         UniValue inputs(UniValue::VARR);
         if (!tx.IsCoinBase()) {
+            inputs.reserve(tx.vin.size());
             for (size_t j = 0; j < tx.vin.size(); j++) {
                 const CTxIn input = tx.vin[j];
                 UniValue delta(UniValue::VOBJ);
@@ -178,12 +180,13 @@ UniValue blockToDeltasJSON(const CBlock& block, const CBlockIndex* blockindex)
                 delta.pushKV("prevtxid", input.prevout.hash.GetHex());
                 delta.pushKV("prevout", (int)input.prevout.n);
 
-                inputs.push_back(delta);
+                inputs.push_back(std::move(delta));
             }
         }
-        entry.pushKV("inputs", inputs);
+        entry.pushKV("inputs", std::move(inputs));
 
         UniValue outputs(UniValue::VARR);
+        outputs.reserve(tx.vout.size());
         for (unsigned int k = 0; k < tx.vout.size(); k++) {
             const CTxOut &out = tx.vout[k];
             UniValue delta(UniValue::VOBJ);
@@ -201,12 +204,12 @@ UniValue blockToDeltasJSON(const CBlock& block, const CBlockIndex* blockindex)
             delta.pushKV("satoshis", out.nValue);
             delta.pushKV("index", (int)k);
 
-            outputs.push_back(delta);
+            outputs.push_back(std::move(delta));
         }
-        entry.pushKV("outputs", outputs);
-        deltas.push_back(entry);
+        entry.pushKV("outputs", std::move(outputs));
+        deltas.push_back(std::move(entry));
     }
-    result.pushKV("deltas", deltas);
+    result.pushKV("deltas", std::move(deltas));
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
     result.pushKV("nonce", block.nNonce.GetHex());
@@ -248,18 +251,19 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     }
     result.pushKV("chainhistoryroot", blockindex->hashChainHistoryRoot.GetHex());
     UniValue txs(UniValue::VARR);
+    txs.reserve(block.vtx.size());
     for (const CTransaction&tx : block.vtx)
     {
         if(txDetails)
         {
             UniValue objTx(UniValue::VOBJ);
             TxToJSON(tx, uint256(), objTx);
-            txs.push_back(objTx);
+            txs.push_back(std::move(objTx));
         }
         else
             txs.push_back(tx.GetHash().GetHex());
     }
-    result.pushKV("tx", txs);
+    result.pushKV("tx", std::move(txs));
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("nonce", block.nNonce.GetHex());
     result.pushKV("solution", HexStr(block.nSolution));
@@ -599,13 +603,14 @@ UniValue getblockhashes(const UniValue& params, bool fHelp)
         }
     }
     UniValue result(UniValue::VARR);
+    result.reserve(blockHashes.size());
     for (std::vector<std::pair<uint256, unsigned int> >::const_iterator it=blockHashes.begin();
             it!=blockHashes.end(); it++) {
         if (fLogicalTS) {
             UniValue item(UniValue::VOBJ);
             item.pushKV("blockhash", it->first.GetHex());
             item.pushKV("logicalts", (int)it->second);
-            result.push_back(item);
+            result.push_back(std::move(item));
         } else {
             result.push_back(it->first.GetHex());
         }
@@ -1294,7 +1299,7 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
         }
         obj.pushKV("status", status);
 
-        res.push_back(obj);
+        res.push_back(std::move(obj));
     }
 
     return res;
