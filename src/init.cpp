@@ -341,6 +341,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-datadir=<dir>", _("Specify data directory (this path cannot use '~')"));
     strUsage += HelpMessageOpt("-paramsdir=<dir>", _("Specify Zcash network parameters directory"));
     strUsage += HelpMessageOpt("-dbcache=<n>", strprintf(_("Set database cache size in megabytes (%d to %d, default: %d)"), nMinDbCache, nMaxDbCache, nDefaultDbCache));
+    strUsage += HelpMessageOpt("-dbwriteinterval=<n>", strprintf(_("Seconds between periodic block index / block file writes to disk (%u to %u, default: %u). Lower values reduce in-memory retention of Equihash solutions and dirty block index entries during reindex/IBD, at the cost of more frequent block index DB writes."), MIN_DATABASE_WRITE_INTERVAL, MAX_DATABASE_WRITE_INTERVAL, DATABASE_WRITE_INTERVAL));
     strUsage += HelpMessageOpt("-debuglogfile=<file>", strprintf(_("Specify location of debug log file. Relative paths will be prefixed by a net-specific datadir location. (default: %s)"), DEFAULT_DEBUGLOGFILE));
     strUsage += HelpMessageOpt("-exportdir=<dir>", _("Specify directory to be used when exporting data"));
     strUsage += HelpMessageOpt("-ibdskiptxverification", strprintf(_("Skip transaction verification during initial block download up to the last checkpoint height. Incompatible with flags that disable checkpoints. (default = %u)"), DEFAULT_IBD_SKIP_TX_VERIFICATION));
@@ -1157,6 +1158,18 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     fCheckBlockIndex = GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
     fIBDSkipTxVerification = GetBoolArg("-ibdskiptxverification", DEFAULT_IBD_SKIP_TX_VERIFICATION);
     fReindexOnePhase = GetBoolArg("-reindex-one-phase", DEFAULT_REINDEX_ONE_PHASE);
+
+    {
+        int64_t interval = GetArg("-dbwriteinterval", DATABASE_WRITE_INTERVAL);
+        if (interval < (int64_t)MIN_DATABASE_WRITE_INTERVAL || interval > (int64_t)MAX_DATABASE_WRITE_INTERVAL) {
+            return InitError(strprintf(_("-dbwriteinterval=%d is outside the permitted range (%u to %u)"),
+                                       interval, MIN_DATABASE_WRITE_INTERVAL, MAX_DATABASE_WRITE_INTERVAL));
+        }
+        nDbWriteInterval = (unsigned int)interval;
+        if (nDbWriteInterval != DATABASE_WRITE_INTERVAL) {
+            LogPrintf("Using -dbwriteinterval=%u seconds (default %u)\n", nDbWriteInterval, DATABASE_WRITE_INTERVAL);
+        }
+    }
     fCheckpointsEnabled = GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED);
 
     // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
