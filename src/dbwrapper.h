@@ -26,6 +26,40 @@ public:
     dbwrapper_error(const std::string& msg) : std::runtime_error(msg) {}
 };
 
+/**
+ * Per-database leveldb tuning knobs. Defaults match Bitcoin/Zcash's
+ * historical settings, which are biased toward random-point read workloads
+ * (block tree, coins). Range-scan-heavy or write-heavy databases can override
+ * these at construction.
+ *
+ * `write_buffer_size = 0` means "derive from nCacheSize" (legacy: nCacheSize/4),
+ * preserving the existing behavior for callers that don't override it.
+ */
+struct CDBOptions
+{
+    //! leveldb block_size (default 4 KiB). Larger values amortize index +
+    //! checksum overhead on sequential scans at the cost of cache efficiency
+    //! for point reads.
+    size_t block_size = 4 * 1024;
+
+    //! leveldb max_open_files. Bitcoin's historical cap of 64 was chosen for
+    //! Windows _setmaxstdio limits; range-scan-heavy DBs benefit from a
+    //! larger table cache.
+    int max_open_files = 64;
+
+    //! leveldb write_buffer_size. Zero means "derive from nCacheSize" (the
+    //! legacy nCacheSize/4 behavior). Bulk-write workloads (e.g. populating
+    //! the insight indexes during reindex) benefit from a much larger
+    //! memtable so that compaction churn doesn't dominate the profile.
+    size_t write_buffer_size = 0;
+
+    //! leveldb compression. Defaults to no compression to match historical
+    //! behavior. Snappy is cheap and helpful for DBs with large, redundant
+    //! values (insight indexes); the block tree and coins DB store compact
+    //! binary keys/values that compress poorly, so leave them uncompressed.
+    leveldb::CompressionType compression = leveldb::kNoCompression;
+};
+
 class CDBWrapper;
 
 /** These should be considered an implementation detail of the specific database.
@@ -169,8 +203,11 @@ public:
      * @param[in] nCacheSize  Configures various leveldb cache settings.
      * @param[in] fMemory     If true, use leveldb's memory environment.
      * @param[in] fWipe       If true, remove all existing data.
+     * @param[in] dbOptions   Per-database leveldb tuning knobs (block_size,
+     *                        max_open_files). Defaults match the legacy
+     *                        point-read-tuned configuration.
      */
-    CDBWrapper(const fs::path& path, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
+    CDBWrapper(const fs::path& path, size_t nCacheSize, bool fMemory = false, bool fWipe = false, const CDBOptions& dbOptions = CDBOptions());
     ~CDBWrapper();
 
     template <typename K, typename V>
