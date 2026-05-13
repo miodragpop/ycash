@@ -71,7 +71,10 @@ CMutableTransaction GetValidTransaction(uint32_t consensusBranchId=SPROUT_BRANCH
         mtx.fOverwintered = true;
         mtx.nVersionGroupId = OVERWINTER_VERSION_GROUP_ID;
         mtx.nVersion = OVERWINTER_TX_VERSION;
-    } else if (consensusBranchId == NetworkUpgradeInfo[Consensus::UPGRADE_SAPLING].nBranchId) {
+    } else if (consensusBranchId == NetworkUpgradeInfo[Consensus::UPGRADE_SAPLING].nBranchId ||
+               consensusBranchId == NetworkUpgradeInfo[Consensus::UPGRADE_YCASH].nBranchId) {
+        // Ycash inherits Sapling's transaction format; it didn't introduce
+        // a new tx version at the fork.
         mtx.fOverwintered = true;
         mtx.nVersionGroupId = SAPLING_VERSION_GROUP_ID;
         mtx.nVersion = SAPLING_TX_VERSION;
@@ -544,23 +547,20 @@ TEST(ContextualCheckShieldedInputsTest, BadTxnsInvalidJoinsplitSignature) {
 }
 
 TEST(ContextualCheckShieldedInputsTest, JoinsplitSignatureDetectsOldBranchId) {
-    GTEST_SKIP() << "UPGRADE_YCASH sits between Sapling and Blossom in the "
-                    "UpgradeIndex enum, so PrevEpochBranchId(Blossom) returns "
-                    "Ycash's branch ID rather than Sapling's. The test's "
-                    "expected old-consensus-branch-id diagnostic no longer "
-                    "matches the actual emitted text without rewriting the "
-                    "test fixture for the Ycash epoch chain.";
     SelectParams(CBaseChainParams::REGTEST);
     auto consensus = Params().GetConsensus();
     std::optional<rust::Box<sapling::BatchValidator>> saplingAuth = std::nullopt;
     std::optional<rust::Box<orchard::BatchValidator>> orchardAuth = std::nullopt;
 
-    auto saplingBranchId = NetworkUpgradeInfo[Consensus::UPGRADE_SAPLING].nBranchId;
+    auto ycashBranchId = NetworkUpgradeInfo[Consensus::UPGRADE_YCASH].nBranchId;
     auto blossomBranchId = NetworkUpgradeInfo[Consensus::UPGRADE_BLOSSOM].nBranchId;
     auto heartwoodBranchId = NetworkUpgradeInfo[Consensus::UPGRADE_HEARTWOOD].nBranchId;
 
-    // Create a valid transaction for the Sapling epoch.
-    CMutableTransaction mtx = GetValidTransaction(saplingBranchId);
+    // Create a valid transaction for the Ycash epoch. UPGRADE_YCASH is the
+    // epoch immediately before Blossom in the Ycash UpgradeIndex enum, so
+    // it is the "previous epoch" that the Blossom-era validator should
+    // report when it sees a Ycash-signed input.
+    CMutableTransaction mtx = GetValidTransaction(ycashBranchId);
     CTransaction tx(mtx);
 
     // Recreate the fake coins being spent.
@@ -573,7 +573,7 @@ TEST(ContextualCheckShieldedInputsTest, JoinsplitSignatureDetectsOldBranchId) {
     CCoinsViewCache view(&baseView);
     // Ensure that the transaction validates against Sapling.
     EXPECT_TRUE(ContextualCheckShieldedInputs(
-        tx, txdata, state, view, saplingAuth, orchardAuth, consensus, saplingBranchId, false, false,
+        tx, txdata, state, view, saplingAuth, orchardAuth, consensus, ycashBranchId, false, false,
         [](const Consensus::Params&) { return false; }));
 
     // Attempt to validate the inputs against Blossom. We should be notified
@@ -582,7 +582,7 @@ TEST(ContextualCheckShieldedInputsTest, JoinsplitSignatureDetectsOldBranchId) {
         10, false, REJECT_INVALID,
         strprintf("old-consensus-branch-id (Expected %s, found %s)",
             HexInt(blossomBranchId),
-            HexInt(saplingBranchId)),
+            HexInt(ycashBranchId)),
         false, "")).Times(1);
     EXPECT_FALSE(ContextualCheckShieldedInputs(
         tx, txdata, state, view, saplingAuth, orchardAuth, consensus, blossomBranchId, false, false,
