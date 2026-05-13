@@ -38,6 +38,12 @@ static const int COINBASE_MATURITY = 100;
 static constexpr uint32_t TX_EXPIRY_HEIGHT_THRESHOLD = 500000000;
 /** The number of blocks after Canopy activation after which v1 plaintexts will be rejected */
 static const unsigned int ZIP212_GRACE_PERIOD = 32256;
+/** The maximum YDF (Ycash Development Fund) fee percentage a miner may include
+ *  voluntarily after nYdfMandateEndHeight; before nYdfMandateEndHeight, the
+ *  consensus rules require exactly 5% (subsidy / 20). */
+static const unsigned int MAX_YDF_FEE_PERCENTAGE = 5;
+/** Default value for the -ydf=<n> miner option, used post-mandate. */
+static const unsigned int DEFAULT_YDF_FEE_PERCENTAGE = MAX_YDF_FEE_PERCENTAGE;
 
 /** Flags for LockTime() */
 enum {

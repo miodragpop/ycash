@@ -119,8 +119,34 @@ public:
         const auto block_subsidy = consensus.GetBlockSubsidy(nHeight);
         auto miner_reward = block_subsidy; // founders' reward or funding stream amounts will be subtracted below
 
+        // Pre-Ycash-fork: pay 20% of the block subsidy to the inherited
+        // Zcash founders multisig.
+        // Post-Ycash-fork (until nYdfMandateEndHeight): pay 5% to the YDF.
+        // After nYdfMandateEndHeight: the YDF payment is optional and capped
+        // at MAX_YDF_FEE_PERCENTAGE; the miner can override via -ydf=<n>.
         if (nHeight > 0) {
-            if (chainparams.GetConsensus().NetworkUpgradeActive(nHeight, Consensus::UPGRADE_CANOPY)) {
+            if (!consensus.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_YCASH)) {
+                if (nHeight <= consensus.GetLastFoundersRewardBlockHeight(nHeight)) {
+                    const auto vFoundersReward = miner_reward / 5;
+                    miner_reward -= vFoundersReward;
+                    mtx.vout.push_back(CTxOut(vFoundersReward, chainparams.GetFoundersRewardScriptAtHeight(nHeight)));
+                }
+            } else {
+                CAmount vFoundersReward = 0;
+                if (nHeight < chainparams.GetYdfMandateEndHeight()) {
+                    vFoundersReward = miner_reward / 20;
+                } else {
+                    unsigned int nYdfFeePercentage =
+                        GetArg("-ydf", DEFAULT_YDF_FEE_PERCENTAGE);
+                    vFoundersReward = miner_reward * nYdfFeePercentage / 100;
+                }
+                if (vFoundersReward > 0) {
+                    miner_reward -= vFoundersReward;
+                    mtx.vout.push_back(CTxOut(vFoundersReward, chainparams.GetFoundersRewardScriptAtHeight(nHeight)));
+                }
+            }
+
+            if (consensus.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_CANOPY)) {
                 LogPrint("pow", "%s: Constructing funding stream outputs for height %d", __func__, nHeight);
                 for (const auto& [fsinfo, fs] : consensus.GetActiveFundingStreams(nHeight)) {
                     const auto amount = fsinfo.Value(block_subsidy);
@@ -144,16 +170,6 @@ public:
                         }
                     });
                 }
-            } else if (nHeight <= chainparams.GetConsensus().GetLastFoundersRewardBlockHeight(nHeight)) {
-                // Founders reward is 20% of the block subsidy
-                const auto vFoundersReward = miner_reward / 5;
-                // Take some reward away from us
-                miner_reward -= vFoundersReward;
-                // And give it to the founders
-                mtx.vout.push_back(CTxOut(vFoundersReward, chainparams.GetFoundersRewardScriptAtHeight(nHeight)));
-            } else {
-                // Founders reward ends without replacement if Canopy is not activated by the
-                // last Founders' Reward block height + 1.
             }
 
             if (chainparams.GetConsensus().NetworkUpgradeActive(nHeight, Consensus::UPGRADE_NU6_1)) {
@@ -835,9 +851,9 @@ static bool ProcessBlockFound(const CBlock* pblock, const CChainParams& chainpar
 
 void static BitcoinMiner(const CChainParams& chainparams)
 {
-    LogPrintf("ZcashMiner started\n");
+    LogPrintf("YcashMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
-    RenameThread("zcash-miner");
+    RenameThread("ycash-miner");
 
     // Each thread has its own counter
     unsigned int nExtraNonce = 0;

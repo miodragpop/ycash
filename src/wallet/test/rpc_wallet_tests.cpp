@@ -275,36 +275,37 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     BOOST_CHECK_THROW(CallRPC("getblocksubsidy too many args"), runtime_error);
     BOOST_CHECK_THROW(CallRPC("getblocksubsidy -1"), runtime_error);
 
-    // Heights below the pre-Blossom halving interval (840000) on Ycash:
-    // subsidy is 12.5 split 80/20 between miner and founders.
+    // Height 50000 is pre-UPGRADE_YCASH (activation at 570000 on mainnet),
+    // so the inherited Zcash 20% founders rate applies to the pre-Blossom
+    // 12.5 YEC subsidy: miner 10.0, founders 2.5.
     BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 50000"));
     UniValue obj = retValue.get_obj();
     BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 10.0);
     BOOST_CHECK_EQUAL(find_value(obj, "founders").get_real(), 2.5);
     BOOST_CHECK(!obj.exists("fundingstreams"));
 
-    // Heights between the Zcash Blossom height (653600) and the Ycash
-    // Blossom height (1100000): still pre-Blossom on Ycash, subsidy is
-    // unchanged.
+    // Heights 653599 and 653600 are post-UPGRADE_YCASH (570000) but still
+    // pre-Blossom (1100000) on Ycash, so the 5% YDF rate applies to the
+    // unhalved 12.5 YEC subsidy: miner 11.875, founders 0.625.
     BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 653599"));
     obj = retValue.get_obj();
-    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 10.0);
-    BOOST_CHECK_EQUAL(find_value(obj, "founders").get_real(), 2.5);
+    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 11.875);
+    BOOST_CHECK_EQUAL(find_value(obj, "founders").get_real(), 0.625);
     BOOST_CHECK(!obj.exists("fundingstreams"));
 
     BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 653600"));
     obj = retValue.get_obj();
-    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 10.0);
-    BOOST_CHECK_EQUAL(find_value(obj, "founders").get_real(), 2.5);
+    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 11.875);
+    BOOST_CHECK_EQUAL(find_value(obj, "founders").get_real(), 0.625);
     BOOST_CHECK(!obj.exists("fundingstreams"));
 
-    // At height 1046399 we are past the first pre-Blossom halving (840000)
-    // and past the last founders reward block, so the subsidy halves to
-    // 6.25 and founders reward is zero.
+    // Height 1046399 is past the first pre-Blossom halving (850000), so the
+    // subsidy halves to 6.25 YEC. Still pre-Blossom and pre-mandate-end on
+    // Ycash, so the 5% YDF rate applies: miner 5.9375, founders 0.3125.
     BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 1046399"));
     obj = retValue.get_obj();
-    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 6.25);
-    BOOST_CHECK_EQUAL(find_value(obj, "founders").get_real(), 0.0);
+    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 5.9375);
+    BOOST_CHECK_EQUAL(find_value(obj, "founders").get_real(), 0.3125);
     BOOST_CHECK(!obj.exists("fundingstreams"));
 
     bool canopyEnabled =

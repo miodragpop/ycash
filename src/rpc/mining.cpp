@@ -757,12 +757,15 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         entry.pushKV("sigops", pblocktemplate->vTxSigOps[index_in_template]);
 
         if (tx.IsCoinBase()) {
-            // Show founders' reward if it is required
+            // Show founders' / YDF reward if it is required at this height.
             auto nextHeight = pindexPrev->nHeight+1;
-            bool canopyActive = consensus.NetworkUpgradeActive(nextHeight, Consensus::UPGRADE_CANOPY);
-            if (!canopyActive && nextHeight > 0 && nextHeight <= consensus.GetLastFoundersRewardBlockHeight(nextHeight)) {
-                CAmount nBlockSubsidy = consensus.GetBlockSubsidy(nextHeight);
-                entry.pushKV("foundersreward", nBlockSubsidy / 5);
+            CAmount nBlockSubsidy = consensus.GetBlockSubsidy(nextHeight);
+            if (!consensus.NetworkUpgradeActive(nextHeight, Consensus::UPGRADE_YCASH)) {
+                if (nextHeight > 0 && nextHeight <= consensus.GetLastFoundersRewardBlockHeight(nextHeight)) {
+                    entry.pushKV("foundersreward", nBlockSubsidy / 5);
+                }
+            } else if (nextHeight < Params().GetYdfMandateEndHeight()) {
+                entry.pushKV("foundersreward", nBlockSubsidy / 20);
             }
             entry.pushKV("required", true);
             txCoinbase = std::move(entry);
@@ -1016,8 +1019,23 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
         if (lockboxstreams.size() > 0) {
             result.pushKV("lockboxstreams", std::move(lockboxstreams));
         }
-    } else if (nHeight > 0 && nHeight <= consensus.GetLastFoundersRewardBlockHeight(nHeight)) {
-        nFoundersReward = nBlockSubsidy/5;
+    } else if (!consensus.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_YCASH)) {
+        // Pre-Ycash-fork: inherited Zcash 20% founders reward, if within
+        // the founders schedule.
+        if (nHeight > 0 && nHeight <= consensus.GetLastFoundersRewardBlockHeight(nHeight)) {
+            nFoundersReward = nBlockSubsidy / 5; // 20% to Zcash founders multisig
+        }
+    } else if (nHeight < Params().GetYdfMandateEndHeight()) {
+        // Post-Ycash-fork, pre-mandate-end: 5% YDF.
+        nFoundersReward = nBlockSubsidy / 20;
+    } else {
+        // Post-mandate: optional YDF capped at MAX_YDF_FEE_PERCENTAGE,
+        // selectable via the miner's -ydf=<n> setting. The RPC reports the
+        // configured value so external callers see what this node would
+        // include in a coinbase template.
+        unsigned int nYdfFeePercentage =
+            GetArg("-ydf", DEFAULT_YDF_FEE_PERCENTAGE);
+        nFoundersReward = nBlockSubsidy * nYdfFeePercentage / 100;
     }
     CAmount nMinerReward = nBlockSubsidy - nFoundersReward - nFundingStreamsTotal - nLockboxTotal;
     result.pushKV("miner", ValueFromAmount(nMinerReward));

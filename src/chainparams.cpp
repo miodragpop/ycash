@@ -351,6 +351,24 @@ public:
         };
 
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight(0));
+
+        // Post-fork Ycash Development Fund (YDF) addresses, cycled monthly
+        // (every 17917 blocks, approx.). After the list is exhausted the
+        // index wraps modulo vYcashFoundersRewardAddress.size().
+        vYcashFoundersRewardAddress = {
+            "s1hfWJ4ej1H3s8XCUb7YnrU68K64AsGVUHE", "s1iZaRoYtafWspcieQxg6hhaU4DfZyAdGQf", "s1RSr6xec6Cc98emM4cdq45rkVekHMjRWbw", "s1RsqYeweoKVepivLPLsiajE8c6khu5UKhS",
+            "s1MNmqMWyV4nMWE4oDb1nqJs7haJrv9QTKp", "s1RP95ESdcu33gMtU7deLW9TP6yDZncjRQ7", "s1h8W7xQbiU8Zxu21Zcg82NByjkWMcEbNtX", "s1PVcdfcrJrDCmXxgSTGuKGSNhwSYZ51XKJ",
+            "s1PkV5nFkgQN4EGuTtEcmm4CxeBVx2L5HHv", "s1jiVSTfMaFUrWnf17BGc416oomHbut58Ue", "s1Zr2KdHtnK2zNSMQDrAVv3KU51mgDbqgwe", "s1QkY6tmBHPZacXPMPmsjP37Kxgs5mcgcAn",
+            "s1Xu76ZmGDENdLFAiuj5iMdp1RA4hWSNieq", "s1bdiEnfBYaEgrt2TmnY3ZHmdhg5AEw9tjN", "s1asM9Ui4U13GjmLoAhvfK6J5QihemQR9Pk", "s1QhTSXYu4K1cTNomN27wiep9WC9HBZjrxJ",
+            "s1j3Ef2qCNjwRAM18BgwsPAZFzZ475BWM5S", "s1QZibiN7iqVCfVBES9Gn7e3o5psxRKtpwE", "s1fdiDZHkzp8K8UajpVwYUdyFeb6jNVyoKv", "s1iMShbVRH1eCGxK2ZoLMDn5o9NcwXkNPVF",
+            "s1YtUXAMt8m31gGeP5m3Y53B1wrMk3FFigJ", "s1gy9aqWUihGRjZa3vqc7136vqTGNAWyefF", "s1NNozrex18HZqcHCGpGoSRkj8hqHLEPaVC", "s1NYNDdqthMf7D7sZbnLGuecDtXb48Ne2bf",
+            "s1P7UJ9Wp7jstJPUbvMSRVFjN8tfQueQSK3", "s1RDeyH7xg8y9veb9XfAmtKzrMTjFS14c4T", "s1NmH6MNXU19xoHjUfpQpb4dEMSy1Wbs9tC", "s1UnFL2yrZapMKmB5EqaBKpogZmnXLUgELB",
+            "s1XT3W1sLFdgmGoecQbPdJbjUDMurW8CFA2", "s1gyVwgangQxLCAcm8VS4SWqXDqeohNg7hd", "s1k3eWbqnbVM1xtZEDc81UbFdwXgXNnbtdH", "s1Wr6eAh3gZWwBVRZcND9YCzdNfR9cARkD4",
+            "s1dtjp2KHWZ6qF2LvgNiEwjJV2dA2c6y75V", "s1cjQf9kmjQdTmnn6mbBaesHMNLt2JqjyEV", "s1URQeusSoi7fkgyAwCshFzobUzmLGH4U3b", "s1Z9YqM2h48HUf8kcSHS89q4Z6Bg9xua3kA",
+            "s1TLmZzMDsDhYfh4vpY7NpRB4kao2UEEqKu", "s1QEWvfC1uifDfi78NY7cArw9xLEja7QAZR", "s1b4kfW9WMUtd2H7X4C64KLzqPWdMPXRMtS", "s1cHTXzCXhKYAX7sY7D8YGcmopjN8Yngoju",
+            "s1QKjMQDeF9FLVo2sL8m11VC4ZA18s61s2K", "s1gV8D561ZpmaZVxG176cQM1bMFMnHLvujE", "s1caQmLCYVDZegcMoBckHD2RXjBh7ikpj2j", "s1Y63AsWsJTk5t5nSZfaFcFWmtfnFUUAu2V",
+            "s1Y2U4GsfZdP9LAbC97GAmSdihBX5FU9gQn", "s1bPYWZMXzyN2ML2vswDiCckmas775QFs2Q", "s1erG25RcWYCiBPbT7khTU4ULhzm8jJZ7pv", "s1kYEiPdFZ3oV389q2MmSYY932qPF1ygVtx",
+        };
     }
 };
 static CMainParams mainParams;
@@ -568,6 +586,22 @@ public:
             "t29pHDBWq7qN4EjwSEHg8wEqYe9pkmVrtRP", "t2Ez9KM8VJLuArcxuEkNRAkhNvidKkzXcjJ", "t2D5y7J5fpXajLbGrMBQkFg2mFN8fo3n8cX", "t2UV2wr1PTaUiybpkV3FdSdGxUJeZdZztyt",
             };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight(0));
+
+        // Post-fork Ycash Development Fund (YDF) testnet addresses.
+        vYcashFoundersRewardAddress = {
+            "smDw2LWkeuJ1NGBDDZvdNbzY8A9D1mkkDZm", "smDxM6WPpz3HcK6m9cCnhQkBXMLnUf3cryA", "smEKdQPcZHYTmcTbVkqfWryRbEZWMrapjMo", "smEVfJmuGErW6ZM3XSNwbJR6cPU3iPABAqY",
+            "smEkWMsbV1CBZosu9wtq69f2vNXBT1owNKe", "smFd3Dh5MjEttRHd9S8kx153Vzesefzjc2d", "smGBXB9SrjnEDf7ASQxvnujBRc1qBb58o5q", "smGLTYjSriA3n8EMf4JTiHLGUCzUYjau3WV",
+            "smGVF2kDywxhjfzBqoFDE1AyXZEafTLSjbH", "smGVrxUHUzd2gaURPw2ASoE3L5WMFcxJcp1", "smHTCd59Q9pFzrzA73f6het1ozDzeQaA8E3", "smHy6JaGM9gkaGBJ4DF4p5FbFvoUbpAusWd",
+            "smJ1fpQdKNuchkxuVUMBkcCWoBcWFmyDAyZ", "smJ2j3Gea5XH7ERpyYzvo6YQKaoYfzkMUS3", "smJ8gtE5EX5oFSp4c5cCDpxoajXTQu73VSC", "smJyGxvwpCxPaFJM6TwZ6cwT1qz5PMPPBeL",
+            "smKEt1iVgCDY9V4915HnGpFK3zyTPyQixMa", "smKXxXsNLUVE8Qro6R9EyaEZmvgxqjbsFX9", "smLTH7FEiXUVpWjhoL91ToMoSZPU8xAvEh9", "smLo65rNyiEYiVHxWZHNNP9QU1HsQu3QX7b",
+            "smMDUN36MqFE4thY54CQnWBpU4ePuayF9TV", "smMWmoipQ7YVuRAJaQHKqhHbbTg28mS6ET5", "smMtCCZsR3s7ZiEYskFietNPfSb1eVHNoZi", "smMuh9QVkpQg93Gb54ucaVykbk9FgjZBN3D",
+            "smNM44GrsbMWHQRhhayqieCadzURNDLkxkW", "smNhJLQs3LmHWtVscrnJmrLhhjPcDD3unJZ", "smPHxC1438rANivn1omntbRF5Nf2wSZfFhs", "smSAidYKoFY2fmi2efcoJPSeBpdVC2vyHvj",
+            "smShCYXefsx8RcnW2b7duPKBcD5TXWY5K2A", "smTRxVMtveLrdzVb1B9rLKfDZ3Qp8kAna7r", "smTnar3ernxTG5voae2bUC185EicBdSKVux", "smUmPeP8VwuPsNTcJcB7YZY1b1HJJsJfkYp",
+            "smVSGTzPP4dbj3HXRR84WoBFWw4EVuuyVi2", "smW8AA9LAKGMj4EXxNtfJQFLFaiuzTyGwYa", "smWAgHkGiQ1fZHF9ZBjYzKS7ZX8JtjvWbaU", "smX1HT3n9mtPGeK7qMBETCEGL5UG8eC8nmy",
+            "smX3udkLyb3qZ2z2muEinbvNuSi5M2JiiE5", "smXEcB2QZaZgevkB7CS1Tz2BZNQ9cnNwXBj", "smXddMXWZvpRDq4FjuTGxLWYTtwbNwc36g5", "smXfPS6G7aiVECG8qFvZc9oFe1bzEvCKECG",
+            "smXxQi63m9x2WfhdBYogWdKzavVpbnnGyJq", "smZ53EtRafyjGZyjiNDb1FiGbwXbtE3aqTB", "smZJPM9KsKAdfotD6Woh2nb8wLedvhf4Nw5", "smZyciv3CGZLAFU8d2yKff33FU8f2nek5yx",
+            "smZzRpCLENnxN5JgMHaKtMruTCi7jsa7Tak", "smaWKSqvUJvajRquGbaHBdNbL78fDf6hdwE", "smazMQ9G7NLJXAzX4ZMKc8x6DigyeoEucgk", "smbTaZmsKNEVstoQVyZcJAMJExiytfnwaMU",
+        };
     }
 };
 static CTestNetParams testNetParams;
@@ -721,6 +755,22 @@ public:
         vFoundersRewardAddress = { "t2FwcEhFdNXuFMv1tcYwaBJtYVtMj8b1uTg" };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight(0));
 
+        // Post-fork regtest YDF addresses (mirror the testnet list).
+        vYcashFoundersRewardAddress = {
+            "smDw2LWkeuJ1NGBDDZvdNbzY8A9D1mkkDZm", "smDxM6WPpz3HcK6m9cCnhQkBXMLnUf3cryA", "smEKdQPcZHYTmcTbVkqfWryRbEZWMrapjMo", "smEVfJmuGErW6ZM3XSNwbJR6cPU3iPABAqY",
+            "smEkWMsbV1CBZosu9wtq69f2vNXBT1owNKe", "smFd3Dh5MjEttRHd9S8kx153Vzesefzjc2d", "smGBXB9SrjnEDf7ASQxvnujBRc1qBb58o5q", "smGLTYjSriA3n8EMf4JTiHLGUCzUYjau3WV",
+            "smGVF2kDywxhjfzBqoFDE1AyXZEafTLSjbH", "smGVrxUHUzd2gaURPw2ASoE3L5WMFcxJcp1", "smHTCd59Q9pFzrzA73f6het1ozDzeQaA8E3", "smHy6JaGM9gkaGBJ4DF4p5FbFvoUbpAusWd",
+            "smJ1fpQdKNuchkxuVUMBkcCWoBcWFmyDAyZ", "smJ2j3Gea5XH7ERpyYzvo6YQKaoYfzkMUS3", "smJ8gtE5EX5oFSp4c5cCDpxoajXTQu73VSC", "smJyGxvwpCxPaFJM6TwZ6cwT1qz5PMPPBeL",
+            "smKEt1iVgCDY9V4915HnGpFK3zyTPyQixMa", "smKXxXsNLUVE8Qro6R9EyaEZmvgxqjbsFX9", "smLTH7FEiXUVpWjhoL91ToMoSZPU8xAvEh9", "smLo65rNyiEYiVHxWZHNNP9QU1HsQu3QX7b",
+            "smMDUN36MqFE4thY54CQnWBpU4ePuayF9TV", "smMWmoipQ7YVuRAJaQHKqhHbbTg28mS6ET5", "smMtCCZsR3s7ZiEYskFietNPfSb1eVHNoZi", "smMuh9QVkpQg93Gb54ucaVykbk9FgjZBN3D",
+            "smNM44GrsbMWHQRhhayqieCadzURNDLkxkW", "smNhJLQs3LmHWtVscrnJmrLhhjPcDD3unJZ", "smPHxC1438rANivn1omntbRF5Nf2wSZfFhs", "smSAidYKoFY2fmi2efcoJPSeBpdVC2vyHvj",
+            "smShCYXefsx8RcnW2b7duPKBcD5TXWY5K2A", "smTRxVMtveLrdzVb1B9rLKfDZ3Qp8kAna7r", "smTnar3ernxTG5voae2bUC185EicBdSKVux", "smUmPeP8VwuPsNTcJcB7YZY1b1HJJsJfkYp",
+            "smVSGTzPP4dbj3HXRR84WoBFWw4EVuuyVi2", "smW8AA9LAKGMj4EXxNtfJQFLFaiuzTyGwYa", "smWAgHkGiQ1fZHF9ZBjYzKS7ZX8JtjvWbaU", "smX1HT3n9mtPGeK7qMBETCEGL5UG8eC8nmy",
+            "smX3udkLyb3qZ2z2muEinbvNuSi5M2JiiE5", "smXEcB2QZaZgevkB7CS1Tz2BZNQ9cnNwXBj", "smXddMXWZvpRDq4FjuTGxLWYTtwbNwc36g5", "smXfPS6G7aiVECG8qFvZc9oFe1bzEvCKECG",
+            "smXxQi63m9x2WfhdBYogWdKzavVpbnnGyJq", "smZ53EtRafyjGZyjiNDb1FiGbwXbtE3aqTB", "smZJPM9KsKAdfotD6Woh2nb8wLedvhf4Nw5", "smZyciv3CGZLAFU8d2yKff33FU8f2nek5yx",
+            "smZzRpCLENnxN5JgMHaKtMruTCi7jsa7Tak", "smaWKSqvUJvajRquGbaHBdNbL78fDf6hdwE", "smazMQ9G7NLJXAzX4ZMKc8x6DigyeoEucgk", "smbTaZmsKNEVstoQVyZcJAMJExiytfnwaMU",
+        };
+
         // do not require the wallet backup to be confirmed in regtest mode
         fRequireWalletBackup = false;
     }
@@ -843,44 +893,77 @@ void SelectParams(const std::string& network)
 // reward script construction) get a consistent post-fork "s3*" / "t2*"
 // (Ycash) form.
 std::string CChainParams::GetFoundersRewardAddressAtHeight(int nHeight) const {
-    int preBlossomMaxHeight = consensus.GetLastFoundersRewardBlockHeight(0);
-    // zip208
-    // FounderAddressAdjustedHeight(height) :=
-    // height, if not IsBlossomActivated(height)
-    // BlossomActivationHeight + floor((height - BlossomActivationHeight) / BlossomPoWTargetSpacingRatio), otherwise
-    bool blossomActive = consensus.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_BLOSSOM);
-    if (blossomActive) {
-        int blossomActivationHeight = consensus.vUpgrades[Consensus::UPGRADE_BLOSSOM].nActivationHeight;
-        nHeight = blossomActivationHeight + ((nHeight - blossomActivationHeight) / Consensus::BLOSSOM_POW_TARGET_SPACING_RATIO);
-    }
-    assert(nHeight > 0 && nHeight <= preBlossomMaxHeight);
-    size_t addressChangeInterval = (preBlossomMaxHeight + vFoundersRewardAddress.size()) / vFoundersRewardAddress.size();
-    size_t i = nHeight / addressChangeInterval;
     KeyIO keyIO(*this);
-    return keyIO.ZecToYec(vFoundersRewardAddress[i]);
+    if (!consensus.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_YCASH)) {
+        // Pre-Ycash-fork: inherited Zcash schedule, addresses re-encoded
+        // under the canonical Ycash prefixes via ZecToYec.
+        int preBlossomMaxHeight = consensus.GetLastFoundersRewardBlockHeight(0);
+        // zip208
+        // FounderAddressAdjustedHeight(height) :=
+        // height, if not IsBlossomActivated(height)
+        // BlossomActivationHeight + floor((height - BlossomActivationHeight) / BlossomPoWTargetSpacingRatio), otherwise
+        bool blossomActive = consensus.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_BLOSSOM);
+        if (blossomActive) {
+            int blossomActivationHeight = consensus.vUpgrades[Consensus::UPGRADE_BLOSSOM].nActivationHeight;
+            nHeight = blossomActivationHeight + ((nHeight - blossomActivationHeight) / Consensus::BLOSSOM_POW_TARGET_SPACING_RATIO);
+        }
+        assert(nHeight > 0 && nHeight <= preBlossomMaxHeight);
+        size_t addressChangeInterval = (preBlossomMaxHeight + vFoundersRewardAddress.size()) / vFoundersRewardAddress.size();
+        size_t i = nHeight / addressChangeInterval;
+        return keyIO.ZecToYec(vFoundersRewardAddress[i]);
+    } else {
+        // Post-Ycash-fork: YDF schedule. Addresses change approximately
+        // monthly and are cycled modulo vYcashFoundersRewardAddress.size()
+        // once exhausted.
+        const size_t addressChangeInterval = 17917;
+        size_t i = (nHeight - consensus.vUpgrades[Consensus::UPGRADE_YCASH].nActivationHeight) / addressChangeInterval;
+        return vYcashFoundersRewardAddress[i % vYcashFoundersRewardAddress.size()];
+    }
 }
 
-// Block height must be >0 and <=last founders reward block height
-// The founders reward address is expected to be a multisig (P2SH) address
+// Block height must be >0 and <=last founders reward block height for pre-Ycash-fork.
+// Pre-fork the founders reward address is a multisig (P2SH); post-fork it can be
+// either a P2PKH or a P2SH address from vYcashFoundersRewardAddress.
 CScript CChainParams::GetFoundersRewardScriptAtHeight(int nHeight) const {
-    assert(nHeight > 0 && nHeight <= consensus.GetLastFoundersRewardBlockHeight(nHeight));
-
     KeyIO keyIO(*this);
-    // GetFoundersRewardAddressAtHeight now returns a canonical-prefixed
-    // Ycash encoding, so DecodeDestination (not the LEGACY_* path) is the
-    // correct decoder here.
-    auto address = keyIO.DecodeDestination(GetFoundersRewardAddressAtHeight(nHeight).c_str());
-    assert(IsValidDestination(address));
-    assert(std::holds_alternative<CScriptID>(address));
-    CScriptID scriptID = std::get<CScriptID>(address);
-    CScript script = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
-    return script;
+    if (!consensus.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_YCASH)) {
+        assert(nHeight > 0 && nHeight <= consensus.GetLastFoundersRewardBlockHeight(nHeight));
+        // GetFoundersRewardAddressAtHeight returns canonical Ycash form, so
+        // DecodeDestination (not the LEGACY_* path) is the right decoder.
+        auto address = keyIO.DecodeDestination(GetFoundersRewardAddressAtHeight(nHeight).c_str());
+        assert(IsValidDestination(address));
+        assert(std::holds_alternative<CScriptID>(address));
+        CScriptID scriptID = std::get<CScriptID>(address);
+        return CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+    } else {
+        auto address = keyIO.DecodeDestination(GetFoundersRewardAddressAtHeight(nHeight).c_str());
+        assert(IsValidDestination(address));
+        if (std::holds_alternative<CKeyID>(address)) {
+            CKeyID keyID = std::get<CKeyID>(address);
+            return CScript() << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+        } else {
+            assert(std::holds_alternative<CScriptID>(address));
+            CScriptID scriptID = std::get<CScriptID>(address);
+            return CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+        }
+    }
 }
 
 std::string CChainParams::GetFoundersRewardAddressAtIndex(int i) const {
     assert(i >= 0 && i < vFoundersRewardAddress.size());
     KeyIO keyIO(*this);
     return keyIO.ZecToYec(vFoundersRewardAddress[i]);
+}
+
+std::string CChainParams::GetZcashFoundersRewardAddressAtIndex(int i) const {
+    assert(i >= 0 && i < vFoundersRewardAddress.size());
+    KeyIO keyIO(*this);
+    return keyIO.ZecToYec(vFoundersRewardAddress[i]);
+}
+
+std::string CChainParams::GetYcashFoundersRewardAddressAtIndex(int i) const {
+    assert(i >= 0 && i < vYcashFoundersRewardAddress.size());
+    return vYcashFoundersRewardAddress[i];
 }
 
 void UpdateNetworkUpgradeParameters(Consensus::UpgradeIndex idx, int nActivationHeight)

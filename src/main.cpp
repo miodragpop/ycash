@@ -5842,34 +5842,45 @@ bool ContextualCheckBlock(
         }
     }
 
-    if (consensusParams.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_CANOPY)) {
-        // Funding streams are checked inside ContextualCheckTransaction.
-        // This empty conditional branch exists to enforce this ZIP 207 consensus rule:
-        //
-        //     Once the Canopy network upgrade activates, the existing consensus rule for
-        //     payment of the Founders' Reward is no longer active.
-    } else if ((nHeight > 0) && (nHeight <= consensusParams.GetLastFoundersRewardBlockHeight(nHeight))) {
-        // Coinbase transaction must include an output sending 20% of
-        // the block subsidy to a Founders' Reward script, until the last Founders'
-        // Reward block is reached, with exception of the genesis block.
-        // The last Founders' Reward block is defined as the block just before the
-        // first subsidy halving block, which occurs at halving_interval + slow_start_shift.
+    if (!consensusParams.NetworkUpgradeActive(nHeight, Consensus::UPGRADE_YCASH)) {
+        // Pre-Ycash-fork: inherited Zcash rule. Coinbase must pay 20% of
+        // the block subsidy to a multisig founders reward script, until the
+        // last founders reward block. Genesis is exempt.
+        if ((nHeight > 0) && (nHeight <= consensusParams.GetLastFoundersRewardBlockHeight(nHeight))) {
+            bool found = false;
+            for (const CTxOut& output : block.vtx[0].vout) {
+                if (output.scriptPubKey == chainparams.GetFoundersRewardScriptAtHeight(nHeight)) {
+                    if (output.nValue == (consensusParams.GetBlockSubsidy(nHeight) / 5)) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                return state.DoS(100, error("%s: founders reward missing", __func__),
+                                 REJECT_INVALID, "cb-no-founders-reward");
+            }
+        }
+    } else if (nHeight < chainparams.GetYdfMandateEndHeight()) {
+        // Post-Ycash-fork, pre-mandate-end: coinbase must pay 5% of the
+        // block subsidy to the YDF script for this height.
         bool found = false;
-
         for (const CTxOut& output : block.vtx[0].vout) {
             if (output.scriptPubKey == chainparams.GetFoundersRewardScriptAtHeight(nHeight)) {
-                if (output.nValue == (consensusParams.GetBlockSubsidy(nHeight) / 5)) {
+                if (output.nValue == (consensusParams.GetBlockSubsidy(nHeight) / 20)) {
                     found = true;
                     break;
                 }
             }
         }
-
         if (!found) {
-            return state.DoS(100, error("%s: founders reward missing", __func__),
+            return state.DoS(100, error("%s: YDF reward missing", __func__),
                              REJECT_INVALID, "cb-no-founders-reward");
         }
     }
+    // After nYdfMandateEndHeight the YDF payment is optional, so no
+    // consensus enforcement is performed beyond the usual subsidy-bound
+    // check performed elsewhere.
 
     return true;
 }

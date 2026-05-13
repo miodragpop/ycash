@@ -132,6 +132,11 @@ public:
     std::string GetFoundersRewardAddressAtHeight(int height) const;
     CScript GetFoundersRewardScriptAtHeight(int height) const;
     std::string GetFoundersRewardAddressAtIndex(int i) const;
+    /** Pre-fork (Zcash-era) founders reward address re-encoded under the
+     *  Ycash canonical prefixes. */
+    std::string GetZcashFoundersRewardAddressAtIndex(int i) const;
+    /** Post-fork Ycash Development Fund address (already canonical). */
+    std::string GetYcashFoundersRewardAddressAtIndex(int i) const;
     /** Last height at which the YDF (Ycash Development Fund) mandate applies. */
     int GetYdfMandateEndHeight() const { return nYdfMandateEndHeight; }
     /** Enforce coinbase consensus rule in regtest mode */
@@ -155,6 +160,9 @@ protected:
     bool fTestnetToBeDeprecatedFieldRPC = false;
     CCheckpointData checkpointData;
     std::vector<std::string> vFoundersRewardAddress;
+    /** Post-fork Ycash Development Fund addresses, cycled monthly via
+     *  modulo of vYcashFoundersRewardAddress.size() once exhausted. */
+    std::vector<std::string> vYcashFoundersRewardAddress;
     int nYdfMandateEndHeight = 0;
 
     CAmount nSproutValuePoolCheckpointHeight = 0;

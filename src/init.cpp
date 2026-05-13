@@ -15,6 +15,7 @@
 #include "checkpoints.h"
 #include "compat.h"
 #include "compat/sanity.h"
+#include "consensus/consensus.h"
 #include "consensus/upgrades.h"
 #include "consensus/validation.h"
 #include "deprecation.h"
@@ -504,6 +505,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-genproclimit=<n>", strprintf(_("Set the number of threads for coin generation if enabled (-1 = all cores, default: %d)"), DEFAULT_GENERATE_THREADS));
     strUsage += HelpMessageOpt("-equihashsolver=<name>", _("Specify the Equihash solver to be used if enabled (default: \"default\")"));
     strUsage += HelpMessageOpt("-mineraddress=<addr>", _("Send mined coins to a specific single address"));
+    strUsage += HelpMessageOpt("-ydf=<n>", strprintf(_("After the Ycash Development Fund mandate ends, optionally include an output of n%% of the block subsidy in mined blocks. Values outside 0..100 are reset to the default. (default: %u)"), DEFAULT_YDF_FEE_PERCENTAGE));
     strUsage += HelpMessageOpt("-minetolocalwallet", strprintf(
             _("Require that mined blocks use a coinbase address in the local wallet (default: %u)"),
  #ifdef ENABLE_WALLET
@@ -1463,6 +1465,17 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         }
     }
 #endif
+
+    // Validate the optional post-mandate YDF fee percentage. Values outside
+    // the 0..100 range are silently reset to the default and logged.
+    if (mapArgs.count("-ydf")) {
+        int64_t nYdf = GetArg("-ydf", DEFAULT_YDF_FEE_PERCENTAGE);
+        if (nYdf < 0 || nYdf > 100) {
+            mapArgs["-ydf"] = std::to_string((int)DEFAULT_YDF_FEE_PERCENTAGE);
+            LogPrintf("%s: parameter validation: invalid -ydf setting detected, forced to default %u%%\n",
+                      __func__, DEFAULT_YDF_FEE_PERCENTAGE);
+        }
+    }
 
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
 
