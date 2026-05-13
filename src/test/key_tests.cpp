@@ -29,12 +29,12 @@ static const std::string strSecret1 = "5HxWvvfubhXpYYpS3tJkw6fq9jE9j18THftkZjHHf
 static const std::string strSecret2 = "5KC4ejrDjv152FGwP386VD1i2NYc5KkfSMyv1nGy1VGDxGHqVY3";
 static const std::string strSecret1C = "Kwr371tjA9u2rFSMZjTNun2PXXP3WPZu2afRHTcta6KxEUdm1vEw";
 static const std::string strSecret2C = "L3Hq7a8FEQwJkW1M2GNKDW28546Vp5miewcCzSqUD9kCAXrJdS3g";
-static const std::string addr1 = "t1h8SqgtM3QM5e2M8EzhhT1yL2PXXtA6oqe";
-static const std::string addr2 = "t1Xxa5ZVPKvs9bGMn7aWTiHjyHvR31XkUst";
-static const std::string addr1C = "t1ffus9J1vhxvFqLoExGBRPjE7BcJxiSCTC";
-static const std::string addr2C = "t1VJL2dPUyXK7avDRGqhqQA5bw2eEMdhyg6";
+static const std::string addr1 = "s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw";
+static const std::string addr2 = "s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP";
+static const std::string addr1C = "s1j145WNXgjEkVRGKiYJHbLXwUYWUWw9rCH";
+static const std::string addr2C = "s1YdUEzTzjYawpW8wkRjwa6tKJPYPvu3CwB";
 
-static const std::string strAddressBad = "t1aMkLwU1LcMZYN7TgXUJAwzA1r44dbLkSp";
+static const std::string strAddressBad = "s1dgtZJYX6ddPmx2zA7WQLtnsPCxEFv1mZy";
 
 
 BOOST_FIXTURE_TEST_SUITE(key_tests, BasicTestingSetup)
@@ -184,7 +184,7 @@ BOOST_AUTO_TEST_CASE(zc_address_test)
 
             std::string addr_string = keyIO.EncodePaymentAddress(addr);
 
-            BOOST_CHECK(addr_string[0] == 'z');
+            BOOST_CHECK(addr_string[0] == 'y');
             BOOST_CHECK(addr_string[1] == 'c');
 
             auto paymentaddr2 = keyIO.DecodePaymentAddress(addr_string);

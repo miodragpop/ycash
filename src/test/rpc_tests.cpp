@@ -78,7 +78,7 @@ BOOST_AUTO_TEST_CASE(rpc_rawsign)
       "\"vout\":1,\"scriptPubKey\":\"a914b10c9df5f7edf436c697f02f1efdba4cf399615187\","
       "\"redeemScript\":\"512103debedc17b3df2badbcdd86d5feb4562b86fe182e5998abd8bcd4f122c6155b1b21027e940bb73ab8732bfdf7f9216ecefca5b94d6df834e77e108f68e66f126044c052ae\"}]";
     r = CallRPC(string("createrawtransaction ")+prevout+" "+
-      "{\"t3ahmeUm2LWXPUJPx9QMheGtqTEfdDdgr7p\":11}");
+      "{\"s3EhJsjYFPMLLtTBPba4VL6RmC6Jr8bvnnE\":11}");
     string notsigned = r.get_str();
     string privkey1 = "\"KzsXybp9jX64P5ekX1KUxRQ79Jht9uzW7LorgwE65i5rWACL6LQe\"";
     string privkey2 = "\"Kyhdf5LuKTRx4ge69ybABsiUAWjVRK4XGxAKk2FQLp2HjGMy87Z4\"";
@@ -274,7 +274,7 @@ BOOST_AUTO_TEST_CASE(rpc_raw_create_overwinter_v3)
     UpdateNetworkUpgradeParameters(Consensus::UPGRADE_OVERWINTER, Consensus::NetworkUpgrade::ALWAYS_ACTIVE);
 
     // Sample regtest address:
-    // public: tmHU5HLMu3yS8eoNvbrU1NWeJaGf6jxehru
+    // public: smLoDVhSQozhxtPJT5SW7YTT1wdZGMjcmy7
     // private: cW1G4SxEm5rui2RQtBcSUZrERTVYPtyZXKbSi5MCwBqzbn5kqwbN
 
     UniValue r;
@@ -282,7 +282,7 @@ BOOST_AUTO_TEST_CASE(rpc_raw_create_overwinter_v3)
       "[{\"txid\":\"b4cc287e58f87cdae59417329f710f3ecd75a4ee1d2872b7248f50977c8493f3\","
       "\"vout\":1}]";
     r = CallRPC(string("createrawtransaction ") + prevout + " " +
-      "{\"tmHU5HLMu3yS8eoNvbrU1NWeJaGf6jxehru\":11}");
+      "{\"smLoDVhSQozhxtPJT5SW7YTT1wdZGMjcmy7\":11}");
     std::string rawhex = r.get_str();
     BOOST_CHECK_NO_THROW(r = CallRPC(string("decoderawtransaction ") + rawhex));
     BOOST_CHECK_EQUAL(find_value(r.get_obj(), "overwintered").get_bool(), true);
@@ -319,28 +319,28 @@ BOOST_AUTO_TEST_CASE(rpc_insightexplorer)
 {
     CheckRPCThrows("getaddressmempool \"a\"",
         "Error: getaddressmempool is disabled. "
-        "Run './zcash-cli help getaddressmempool' for instructions on how to enable this feature.");
+        "Run './ycash-cli help getaddressmempool' for instructions on how to enable this feature.");
     CheckRPCThrows("getaddressutxos \"a\"",
         "Error: getaddressutxos is disabled. "
-        "Run './zcash-cli help getaddressutxos' for instructions on how to enable this feature.");
+        "Run './ycash-cli help getaddressutxos' for instructions on how to enable this feature.");
     CheckRPCThrows("getaddressdeltas \"a\"",
         "Error: getaddressdeltas is disabled. "
-        "Run './zcash-cli help getaddressdeltas' for instructions on how to enable this feature.");
+        "Run './ycash-cli help getaddressdeltas' for instructions on how to enable this feature.");
     CheckRPCThrows("getaddressbalance \"a\"",
         "Error: getaddressbalance is disabled. "
-        "Run './zcash-cli help getaddressbalance' for instructions on how to enable this feature.");
+        "Run './ycash-cli help getaddressbalance' for instructions on how to enable this feature.");
     CheckRPCThrows("getaddresstxids \"a\"",
         "Error: getaddresstxids is disabled. "
-        "Run './zcash-cli help getaddresstxids' for instructions on how to enable this feature.");
+        "Run './ycash-cli help getaddresstxids' for instructions on how to enable this feature.");
     CheckRPCThrows("getspentinfo {\"a\":1}",
         "Error: getspentinfo is disabled. "
-        "Run './zcash-cli help getspentinfo' for instructions on how to enable this feature.");
+        "Run './ycash-cli help getspentinfo' for instructions on how to enable this feature.");
     CheckRPCThrows("getblockdeltas \"a\"",
         "Error: getblockdeltas is disabled. "
-        "Run './zcash-cli help getblockdeltas' for instructions on how to enable this feature.");
+        "Run './ycash-cli help getblockdeltas' for instructions on how to enable this feature.");
     CheckRPCThrows("getblockhashes 0 0",
         "Error: getblockhashes is disabled. "
-        "Run './zcash-cli help getblockhashes' for instructions on how to enable this feature.");
+        "Run './ycash-cli help getblockhashes' for instructions on how to enable this feature.");
 
     fExperimentalInsightExplorer = true;
     // During startup of the real system, fExperimentalInsightExplorer ("-insightexplorer")
@@ -350,7 +350,7 @@ BOOST_AUTO_TEST_CASE(rpc_insightexplorer)
     fTimestampIndex = true;
 
     // must be a legal mainnet address
-    const string addr = "t1T3G72ToPuCDTiCEytrU1VUBRHsNupEBut";
+    const string addr = "s1WNQKPYK9vU3hJ7mTUtaBSGtnemYWkJ88y";
     BOOST_CHECK_NO_THROW(CallRPC("getaddressmempool \"" + addr + "\""));
     BOOST_CHECK_NO_THROW(CallRPC("getaddressmempool {\"addresses\":[\"" + addr + "\"]}"));
     BOOST_CHECK_NO_THROW(CallRPC("getaddressmempool {\"addresses\":[\"" + addr + "\",\"" + addr + "\"]}"));

@@ -36,20 +36,20 @@ TEST(Miner, GetMinerAddress) {
     }
 
     // Typo in transparent address
-    mapArgs["-mineraddress"] = "t1TByaLVhNqxA5KJcmiqqFN88e8DNp2PBfF";
+    mapArgs["-mineraddress"] = "s1TByaLVhNqxA5KJcmiqqFN88e8DNp2PBfF";
     {
         MinerAddress minerAddress;
         GetMinerAddress(minerAddress);
         EXPECT_FALSE(IsValidMinerAddress(minerAddress));
     }
 
-    // Set up expected scriptPubKey for t1T8yaLVhNqxA5KJcmiqqFN88e8DNp2PBfF
+    // Set up expected scriptPubKey for s1WU7nhaD8sDzJuE9FJswRJvr1V7YY5HMyZ
     CKeyID keyID;
     keyID.SetHex("eb88f1c65b39a823479ac9c7db2f4a865960a165");
     CScript expectedCoinbaseScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
 
     // Valid transparent address
-    mapArgs["-mineraddress"] = "t1T8yaLVhNqxA5KJcmiqqFN88e8DNp2PBfF";
+    mapArgs["-mineraddress"] = "s1WU7nhaD8sDzJuE9FJswRJvr1V7YY5HMyZ";
     {
         MinerAddress minerAddress;
         GetMinerAddress(minerAddress);
@@ -60,7 +60,7 @@ TEST(Miner, GetMinerAddress) {
     }
 
     // Valid transparent address with leading whitespace
-    mapArgs["-mineraddress"] = "  t1T8yaLVhNqxA5KJcmiqqFN88e8DNp2PBfF";
+    mapArgs["-mineraddress"] = "  s1WU7nhaD8sDzJuE9FJswRJvr1V7YY5HMyZ";
     {
         MinerAddress minerAddress;
         GetMinerAddress(minerAddress);
@@ -71,7 +71,7 @@ TEST(Miner, GetMinerAddress) {
     }
 
     // Valid transparent address with trailing whitespace
-    mapArgs["-mineraddress"] = "t1T8yaLVhNqxA5KJcmiqqFN88e8DNp2PBfF  ";
+    mapArgs["-mineraddress"] = "s1WU7nhaD8sDzJuE9FJswRJvr1V7YY5HMyZ  ";
     {
         MinerAddress minerAddress;
         GetMinerAddress(minerAddress);
@@ -82,7 +82,7 @@ TEST(Miner, GetMinerAddress) {
     }
 
     // Partial Sapling address
-    mapArgs["-mineraddress"] = "zs1z7rejlpsa98s2rrrfkwmaxu53";
+    mapArgs["-mineraddress"] = "ys1z7rejlpsa98s2rrrfkwmaxu53";
     {
         MinerAddress minerAddress;
         GetMinerAddress(minerAddress);
@@ -90,7 +90,7 @@ TEST(Miner, GetMinerAddress) {
     }
 
     // Typo in Sapling address
-    mapArgs["-mineraddress"] = "zs1s7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya";
+    mapArgs["-mineraddress"] = "ys1s7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya";
     {
         MinerAddress minerAddress;
         GetMinerAddress(minerAddress);
@@ -98,7 +98,7 @@ TEST(Miner, GetMinerAddress) {
     }
 
     // Valid Sapling address
-    mapArgs["-mineraddress"] = "zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya";
+    mapArgs["-mineraddress"] = "ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq";
     {
         MinerAddress minerAddress;
         GetMinerAddress(minerAddress);
@@ -107,7 +107,7 @@ TEST(Miner, GetMinerAddress) {
     }
 
     // Valid Sapling address with leading whitespace
-    mapArgs["-mineraddress"] = "  zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya";
+    mapArgs["-mineraddress"] = "  ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq";
     {
         MinerAddress minerAddress;
         GetMinerAddress(minerAddress);
@@ -115,7 +115,7 @@ TEST(Miner, GetMinerAddress) {
     }
 
     // Valid Sapling address with trailing whitespace
-    mapArgs["-mineraddress"] = "zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya  ";
+    mapArgs["-mineraddress"] = "ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq  ";
     {
         MinerAddress minerAddress;
         GetMinerAddress(minerAddress);

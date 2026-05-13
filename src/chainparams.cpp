@@ -836,6 +836,12 @@ void SelectParams(const std::string& network)
 
 // Block height must be >0 and <=last founders reward block height
 // Index variable i ranges from 0 - (vFoundersRewardAddress.size()-1)
+//
+// The stored vFoundersRewardAddress entries are Zcash-era multisig addresses
+// ("t3*" on mainnet, "t2*" on testnet). We re-encode them under the Ycash
+// canonical prefixes before returning so that callers (RPC output, founders
+// reward script construction) get a consistent post-fork "s3*" / "t2*"
+// (Ycash) form.
 std::string CChainParams::GetFoundersRewardAddressAtHeight(int nHeight) const {
     int preBlossomMaxHeight = consensus.GetLastFoundersRewardBlockHeight(0);
     // zip208
@@ -850,7 +856,8 @@ std::string CChainParams::GetFoundersRewardAddressAtHeight(int nHeight) const {
     assert(nHeight > 0 && nHeight <= preBlossomMaxHeight);
     size_t addressChangeInterval = (preBlossomMaxHeight + vFoundersRewardAddress.size()) / vFoundersRewardAddress.size();
     size_t i = nHeight / addressChangeInterval;
-    return vFoundersRewardAddress[i];
+    KeyIO keyIO(*this);
+    return keyIO.ZecToYec(vFoundersRewardAddress[i]);
 }
 
 // Block height must be >0 and <=last founders reward block height
@@ -859,17 +866,21 @@ CScript CChainParams::GetFoundersRewardScriptAtHeight(int nHeight) const {
     assert(nHeight > 0 && nHeight <= consensus.GetLastFoundersRewardBlockHeight(nHeight));
 
     KeyIO keyIO(*this);
-    auto address = keyIO.DecodePaymentAddress(GetFoundersRewardAddressAtHeight(nHeight).c_str());
-    assert(address.has_value());
-    assert(std::holds_alternative<CScriptID>(address.value()));
-    CScriptID scriptID = std::get<CScriptID>(address.value());
+    // GetFoundersRewardAddressAtHeight now returns a canonical-prefixed
+    // Ycash encoding, so DecodeDestination (not the LEGACY_* path) is the
+    // correct decoder here.
+    auto address = keyIO.DecodeDestination(GetFoundersRewardAddressAtHeight(nHeight).c_str());
+    assert(IsValidDestination(address));
+    assert(std::holds_alternative<CScriptID>(address));
+    CScriptID scriptID = std::get<CScriptID>(address);
     CScript script = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
     return script;
 }
 
 std::string CChainParams::GetFoundersRewardAddressAtIndex(int i) const {
     assert(i >= 0 && i < vFoundersRewardAddress.size());
-    return vFoundersRewardAddress[i];
+    KeyIO keyIO(*this);
+    return keyIO.ZecToYec(vFoundersRewardAddress[i]);
 }
 
 void UpdateNetworkUpgradeParameters(Consensus::UpgradeIndex idx, int nActivationHeight)
