@@ -703,8 +703,7 @@ checksum = "c7f84e12ccf0a7ddc17a6c41c93326024c42920d7ee630d04950e6926645c0fe"
 [[package]]
 name = "equihash"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca4f333d4ccc9d23c06593733673026efa71a332e028b00f12cf427b9677dce9"
+source = "git+http://192.168.1.106:3000/miodrag/librustzcash.git?rev=11244ad8e82a82bb3e9463b518d5773e8ec63b1a#11244ad8e82a82bb3e9463b518d5773e8ec63b1a"
 dependencies = [
  "blake2b_simd",
  "core2",
@@ -729,8 +728,7 @@ dependencies = [
 [[package]]
 name = "f4jumble"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d42773cb15447644d170be20231a3268600e0c4cea8987d013b93ac973d3cf7"
+source = "git+http://192.168.1.106:3000/miodrag/librustzcash.git?rev=11244ad8e82a82bb3e9463b518d5773e8ec63b1a#11244ad8e82a82bb3e9463b518d5773e8ec63b1a"
 dependencies = [
  "blake2b_simd",
 ]
@@ -2869,9 +2867,8 @@ checksum = "213b7324336b53d2414b2db8537e56544d981803139155afa84f76eeebb7a546"
 
 [[package]]
 name = "zcash_address"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee4491dddd232de02df42481757054dc19c8bc51cf709cfec58feebfef7c3c9a"
+version = "0.10.0"
+source = "git+http://192.168.1.106:3000/miodrag/librustzcash.git?rev=11244ad8e82a82bb3e9463b518d5773e8ec63b1a#11244ad8e82a82bb3e9463b518d5773e8ec63b1a"
 dependencies = [
  "bech32",
  "bs58",
@@ -2884,8 +2881,7 @@ dependencies = [
 [[package]]
 name = "zcash_encoding"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bca38087e6524e5f51a5b0fb3fc18f36d7b84bf67b2056f494ca0c281590953d"
+source = "git+http://192.168.1.106:3000/miodrag/librustzcash.git?rev=11244ad8e82a82bb3e9463b518d5773e8ec63b1a#11244ad8e82a82bb3e9463b518d5773e8ec63b1a"
 dependencies = [
  "core2",
  "nonempty",
@@ -2917,9 +2913,8 @@ dependencies = [
 
 [[package]]
 name = "zcash_primitives"
-version = "0.26.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fd9ff256fb298a7e94a73c1adad6c7e0b4b194b902e777ee9f5f2e12c4c4776"
+version = "0.26.0"
+source = "git+http://192.168.1.106:3000/miodrag/librustzcash.git?rev=11244ad8e82a82bb3e9463b518d5773e8ec63b1a#11244ad8e82a82bb3e9463b518d5773e8ec63b1a"
 dependencies = [
  "bip32",
  "blake2b_simd",
@@ -2984,9 +2979,8 @@ dependencies = [
 
 [[package]]
 name = "zcash_protocol"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18b1a337bbc9a7d55ae35d31189f03507dbc7934e9a4bee5c1d5c47464860e48"
+version = "0.7.0"
+source = "git+http://192.168.1.106:3000/miodrag/librustzcash.git?rev=11244ad8e82a82bb3e9463b518d5773e8ec63b1a#11244ad8e82a82bb3e9463b518d5773e8ec63b1a"
 dependencies = [
  "core2",
  "document-features",
@@ -3003,12 +2997,9 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c6ef9d04e0434a80b62ad06c5a610557be358ef60a98afa5dbc8ecaf19ad72e7"
 dependencies = [
- "bip32",
  "bitflags 2.10.0",
  "bounded-vec",
- "hex",
  "ripemd 0.1.3",
- "secp256k1",
  "sha1",
  "sha2 0.10.9",
  "thiserror 2.0.12",
@@ -3025,9 +3016,8 @@ dependencies = [
 
 [[package]]
 name = "zcash_transparent"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a9b7b4bc11d8bb20833d1b8ab6807f4dca941b381f1129e5bbd72a84e391991"
+version = "0.6.0"
+source = "git+http://192.168.1.106:3000/miodrag/librustzcash.git?rev=11244ad8e82a82bb3e9463b518d5773e8ec63b1a#11244ad8e82a82bb3e9463b518d5773e8ec63b1a"
 dependencies = [
  "bip32",
  "blake2b_simd",
@@ -3036,7 +3026,6 @@ dependencies = [
  "document-features",
  "getset",
  "hex",
- "nonempty",
  "proptest",
  "ripemd 0.1.3",
  "secp256k1",

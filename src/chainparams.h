@@ -52,6 +52,7 @@ public:
             NetworkIDString(),
             consensus.vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight,
             consensus.vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight,
+            consensus.vUpgrades[Consensus::UPGRADE_YCASH].nActivationHeight,
             consensus.vUpgrades[Consensus::UPGRADE_BLOSSOM].nActivationHeight,
             consensus.vUpgrades[Consensus::UPGRADE_HEARTWOOD].nActivationHeight,
             consensus.vUpgrades[Consensus::UPGRADE_CANOPY].nActivationHeight,

@@ -60,9 +60,9 @@ TEST(History, EpochBoundaries) {
     CCoinsViewDummy fakeDB;
     CCoinsViewCache view(&fakeDB);
 
-    // Test with the Heartwood and Canopy epochs
-    uint32_t epoch1 = 0xf5b9230b;
-    uint32_t epoch2 = 0xe9ff75a6;
+    // Test with the Heartwood and Canopy epochs (Ycash branch IDs).
+    uint32_t epoch1 = 0x66314da3;
+    uint32_t epoch2 = 0x19bd2d2f;
 
     view.PushHistoryNode(epoch1, getLeafN(1));
 

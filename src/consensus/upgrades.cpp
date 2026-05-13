@@ -36,22 +36,22 @@ const struct NUInfo NetworkUpgradeInfo[Consensus::MAX_NETWORK_UPGRADES] = {
         .strInfo = "Ycash fork from Zcash. See https://y.cash/ for details.",
     },
     {
-        // Branch IDs from Blossom onward are intentionally kept at the
-        // upstream Zcash values because the vendored Rust transaction
-        // parser (zcash_primitives) only recognizes those IDs. Wiring the
-        // Rust side up to the Ycash-specific branch IDs from the reference
-        // Ycash codebase is tracked separately.
-        .nBranchId = 0x2bb40e60,
+        // Branch IDs for Ycash post-fork upgrades. The patched
+        // zcash_primitives crate (see Cargo.toml [patch.crates-io])
+        // recognizes these Ycash-specific values for Blossom, Heartwood,
+        // and Canopy. NU5/NU6/NU6.1 retain their upstream Zcash branch
+        // IDs since those upgrades are not (yet) activated on Ycash.
+        .nBranchId = 0x8e471bd6,
         .strName = "Blossom",
         .strInfo = "See https://z.cash/upgrade/blossom/ for details.",
     },
     {
-        .nBranchId = 0xf5b9230b,
+        .nBranchId = 0x66314da3,
         .strName = "Heartwood",
         .strInfo = "See https://z.cash/upgrade/heartwood/ for details.",
     },
     {
-        .nBranchId = 0xe9ff75a6,
+        .nBranchId = 0x19bd2d2f,
         .strName = "Canopy",
         .strInfo = "See https://z.cash/upgrade/canopy/ for details.",
     },

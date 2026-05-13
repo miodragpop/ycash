@@ -37,6 +37,7 @@ pub(crate) fn network(
     network: &str,
     overwinter: i32,
     sapling: i32,
+    ycash: i32,
     blossom: i32,
     heartwood: i32,
     canopy: i32,
@@ -58,6 +59,7 @@ pub(crate) fn network(
         "regtest" => Network::RegTest(LocalNetwork {
             overwinter: i32_to_optional_height(overwinter),
             sapling: i32_to_optional_height(sapling),
+            ycash: i32_to_optional_height(ycash),
             blossom: i32_to_optional_height(blossom),
             heartwood: i32_to_optional_height(heartwood),
             canopy: i32_to_optional_height(canopy),

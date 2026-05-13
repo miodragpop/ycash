@@ -75,6 +75,7 @@ pub(crate) mod ffi {
             network: &str,
             overwinter: i32,
             sapling: i32,
+            ycash: i32,
             blossom: i32,
             heartwood: i32,
             canopy: i32,
