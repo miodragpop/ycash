@@ -34,6 +34,13 @@ const struct NUInfo NetworkUpgradeInfo[Consensus::MAX_NETWORK_UPGRADES] = {
         .nBranchId = 0x374d694f,
         .strName = "Ycash",
         .strInfo = "Ycash fork from Zcash. See https://y.cash/ for details.",
+        // Ycash forked Equihash from (200, 9) to (192, 7) at this upgrade.
+        // The override remains in effect through all later upgrades unless
+        // they explicitly set a new value, because EquihashN/K(nHeight)
+        // walks back from CurrentEpoch(nHeight) to the most recent entry
+        // whose override is non-zero.
+        .nEquihashN = 192,
+        .nEquihashK =   7,
     },
     {
         // Branch IDs for Ycash post-fork upgrades. The patched

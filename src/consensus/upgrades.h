@@ -22,6 +22,13 @@ struct NUInfo {
     std::string strName;
     /** User-facing information string about the upgrade */
     std::string strInfo;
+    /**
+     * Equihash (N,K) override applied from this upgrade onwards. A value of 0
+     * means "fall back to the chainparams default (nEquihashN/nEquihashK)".
+     */
+    static constexpr unsigned int EQUIHASH_DEFAULT = 0;
+    unsigned int nEquihashN = EQUIHASH_DEFAULT;
+    unsigned int nEquihashK = EQUIHASH_DEFAULT;
 };
 
 extern const struct NUInfo NetworkUpgradeInfo[];

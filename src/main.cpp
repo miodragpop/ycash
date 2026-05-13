@@ -5724,6 +5724,26 @@ bool ContextualCheckBlockHeader(
 
     int nHeight = pindexPrev->nHeight+1;
 
+    // If the Equihash solution is set, check that its size matches the
+    // parameters in effect at this height. The base CheckEquihashSolution()
+    // already verified that the solution math is consistent with *some*
+    // supported (N, K); this is the height-aware second layer ensuring the
+    // block actually uses the (N, K) required at its height (Ycash switches
+    // from (200, 9) to (192, 7) at UPGRADE_YCASH).
+    const size_t nSolSize = block.nSolution.size();
+    if (nSolSize > 0) {
+        const unsigned int n = chainParams.EquihashN(nHeight);
+        const unsigned int k = chainParams.EquihashK(nHeight);
+        // expectedSize = (2^k * (n/(k+1) + 1)) / 8
+        const size_t expectedSize = ((static_cast<size_t>(1) << k) * (n / (k + 1) + 1)) / 8;
+        if (nSolSize != expectedSize) {
+            return state.DoS(100,
+                error("%s: incorrect equihash solution size %d, expected %d for parameters (%u, %u)",
+                      __func__, nSolSize, expectedSize, n, k),
+                REJECT_INVALID, "bad-equihash-solution-size");
+        }
+    }
+
     // Check proof of work
     if (block.nBits != GetNextWorkRequired(pindexPrev, &block, consensusParams)) {
         return state.DoS(100, error("%s: incorrect proof of work", __func__),

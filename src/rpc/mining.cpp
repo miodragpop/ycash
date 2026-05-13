@@ -221,8 +221,6 @@ UniValue generate(const UniValue& params, bool fHelp)
     }
     unsigned int nExtraNonce = 0;
     UniValue blockHashes(UniValue::VARR);
-    unsigned int n = Params().GetConsensus().nEquihashN;
-    unsigned int k = Params().GetConsensus().nEquihashK;
     while (nHeight < nHeightEnd)
     {
         std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(minerAddress));
@@ -233,6 +231,12 @@ UniValue generate(const UniValue& params, bool fHelp)
             LOCK(cs_main);
             IncrementExtraNonce(pblocktemplate.get(), chainActive.Tip(), nExtraNonce, Params().GetConsensus());
         }
+
+        // Equihash (N, K) for the height of the block we're about to mine.
+        // Ycash changes these at UPGRADE_YCASH, so they must be re-read
+        // per block rather than cached outside the loop.
+        const unsigned int n = Params().EquihashN(nHeight + 1);
+        const unsigned int k = Params().EquihashK(nHeight + 1);
 
         // Hash state
         eh_HashState eh_state = EhInitialiseState(n, k);

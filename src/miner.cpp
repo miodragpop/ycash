@@ -861,12 +861,16 @@ void static BitcoinMiner(const CChainParams& chainparams)
     std::optional<MinerAddress> maybeMinerAddress;
     GetMainSignals().AddressForMining(maybeMinerAddress);
 
+    // n, k are refreshed per iteration below to track the height-aware
+    // Equihash parameters returned by CChainParams::EquihashN/K(). They are
+    // declared here so the per-thread cancellation/solver state below can
+    // capture them by reference.
     unsigned int n = chainparams.GetConsensus().nEquihashN;
     unsigned int k = chainparams.GetConsensus().nEquihashK;
 
     std::string solver = GetArg("-equihashsolver", "default");
     assert(solver == "tromp" || solver == "default");
-    LogPrint("pow", "Using Equihash solver \"%s\" with n = %u, k = %u\n", solver, n, k);
+    LogPrint("pow", "Using Equihash solver \"%s\" (initial n = %u, k = %u; refreshed per block)\n", solver, n, k);
 
     std::mutex m_cs;
     bool cancelSolver = false;
@@ -918,6 +922,13 @@ void static BitcoinMiner(const CChainParams& chainparams)
                 MilliSleep(1000);
                 continue;
             }
+
+            // Refresh the Equihash parameters for the height of the block we
+            // are about to assemble. On Ycash these change at UPGRADE_YCASH
+            // from (200, 9) to (192, 7); the miner thread must follow the
+            // chain across that boundary.
+            n = chainparams.EquihashN(pindexPrev->nHeight + 1);
+            k = chainparams.EquihashK(pindexPrev->nHeight + 1);
 
             unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainparams).CreateNewBlock(minerAddress));
             if (!pblocktemplate.get())

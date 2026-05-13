@@ -106,8 +106,28 @@ unsigned int CalculateNextWorkRequired(arith_uint256 bnAvg,
 
 bool CheckEquihashSolution(const CBlockHeader *pblock, const Consensus::Params& params)
 {
-    unsigned int n = params.nEquihashN;
-    unsigned int k = params.nEquihashK;
+    // Derive (n, k) from the solution size; the block header doesn't carry
+    // them, and on Ycash they change at UPGRADE_YCASH. This is a context-free
+    // sanity check: the solution math must verify against *some* supported
+    // parameter set. A second, height-aware check in ContextualCheckBlockHeader
+    // confirms the solution size matches what's expected at the block's
+    // height (see CChainParams::EquihashN/EquihashK).
+    unsigned int n, k;
+    const size_t nSolSize = pblock->nSolution.size();
+    if (nSolSize == 1344) {        // (200, 9): Zcash/Ycash mainnet & testnet pre-UPGRADE_YCASH and genesis
+        n = 200; k = 9;
+    } else if (nSolSize == 400) {  // (192, 7): Ycash post-UPGRADE_YCASH
+        n = 192; k = 7;
+    } else if (nSolSize == 36) {   // (48, 5): regtest
+        n = 48; k = 5;
+    } else if (nSolSize == 100) {  // (144, 5)
+        n = 144; k = 5;
+    } else if (nSolSize == 68) {   // (96, 5)
+        n = 96; k = 5;
+    } else {
+        return error("%s: unsupported Equihash solution size %d", __func__, nSolSize);
+    }
+    (void)params; // not used here; the caller's context determines validity.
 
     // I = the block header minus nonce and solution.
     CEquihashInput I{*pblock};

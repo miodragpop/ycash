@@ -140,6 +140,15 @@ public:
     std::string GetYcashFoundersRewardAddressAtIndex(int i) const;
     /** Last height at which the YDF (Ycash Development Fund) mandate applies. */
     int GetYdfMandateEndHeight() const { return nYdfMandateEndHeight; }
+    /**
+     * Return the Equihash (N, K) parameters in effect at the given block
+     * height. Walks back from CurrentEpoch(nHeight) through the
+     * NetworkUpgradeInfo table to the most recent upgrade that recorded a
+     * non-zero override; falls back to the chainparams default (used at
+     * genesis) if none is found.
+     */
+    unsigned int EquihashN(int nHeight) const;
+    unsigned int EquihashK(int nHeight) const;
     /** Enforce coinbase consensus rule in regtest mode */
     void SetRegTestCoinbaseMustBeShielded() { consensus.fCoinbaseMustBeShielded = true; }
 protected:

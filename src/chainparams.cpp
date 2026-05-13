@@ -966,6 +966,36 @@ std::string CChainParams::GetYcashFoundersRewardAddressAtIndex(int i) const {
     return vYcashFoundersRewardAddress[i];
 }
 
+namespace {
+// Walk back from the upgrade epoch active at nHeight through NetworkUpgradeInfo
+// and return the most recent NUInfo entry whose Equihash override is non-zero,
+// or nullptr if no override applies (caller should use the chainparams default).
+const NUInfo* GetEquihashOverride(int nHeight, const Consensus::Params& params) {
+    for (int idx = CurrentEpoch(nHeight, params); idx >= Consensus::BASE_SPROUT; --idx) {
+        const NUInfo& info = NetworkUpgradeInfo[idx];
+        if (info.nEquihashN != NUInfo::EQUIHASH_DEFAULT ||
+            info.nEquihashK != NUInfo::EQUIHASH_DEFAULT) {
+            return &info;
+        }
+    }
+    return nullptr;
+}
+} // namespace
+
+unsigned int CChainParams::EquihashN(int nHeight) const {
+    if (auto info = GetEquihashOverride(nHeight, consensus)) {
+        return info->nEquihashN;
+    }
+    return consensus.nEquihashN;
+}
+
+unsigned int CChainParams::EquihashK(int nHeight) const {
+    if (auto info = GetEquihashOverride(nHeight, consensus)) {
+        return info->nEquihashK;
+    }
+    return consensus.nEquihashK;
+}
+
 void UpdateNetworkUpgradeParameters(Consensus::UpgradeIndex idx, int nActivationHeight)
 {
     regTestParams.UpdateNetworkUpgradeParameters(idx, nActivationHeight);
