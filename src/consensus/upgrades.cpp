@@ -1,4 +1,5 @@
 // Copyright (c) 2018-2023 The Zcash developers
+// Copyright (c) 2019-present The Ycash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -30,22 +31,27 @@ const struct NUInfo NetworkUpgradeInfo[Consensus::MAX_NETWORK_UPGRADES] = {
         .strInfo = "See https://z.cash/upgrade/sapling/ for details.",
     },
     {
-        .nBranchId = 0x2bb40e60,
+        .nBranchId = 0x374d694f,
+        .strName = "Ycash",
+        .strInfo = "Ycash fork from Zcash. See https://y.cash/ for details.",
+    },
+    {
+        .nBranchId = 0x8e471bd6,
         .strName = "Blossom",
         .strInfo = "See https://z.cash/upgrade/blossom/ for details.",
     },
     {
-        .nBranchId = 0xf5b9230b,
+        .nBranchId = 0x66314da3,
         .strName = "Heartwood",
         .strInfo = "See https://z.cash/upgrade/heartwood/ for details.",
     },
     {
-        .nBranchId = 0xe9ff75a6,
+        .nBranchId = 0x19bd2d2f,
         .strName = "Canopy",
         .strInfo = "See https://z.cash/upgrade/canopy/ for details.",
     },
     {
-        .nBranchId = 0xc2d6d0b4,
+        .nBranchId = 0xf919a198,
         .strName = "NU5",
         .strInfo = "See https://z.cash/upgrade/nu5/ for details.",
     },

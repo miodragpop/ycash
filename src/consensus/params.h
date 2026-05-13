@@ -1,6 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
 // Copyright (c) 2016-2023 The Zcash developers
+// Copyright (c) 2019-present The Ycash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -36,6 +37,7 @@ enum UpgradeIndex : uint32_t {
     UPGRADE_TESTDUMMY,
     UPGRADE_OVERWINTER,
     UPGRADE_SAPLING,
+    UPGRADE_YCASH,
     UPGRADE_BLOSSOM,
     UPGRADE_HEARTWOOD,
     UPGRADE_CANOPY,
@@ -495,6 +497,10 @@ struct Params {
     uint256 powLimit;
     std::optional<uint32_t> nPowAllowMinDifficultyBlocksAfterHeight;
     bool fPowNoRetargeting;
+    // Ycash-fork difficulty rule flags (consumed by the difficulty adjustment
+    // logic around the UPGRADE_YCASH activation height).
+    bool minDifficultyAtYcashFork = false;
+    bool scaledDifficultyAtYcashFork = false;
     int64_t nPowAveragingWindow;
     int64_t nPowMaxAdjustDown;
     int64_t nPowMaxAdjustUp;
