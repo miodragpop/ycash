@@ -1,6 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
 // Copyright (c) 2016-2025 The Zcash developers
+// Copyright (c) 2019-present The Ycash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -67,13 +68,13 @@ static const unsigned int MAX_REORG_LENGTH = COINBASE_MATURITY - 1;
 static const bool DEFAULT_WHITELISTRELAY = true;
 /** Default for DEFAULT_WHITELISTFORCERELAY. */
 static const bool DEFAULT_WHITELISTFORCERELAY = true;
-/** Default for -minrelaytxfee, minimum relay fee rate for transactions in zatoshis per 1000 bytes. TODO(misnamed, this is a rate) */
+/** Default for -minrelaytxfee, minimum relay fee rate for transactions in yoshis per 1000 bytes. TODO(misnamed, this is a rate) */
 static const unsigned int DEFAULT_MIN_RELAY_TX_FEE = 100;
-/** Default for -maxtxfee in zatoshis. */
+/** Default for -maxtxfee in yoshis. */
 static const CAmount DEFAULT_TRANSACTION_MAXFEE = 0.1 * COIN;
-/** Discourage users from setting fee rates higher than this in zatoshis per 1000 bytes. */
+/** Discourage users from setting fee rates higher than this in yoshis per 1000 bytes. */
 static const CAmount HIGH_TX_FEE_PER_KB = 0.01 * COIN;
-/** Warn if -maxtxfee is set to a fee higher than this in zatoshis. */
+/** Warn if -maxtxfee is set to a fee higher than this in yoshis. */
 static const CAmount HIGH_MAX_TX_FEE = 100 * HIGH_TX_FEE_PER_KB;
 //! -maxtxfee will error if called with a fee that won’t allow tx to have this many actions
 static const unsigned int LOW_LOGICAL_ACTIONS = 10;
@@ -220,9 +221,9 @@ extern unsigned int nDbWriteInterval;
 // it is unneeded for testing
 extern bool fCoinbaseEnforcedShieldingEnabled;
 extern size_t nCoinCacheUsage;
-/** Transactions must have at least this fee rate (in zatoshis per 1000 bytes) for relaying, mining and transaction creation. */
+/** Transactions must have at least this fee rate (in yoshis per 1000 bytes) for relaying, mining and transaction creation. */
 extern CFeeRate minRelayTxFee;
-/** Absolute maximum transaction fee (in zatoshis) used by wallet and mempool (rejects high fee in sendrawtransaction). */
+/** Absolute maximum transaction fee (in yoshis) used by wallet and mempool (rejects high fee in sendrawtransaction). */
 extern CAmount maxTxFee;
 /** Limit on the number of unpaid actions a transaction can have to be accepted to the mempool. */
 extern CAmount nTxUnpaidActionLimit;

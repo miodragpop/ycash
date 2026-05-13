@@ -1,6 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
 // Copyright (c) 2015-2025 The Zcash developers
+// Copyright (c) 2019-present The Ycash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -57,7 +58,7 @@
 using namespace std;
 
 #if defined(NDEBUG)
-# error "Zcash cannot be compiled without assertions."
+# error "Ycash cannot be compiled without assertions."
 #endif
 
 #include "librustzcash.h"
@@ -940,7 +941,7 @@ bool ContextualCheckTransaction(
             int expiredDosLevel = IsExpiredTx(tx, nHeight - 1) ? dosLevelConstricting : 0;
             return state.DoS(
                     expiredDosLevel,
-                    error("ContextualCheckTransaction(): transaction is expired. Resending when caught up with the blockchain, or manually setting the zcashd txexpirydelta parameter may help."),
+                    error("ContextualCheckTransaction(): transaction is expired. Resending when caught up with the blockchain, or manually setting the ycashd txexpirydelta parameter may help."),
                     REJECT_INVALID, "tx-overwinter-expired");
         }
 
@@ -1960,7 +1961,7 @@ bool AcceptToMemoryPool(
 
         // No transactions are allowed with modified fee below the minimum relay fee,
         // except from disconnected blocks. The minimum relay fee will never be more
-        // than LEGACY_DEFAULT_FEE zatoshis.
+        // than LEGACY_DEFAULT_FEE yoshis.
         CAmount minRelayFee = ::minRelayTxFee.GetFeeForRelay(nSize);
         if (fLimitFree && nModifiedFees < minRelayFee) {
             LogPrint("mempool",
@@ -3173,7 +3174,7 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigne
 static CCheckQueue<CScriptCheck> scriptcheckqueue(128);
 
 void ThreadScriptCheck() {
-    RenameThread("zc-scriptcheck");
+    RenameThread("yc-scriptcheck");
     scriptcheckqueue.Thread();
 }
 
@@ -3362,7 +3363,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 _("The Sprout shielded value pool balance is not tracked for "
                   "some blocks in your block index. This may indicate legacy "
                   "data that predates Sprout value pool tracking. Please "
-                  "restart zcashd with -reindex."));
+                  "restart ycashd with -reindex."));
         }
         if (!MoneyRange(pindex->nChainSproutValue.value())) {
             return state.DoS(100,
@@ -3886,7 +3887,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                         strprintf("%s: chain total supply does not match sum of pool balances at height %d (sprout=%d, sapling=%d, orchard=%d, lockbox=%d, transparent=%d, total=%d)", __func__,
                                   pindex->nHeight, sprout_supply, sapling_supply, orchard_supply, lockbox_supply, transparent_supply, total_supply),
                         _("The chain total supply does not match the sum of the pool balances. This indicates a fatal problem with the node's pool accounting. "
-                          "Please restart zcashd with -reindex."));
+                          "Please restart ycashd with -reindex."));
                 }
             } else if (chainparams.RegTestAllowLegacyChainSupplyData()) {
                 LogPrintf("%s: skipping chain supply consistency check at height %d because chain supply tracking fields are missing (-regtestallowlegacychainsupplydata)\n", __func__,
@@ -4333,25 +4334,25 @@ struct PoolMetrics {
     do {                                         \
         if (poolMetrics.created) {               \
             MetricsStaticGauge(                  \
-                "zcash.pool.notes.created",      \
+                "ycash.pool.notes.created",      \
                 poolMetrics.created.value(),     \
                 "name", poolName);               \
         }                                        \
         if (poolMetrics.spent) {                 \
             MetricsStaticGauge(                  \
-                "zcash.pool.notes.spent",        \
+                "ycash.pool.notes.spent",        \
                 poolMetrics.spent.value(),       \
                 "name", poolName);               \
         }                                        \
         if (poolMetrics.unspent) {               \
             MetricsStaticGauge(                  \
-                "zcash.pool.notes.unspent",      \
+                "ycash.pool.notes.unspent",      \
                 poolMetrics.unspent.value(),     \
                 "name", poolName);               \
         }                                        \
         if (poolMetrics.value) {                 \
             MetricsStaticGauge(                  \
-                "zcash.pool.value.zatoshis",     \
+                "ycash.pool.value.zatoshis",     \
                 poolMetrics.value.value(),       \
                 "name", poolName);               \
         }                                        \
@@ -4389,7 +4390,7 @@ void static UpdateTip(CBlockIndex *pindexNew, const CChainParams& chainParams) {
     auto orchardPool = PoolMetrics::Orchard(pindexNew, pcoinsTip);
     auto transparentPool = PoolMetrics::Transparent(pindexNew, pcoinsTip);
 
-    MetricsGauge("zcash.chain.verified.block.height", pindexNew->nHeight);
+    MetricsGauge("ycash.chain.verified.block.height", pindexNew->nHeight);
     RenderPoolMetrics("sprout", sproutPool);
     RenderPoolMetrics("sapling", saplingPool);
     RenderPoolMetrics("orchard", orchardPool);
@@ -4548,7 +4549,7 @@ bool static ConnectTip(CValidationState& state, const CChainParams& chainparams,
     int64_t nTime6 = GetTimeMicros(); nTimePostConnect += nTime6 - nTime5;
     LogPrint("bench", "  - Connect postprocess: %.2fms [%.2fs]\n", (nTime6 - nTime5) * 0.001, nTimePostConnect * 0.000001);
     // Total connection time benchmarking occurs in ActivateBestChainStep.
-    MetricsIncrementCounter("zcash.chain.verified.block.total");
+    MetricsIncrementCounter("ycash.chain.verified.block.total");
     return true;
 }
 
@@ -4750,7 +4751,7 @@ static bool ActivateBestChainStep(CValidationState& state, const CChainParams& c
             } else {
                 int64_t nTime3 = GetTimeMicros(); nTimeTotal += nTime3 - nTime1;
                 LogPrint("bench", "- Connect block: %.2fms [%.2fs]\n", (nTime3 - nTime1) * 0.001, nTimeTotal * 0.000001);
-                MetricsHistogram("zcash.chain.verified.block.seconds", (nTime3 - nTime1) * 0.000001);
+                MetricsHistogram("ycash.chain.verified.block.seconds", (nTime3 - nTime1) * 0.000001);
 
                 PruneBlockIndexCandidates();
                 if (!pindexOldTip || chainActive.Tip()->nChainWork > pindexOldTip->nChainWork) {

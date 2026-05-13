@@ -180,7 +180,7 @@ void ThrowInputSelectionError(
                 RPC_INVALID_PARAMETER,
                 strprintf(
                     "The provided fee, %s, is invalid. Fees must be non-negative, and no greater "
-                    "than the total amount of ZEC that will ever be available.",
+                    "than the total amount of YEC that will ever be available.",
                     DisplayMoney(err.fixedFee),
                     DisplayMoney(MAX_MONEY)));
         },
@@ -201,7 +201,7 @@ void ThrowInputSelectionError(
                 RPC_INVALID_PARAMETER,
                 strprintf(
                     "Fee (%s) is greater than the maximum fee allowed by this instance (%s). Run "
-                    "zcashd with `-maxtxfee` to adjust this limit.",
+                    "ycashd with `-maxtxfee` to adjust this limit.",
                     DisplayMoney(err.fixedFee),
                     DisplayMoney(maxTxFee)));
         },

@@ -1,6 +1,7 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
 // Copyright (c) 2015-2025 The Zcash developers
+// Copyright (c) 2019-present The Ycash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -87,7 +88,7 @@ class CMainParams : public CChainParams {
 public:
     CMainParams() {
         keyConstants.strNetworkID = "main";
-        strCurrencyUnits = "ZEC";
+        strCurrencyUnits = "YEC";
         keyConstants.bip44CoinType = 133; // As registered in https://github.com/satoshilabs/slips/blob/master/slip-0044.md
         consensus.fCoinbaseMustBeShielded = true;
         consensus.nSubsidySlowStartInterval = 20000;
@@ -472,7 +473,7 @@ class CTestNetParams : public CChainParams {
 public:
     CTestNetParams() {
         keyConstants.strNetworkID = "test";
-        strCurrencyUnits = "TAZ";
+        strCurrencyUnits = "TAY";
         keyConstants.bip44CoinType = 1;
         consensus.fCoinbaseMustBeShielded = true;
         consensus.nSubsidySlowStartInterval = 20000;
@@ -975,7 +976,7 @@ public:
         // The block hash is left null; FallbackChainSupplyCheckpoint
         // skips the hash check when it is null.
         // Values from the sprout regtest cache at height 200.
-        // The sprout cache has 4 × 50 ZEC = 200 ZEC shielded into Sprout.
+        // The sprout cache has 4 × 50 YEC = 200 YEC shielded into Sprout.
         nChainSupplyCheckpointHeight = 200;
         nChainSupplyCheckpointTotalSupply = 214375000000;
         nChainSupplyCheckpointTransparentValue = 194375000000;

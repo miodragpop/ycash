@@ -2245,7 +2245,7 @@ TEST(WalletTests, MarkAffectedSaplingTransactionsDirty) {
     auto scriptPubKey = GetScriptForDestination(tsk.GetPubKey().GetID());
 
     // Generate shielding tx from transparent to Sapling
-    // 0.0005 t-ZEC in, 0.0004 z-ZEC out, default fee
+    // 0.0005 t-YEC in, 0.0004 z-YEC out, default fee
     auto builder = TransactionBuilder(Params(), 1, std::nullopt, SaplingMerkleTree::empty_root(), &keystore);
     builder.AddTransparentInput(
         COutPoint(uint256S("7777777777777777777777777777777777777777777777777777777777777777"), 0),
@@ -2307,7 +2307,7 @@ TEST(WalletTests, MarkAffectedSaplingTransactionsDirty) {
     ASSERT_EQ(anchor, witness.root());
 
     // Create a Sapling-only transaction
-    // 0.0004 z-ZEC in, 0.00025 z-ZEC out, default fee, 0.00005 z-ZEC change
+    // 0.0004 z-YEC in, 0.00025 z-YEC out, default fee, 0.00005 z-YEC change
     auto builder2 = TransactionBuilder(Params(), 2, std::nullopt, anchor);
     builder2.AddSaplingSpend(sk, note, witness);
     builder2.AddSaplingOutput(extfvk.fvk.ovk, pk, 2500, {});

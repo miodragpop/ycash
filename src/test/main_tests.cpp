@@ -1,5 +1,6 @@
 // Copyright (c) 2014 The Bitcoin Core developers
 // Copyright (c) 2016-2023 The Zcash developers
+// Copyright (c) 2019-present The Ycash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -99,10 +100,10 @@ BOOST_AUTO_TEST_CASE(subsidy_limit_test)
 
     // Changing the block interval from 10 to 2.5 minutes causes truncation
     // effects to occur earlier (from the 9th halving interval instead of the
-    // 11th), decreasing the total monetary supply by 0.0693 ZEC.
+    // 11th), decreasing the total monetary supply by 0.0693 YEC.
     // BOOST_CHECK_EQUAL(nSum, 2099999997690000ULL);
     // Reducing the interval further to 1.25 minutes has a similar effect,
-    // decreasing the total monetary supply by another 0.09240 ZEC.
+    // decreasing the total monetary supply by another 0.09240 YEC.
     // BOOST_CHECK_EQUAL(nSum, 2099999990760000ULL);
     BOOST_CHECK_EQUAL(nSum, 2099999981520000LL);
 }

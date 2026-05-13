@@ -612,8 +612,8 @@ TEST(Validation, FallbackChainSupplyCheckpoint) {
     afterCheckpoint.nHeight = cpHeight + 1;
     afterCheckpoint.phashBlock = &someHash;
     afterCheckpoint.pprev = &atCheckpoint;
-    afterCheckpoint.nChainSupplyDelta = 312500000; // 3.125 ZEC subsidy
-    afterCheckpoint.nTransparentValue = 200000000; // 2 ZEC transparent delta
+    afterCheckpoint.nChainSupplyDelta = 312500000; // 3.125 YEC subsidy
+    afterCheckpoint.nTransparentValue = 200000000; // 2 YEC transparent delta
 
     // Simulate the accumulation that LoadBlockIndexDB performs:
     //   nChainTotalSupply = pprev->nChainTotalSupply + nChainSupplyDelta

@@ -116,7 +116,7 @@ TEST_P(SpendableInputsTest, SelectsSproutBeforeFirst)
         }
     }
 
-    // Limit to 5 zatoshis (which can be satisfied by any pool).
+    // Limit to 5 yoshis (which can be satisfied by any pool).
     EXPECT_TRUE(inputs.LimitToAmount(5, 1, recipientPools));
     EXPECT_EQ(inputs.Total(), 5);
 
@@ -166,7 +166,7 @@ TEST_P(SpendableInputsTest, SelectsSproutThenFirst)
         }
     }
 
-    // Limit to 14 zatoshis (which requires two pools). If we only have one pool
+    // Limit to 14 yoshis (which requires two pools). If we only have one pool
     // available and can't select Sprout, we won't have sufficient funds.
     auto sufficientFunds = inputs.LimitToAmount(14, 1, std::get<1>(GetParam()));
     if (available.size() == 1 && !canSelectSprout) {
@@ -236,7 +236,7 @@ TEST_P(SpendableInputsTest, SelectsFirstBeforeSecond)
         }
     }
 
-    // Limit to 8 zatoshis (which can be satisfied by any pool).
+    // Limit to 8 yoshis (which can be satisfied by any pool).
     EXPECT_TRUE(inputs.LimitToAmount(8, 1, std::get<1>(GetParam())));
     EXPECT_EQ(inputs.Total(), 8);
 
@@ -273,7 +273,7 @@ TEST_P(SpendableInputsTest, SelectsFirstThenSecond)
         }
     }
 
-    // Limit to 13 zatoshis (which requires two pools).
+    // Limit to 13 yoshis (which requires two pools).
     // If we only have one pool available, we won't have sufficient funds.
     auto sufficientFunds = inputs.LimitToAmount(13, 1, std::get<1>(GetParam()));
     if (available.size() == 1) {
@@ -329,7 +329,7 @@ TEST_P(SpendableInputsTest, SelectsSproutAndFirstThenSecond)
         }
     }
 
-    // Limit to 24 zatoshis. If we only have one pool available, or we have two
+    // Limit to 24 yoshis. If we only have one pool available, or we have two
     // pools but can't select Sprout, we won't have sufficient funds.
     auto sufficientFunds = inputs.LimitToAmount(24, 1, std::get<1>(GetParam()));
     if (available.size() == 1 || (available.size() == 2 && !canSelectSprout)) {
@@ -414,7 +414,7 @@ TEST_P(SpendableInputsTest, OpportunisticShielding)
         }
     }
 
-    // Limit to 7 zatoshis. We can't satisfy this with two shielded pools, so we
+    // Limit to 7 yoshis. We can't satisfy this with two shielded pools, so we
     // will trigger the opportunistic shielding logic, which causes us to select
     // all transparent notes. Because transparent is sufficient to reach the
     // target amount, we don't select any shielded notes.

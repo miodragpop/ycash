@@ -1,6 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
 // Copyright (c) 2016-2025 The Zcash developers
+// Copyright (c) 2019-present The Ycash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -197,7 +198,7 @@ void Shutdown()
     /// for example if the data directory was found to be locked.
     /// Be sure that anything that writes files or flushes caches only does this if the respective
     /// module was initialized.
-    RenameThread("zcash-shutoff");
+    RenameThread("ycash-shutoff");
     mempool.AddTransactionsUpdated(1);
 
     StopHTTPRPC();
@@ -749,7 +750,7 @@ void ThreadStartWalletNotifier()
 
 void ThreadImport(std::vector<fs::path> vImportFiles, const CChainParams& chainparams)
 {
-    RenameThread("zcash-loadblk");
+    RenameThread("ycash-loadblk");
     CImportingNow imp;
 
     // -reindex
@@ -994,7 +995,7 @@ void InitLogging()
         fLogTimestamps);
 
     LogPrintf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    LogPrintf("Zcash version %s\n", FormatFullVersion());
+    LogPrintf("Ycash version %s\n", FormatFullVersion());
 }
 
 [[noreturn]] static void new_handler_terminate()
@@ -1208,7 +1209,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (nConnectTimeout <= 0)
         nConnectTimeout = DEFAULT_CONNECT_TIMEOUT;
 
-    // Fee rate in zatoshis per 1000 bytes required for mempool acceptance and relay.
+    // Fee rate in yoshis per 1000 bytes required for mempool acceptance and relay.
     // TODO(update when ZIP 317 is implemented):
     // If you are mining, be careful setting this. If you set it too low then a
     // transaction spammer can cheaply fill blocks. It should be set above the real
@@ -1452,7 +1453,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         }
         if (!addr.has_value()) {
             return InitError(strprintf(
-                _("Invalid address for -mineraddress=<addr>: Unable to parse '%s' as a Zcash address.)"),
+                _("Invalid address for -mineraddress=<addr>: Unable to parse '%s' as a Ycash address.)"),
                 mapArgs["-mineraddress"]));
         }
         if (!std::visit(ExtractMinerAddress(consensus, height), addr.value()).has_value()) {
@@ -1477,7 +1478,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     // Sanity check
     if (!InitSanityCheck())
-        return InitError(_("Initialization sanity check failed. Zcash is shutting down."));
+        return InitError(_("Initialization sanity check failed. Ycash is shutting down."));
 
     std::string strDataDir = GetDataDir().string();
 
@@ -1489,9 +1490,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     try {
         static boost::interprocess::file_lock lock(pathLockFile.string().c_str());
         if (!lock.try_lock())
-            return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zcash is probably already running."), strDataDir));
+            return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Ycash is probably already running."), strDataDir));
     } catch(const boost::interprocess::interprocess_exception& e) {
-        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zcash is probably already running.") + " %s.", strDataDir, e.what()));
+        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Ycash is probably already running.") + " %s.", strDataDir, e.what()));
     }
 
 #ifndef WIN32
@@ -1564,7 +1565,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Expose binary metadata to metrics, using a single time series with value 1.
     // https://www.robustperception.io/exposing-the-software-version-to-prometheus
     MetricsIncrementCounter(
-        "zcashd.build.info",
+        "ycashd.build.info",
         "version", CLIENT_BUILD.c_str());
 
     if ((chainparams.NetworkIDString() != "regtest") &&
@@ -2018,10 +2019,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 #ifdef ENABLE_MINING
  #ifndef ENABLE_WALLET
     if (GetBoolArg("-minetolocalwallet", false)) {
-        return InitError(_("Zcash was not built with wallet support. Set -minetolocalwallet=0 to use -mineraddress, or rebuild Zcash with wallet support."));
+        return InitError(_("Ycash was not built with wallet support. Set -minetolocalwallet=0 to use -mineraddress, or rebuild Ycash with wallet support."));
     }
     if (GetArg("-mineraddress", "").empty() && GetBoolArg("-gen", false)) {
-        return InitError(_("Zcash was not built with wallet support. Set -mineraddress, or rebuild Zcash with wallet support."));
+        return InitError(_("Ycash was not built with wallet support. Set -mineraddress, or rebuild Ycash with wallet support."));
     }
  #endif // !ENABLE_WALLET
 

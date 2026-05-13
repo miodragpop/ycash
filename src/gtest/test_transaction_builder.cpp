@@ -39,7 +39,7 @@ TEST(TransactionBuilder, TransparentToSapling)
     auto pk = *ivk.address(d);
 
     // Create a shielding transaction from transparent to Sapling
-    // 0.00005 t-ZEC in, 0.00004 z-ZEC out, default fee
+    // 0.00005 t-YEC in, 0.00004 z-YEC out, default fee
     auto builder = TransactionBuilder(Params(), 1, std::nullopt, SaplingMerkleTree::empty_root(), &keystore);
     builder.AddTransparentInput(COutPoint(uint256S("1234"), 0), scriptPubKey, 5000);
     builder.AddSaplingOutput(fvk_from.ovk, pk, 4000, {});
@@ -73,7 +73,7 @@ TEST(TransactionBuilder, SaplingToSapling) {
     auto testNote = GetTestSaplingNote(pa, 4000);
 
     // Create a Sapling-only transaction
-    // 0.00004 z-ZEC in, 0.000025 z-ZEC out, default fee, 0.000005 z-ZEC change
+    // 0.00004 z-YEC in, 0.000025 z-YEC out, default fee, 0.000005 z-YEC change
     auto builder = TransactionBuilder(Params(), 2, std::nullopt, testNote.tree.root());
     builder.AddSaplingSpend(sk, testNote.note, testNote.tree.witness());
 
@@ -116,9 +116,9 @@ TEST(TransactionBuilder, SaplingToSprout) {
     auto sproutAddr = sproutSk.address();
 
     // Create a Sapling-to-Sprout transaction (reusing the note from above)
-    // - 0.00004 Sapling-ZEC in     - 0.000025 Sprout-ZEC out
-    //                              - 0.000005 Sapling-ZEC change
-    //                              - default t-ZEC fee
+    // - 0.00004 Sapling-YEC in     - 0.000025 Sprout-YEC out
+    //                              - 0.000005 Sapling-YEC change
+    //                              - default t-YEC fee
     auto builder = TransactionBuilder(Params(), 2, std::nullopt, testNote.tree.root(), nullptr);
     builder.AddSaplingSpend(sk, testNote.note, testNote.tree.witness());
     builder.AddSproutOutput(sproutAddr, 2500, std::nullopt);
@@ -168,11 +168,11 @@ TEST(TransactionBuilder, SproutToSproutAndSapling) {
     CCoinsViewCache view(&fakeDB);
 
     // Create a Sprout-to-[Sprout-and-Sapling] transaction
-    // - 0.00025 Sprout-ZEC in      - 0.00006 Sprout-ZEC out
-    //                              - 0.00004 Sprout-ZEC out
-    //                              - 0.00005 Sprout-ZEC change
-    //                              - 0.00005 Sapling-ZEC out
-    //                              - 0.00005 t-ZEC fee
+    // - 0.00025 Sprout-YEC in      - 0.00006 Sprout-YEC out
+    //                              - 0.00004 Sprout-YEC out
+    //                              - 0.00005 Sprout-YEC change
+    //                              - 0.00005 Sapling-YEC out
+    //                              - 0.00005 t-YEC fee
     auto builder = TransactionBuilder(Params(), 2, std::nullopt, SaplingMerkleTree::empty_root(), nullptr, &view);
     builder.SetFee(5000);
     builder.AddSproutInput(sproutSk, sproutNote, sproutWitness);
@@ -246,7 +246,7 @@ TEST(TransactionBuilder, TransparentToOrchard)
     auto orchardAnchor = uint256();
 
     // Create a shielding transaction from transparent to Orchard
-    // 0.00005 t-ZEC in, 0.00004 z-ZEC out, default fee
+    // 0.00005 t-YEC in, 0.00004 z-YEC out, default fee
     auto builder = TransactionBuilder(Params(), 1, orchardAnchor, SaplingMerkleTree::empty_root(), &keystore);
     builder.AddTransparentInput(COutPoint(uint256S("1234"), 0), scriptPubKey, 5000);
     builder.AddOrchardOutput(std::nullopt, recipient, 4000, std::nullopt);
@@ -316,21 +316,21 @@ TEST(TransactionBuilder, FailsWithNegativeChange)
     auto testNote = GetTestSaplingNote(pa, 5999);
 
     // Fail if there is only a Sapling output
-    // 0.00005 z-ZEC out, default fee
+    // 0.00005 z-YEC out, default fee
     auto builder = TransactionBuilder(Params(), 1, std::nullopt, testNote.tree.root());
     builder.AddSaplingOutput(fvk.ovk, pa, 5000, {});
-    EXPECT_EQ("Change cannot be negative: -0.00006 ZEC", builder.Build().GetError());
+    EXPECT_EQ("Change cannot be negative: -0.00006 YEC", builder.Build().GetError());
 
     // Fail if there is only a transparent output
-    // 0.00005 t-ZEC out, default fee
+    // 0.00005 t-YEC out, default fee
     builder = TransactionBuilder(Params(), 1, std::nullopt, testNote.tree.root(), &keystore);
     builder.AddTransparentOutput(taddr, 5000);
-    EXPECT_EQ("Change cannot be negative: -0.00006 ZEC", builder.Build().GetError());
+    EXPECT_EQ("Change cannot be negative: -0.00006 YEC", builder.Build().GetError());
 
     // Fails if there is insufficient input
-    // 0.00005 t-ZEC out, default fee, 0.00005999 z-ZEC in
+    // 0.00005 t-YEC out, default fee, 0.00005999 z-YEC in
     builder.AddSaplingSpend(sk, testNote.note, testNote.tree.witness());
-    EXPECT_EQ("Change cannot be negative: -0.00000001 ZEC", builder.Build().GetError());
+    EXPECT_EQ("Change cannot be negative: -0.00000001 YEC", builder.Build().GetError());
 
     // Succeeds if there is sufficient input
     builder.AddTransparentInput(
