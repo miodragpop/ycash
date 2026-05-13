@@ -6,7 +6,7 @@ include:
 
 | File                  | Description
 |-----------------------|--------------
-|``zcash.conf``         | contains configuration settings for zcashd
+|``ycash.conf``         | contains configuration settings for zcashd
 |``zcashd.pid``         | stores the process id of zcashd while running
 |``blocks/blk000*.dat`` | block data (custom, 128 MiB per file)
 |``blocks/rev000*.dat`` | block undo data (custom)
@@ -19,5 +19,5 @@ include:
 |``wallet.dat``         | personal wallet (BDB) with keys and transactions (keep private, back this up!)
 |``.cookie``            | session RPC authentication cookie (written at start when cookie authentication is used, deleted on shutdown)
 |``.lock``              | data directory lock file (empty)
-|``testnet3/*``         | contains testnet versions of these files, except ``zcash.conf``, if running ``-testnet``
+|``testnet3/*``         | contains testnet versions of these files, except ``ycash.conf``, if running ``-testnet``
 |``onion_private_key``  | cached Tor hidden service private key for ``-listenonion``

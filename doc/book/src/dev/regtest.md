@@ -20,7 +20,7 @@ Here's a sample session (after you've built `zcashd` and `zcash-cli`):
 
 ```
 $ mkdir /tmp/regtest-datadir
-$ cat <<EOF >/tmp/regtest-datadir/zcash.conf
+$ cat <<EOF >/tmp/regtest-datadir/ycash.conf
 regtest=1
 rpcuser=u
 rpcpassword=p
@@ -77,7 +77,7 @@ You specify the upgrade heights using multiple `-nuparams=`_\<branch-id\>_ argum
 [upgrades.cpp file](https://github.com/zcash/zcash/blob/master/src/consensus/upgrades.cpp))
 It's convenient to add these to the configuration file, for example:
 ```
-$ cat <<EOF >>/tmp/regtest-datadir/zcash.conf
+$ cat <<EOF >>/tmp/regtest-datadir/ycash.conf
 nuparams=76b809bb:1
 nuparams=f5b9230b:5
 EOF
@@ -160,6 +160,6 @@ $ cat /tmp/test9d907s8a/96246/node0/regtest/debug.log
 ```
 or look at its configuration file.
 ```
-$ cat /tmp/test9d907s8a/96246/node0/zcash.conf
+$ cat /tmp/test9d907s8a/96246/node0/ycash.conf
 ```
 In this way, the RPC test framework can teach us more about running `regtest` nodes.

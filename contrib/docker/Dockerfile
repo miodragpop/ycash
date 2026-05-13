@@ -32,7 +32,7 @@ RUN useradd --home-dir "/srv/$ZCASHD_USER" \
             "$ZCASHD_USER"
 
 RUN mkdir -p "/srv/$ZCASHD_USER/.zcash/" \
-    && touch "/srv/$ZCASHD_USER/.zcash/zcash.conf" \
+    && touch "/srv/$ZCASHD_USER/.zcash/ycash.conf" \
     && chown -R zcashd "/srv/$ZCASHD_USER"
 
 WORKDIR "/srv/$ZCASHD_USER"

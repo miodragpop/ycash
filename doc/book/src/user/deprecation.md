@@ -10,7 +10,7 @@ longer useful.  Deprecation follows a 3-stage process:
    continues to be available and function as normal. While features at this
    stage remain enabled by default, they may be explicitly disabled by
    specifying `-allowdeprecated=none` on the command line when starting the
-   node, or by including `allowdeprecated=none` as a line in the `zcash.conf`
+   node, or by including `allowdeprecated=none` as a line in the `ycash.conf`
    file. 
 2. In the next stage of deprecation, the feature will be disabled by default.
    Disabled features may be reenabled via use of the `-allowdeprecated` flag.
@@ -33,7 +33,7 @@ Stage 1
 
 The following features are deprecated, but remain enabled by default. These features
 will be disabled if `-allowdeprecated=none` is added to the CLI arguments when starting
-the node, or if an `allowdeprecated=none` line is added to `zcash.conf`.
+the node, or if an `allowdeprecated=none` line is added to `ycash.conf`.
 
 | `feature`                           | Deprecated | Feature details
 |-------------------------------------|------------|----------------
@@ -56,7 +56,7 @@ Stage 2
 
 Each feature in the table below may be enabled by adding `-allowdeprecated=<feature>`
 to the CLI arguments when starting the node, or by adding an `allowdeprecated=<feature>`
-line to `zcash.conf`.
+line to `ycash.conf`.
 
 | `feature`                           | Deprecated | Default-disabled | Feature details
 |-------------------------------------|------------|------------------|----------------

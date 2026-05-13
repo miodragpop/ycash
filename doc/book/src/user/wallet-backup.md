@@ -28,7 +28,7 @@ There are multiple ways to make sure you have at least one other copy of the
 private keys needed to spend your ZEC and view your shielded ZEC.
 
 For all methods, you will need to include an export directory setting in your
-config file (`zcash.conf` located in the data directory which is `~/.zcash/`
+config file (`ycash.conf` located in the data directory which is `~/.zcash/`
 unless it's been overridden with `datadir=` setting):
 
 `exportdir=path/to/chosen/export/directory`

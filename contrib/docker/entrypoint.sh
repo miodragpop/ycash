@@ -36,6 +36,6 @@ if [[ -n "${ZCASHD_ZMQPORT}" && -n "${ZCASHD_ZMQBIND}" ]];then
 fi
 
 zcash-fetch-params
-touch .zcash/zcash.conf
+touch .zcash/ycash.conf
 echo "Starting: ${ZCASHD_CMD[*]}"
 exec "${ZCASHD_CMD[@]}" "${@}"

@@ -31,7 +31,7 @@ You can see what each method provides with `zcash-cli help METHOD_NAME`.
 endpoint. The server will respond to `GET` requests on any request path.
 
 To enable the endpoint, add `-prometheusport=<port>` to your `zcashd`
-configuration (either in `zcash.conf` or on the command line). After
+configuration (either in `ycash.conf` or on the command line). After
 restarting `zcashd` you can then test the endpoint by querying it:
 
 ```
@@ -79,10 +79,10 @@ docker-compose up -d
 (substitute the root directory where you have checked out the `zcash` git
 repository for `<zcash_root>`)
 
-`~/.zcash/zcash.conf` must be updated to enable `prometheus` and to allow the
+`~/.zcash/ycash.conf` must be updated to enable `prometheus` and to allow the
 `prometheus` server launched via `docker-compose` to connect to the `zcashd`
 prometheus endpoint. The following commands can be used to detect the local IP
-address for the `prometheus` server and add it to the `~/.zcash/zcash.conf` 
+address for the `prometheus` server and add it to the `~/.zcash/ycash.conf` 
 file. 
 
 First, figure out where `prometheus` is running.
@@ -91,11 +91,11 @@ First, figure out where `prometheus` is running.
 export PROMETHEUS_DOCKER_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' zcashd-prometheus)
 ```
 
-Then, update your `~/.zcash/zcash.conf` file to open port `9969` and allow
+Then, update your `~/.zcash/ycash.conf` file to open port `9969` and allow
 connections from the `zcashd-prometheus` docker container.
 
 ```
-cat << PROM_CONF >> ~/.zcash/zcash.conf
+cat << PROM_CONF >> ~/.zcash/ycash.conf
 prometheusport=9969
 metricsallowip=$PROMETHEUS_DOCKER_IP/32
 PROM_CONF

@@ -38,7 +38,7 @@ ZCASHD_ZMQBIND
 
 Any provided command line parameters are passed from the entrypoint.sh script to zcashd.
 
-You can skip using environmental variables at all, and instead provide a fully configured `zcash.conf` file and map to `/srv/zcashd/.zcash/zcash.conf` at startup.
+You can skip using environmental variables at all, and instead provide a fully configured `ycash.conf` file and map to `/srv/zcashd/.zcash/ycash.conf` at startup.
 
 ## Examples
 
