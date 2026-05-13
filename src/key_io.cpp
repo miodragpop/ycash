@@ -1,5 +1,6 @@
 // Copyright (c) 2014-2016 The Bitcoin Core developers
 // Copyright (c) 2016-2023 The Zcash developers
+// Copyright (c) 2019-present The Ycash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -255,29 +256,59 @@ const size_t ConvertedSaplingExtendedFullViewingKeySize = (ZIP32_XFVK_SIZE * 8 +
 const size_t ConvertedSaplingExtendedSpendingKeySize = (ZIP32_XSK_SIZE * 8 + 4) / 5;
 } // namespace
 
-CTxDestination KeyIO::DecodeDestination(const std::string& str) const
+namespace {
+
+// Common base58 transparent-address decode, parameterized over the pubkey
+// and P2SH prefixes so it can be reused for both canonical and legacy
+// (Zcash-era) decoding.
+CTxDestination DecodeTransparentDestination(
+        const KeyConstants& keyConstants,
+        const std::string& str,
+        KeyConstants::Base58Type pubkeyType,
+        KeyConstants::Base58Type scriptType)
 {
     std::vector<unsigned char> data;
     uint160 hash;
     if (DecodeBase58Check(str, data)) {
-        // base58-encoded Bitcoin addresses.
-        // Public-key-hash-addresses have version 0 (or 111 testnet).
-        // The data vector contains RIPEMD160(SHA256(pubkey)), where pubkey is the serialized public key.
-        const std::vector<unsigned char>& pubkey_prefix = keyConstants.Base58Prefix(KeyConstants::PUBKEY_ADDRESS);
-        if (data.size() == hash.size() + pubkey_prefix.size() && std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin())) {
+        const std::vector<unsigned char>& pubkey_prefix = keyConstants.Base58Prefix(pubkeyType);
+        if (data.size() == hash.size() + pubkey_prefix.size() &&
+                std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin())) {
             std::copy(data.begin() + pubkey_prefix.size(), data.end(), hash.begin());
             return CKeyID(hash);
         }
-        // Script-hash-addresses have version 5 (or 196 testnet).
-        // The data vector contains RIPEMD160(SHA256(cscript)), where cscript is the serialized redemption script.
-        const std::vector<unsigned char>& script_prefix = keyConstants.Base58Prefix(KeyConstants::SCRIPT_ADDRESS);
-        if (data.size() == hash.size() + script_prefix.size() && std::equal(script_prefix.begin(), script_prefix.end(), data.begin())) {
+        const std::vector<unsigned char>& script_prefix = keyConstants.Base58Prefix(scriptType);
+        if (data.size() == hash.size() + script_prefix.size() &&
+                std::equal(script_prefix.begin(), script_prefix.end(), data.begin())) {
             std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
             return CScriptID(hash);
         }
     }
     return CNoDestination();
-};
+}
+
+} // namespace
+
+CTxDestination KeyIO::DecodeDestination(const std::string& str) const
+{
+    return DecodeTransparentDestination(
+            keyConstants, str,
+            KeyConstants::PUBKEY_ADDRESS,
+            KeyConstants::SCRIPT_ADDRESS);
+}
+
+CTxDestination KeyIO::DecodeLegacyDestination(const std::string& str) const
+{
+    return DecodeTransparentDestination(
+            keyConstants, str,
+            KeyConstants::LEGACY_PUBKEY_ADDRESS,
+            KeyConstants::LEGACY_SCRIPT_ADDRESS);
+}
+
+std::string KeyIO::ZecToYec(const std::string& str) const
+{
+    CTxDestination dest = DecodeLegacyDestination(str);
+    return EncodeDestination(dest);
+}
 
 CKey KeyIO::DecodeSecret(const std::string& str) const
 {
@@ -496,6 +527,52 @@ std::optional<libzcash::PaymentAddress> KeyIO::DecodePaymentAddress(const std::s
             return result;
         }
     });
+}
+
+std::optional<libzcash::PaymentAddress> KeyIO::DecodeLegacyPaymentAddress(const std::string& str) const
+{
+    // Try parsing as a Sapling address under the legacy bech32 HRP ("zs*").
+    auto sapling = DecodeSapling<libzcash::SaplingPaymentAddress, libzcash::SaplingPaymentAddress>(
+            keyConstants,
+            str,
+            std::make_pair(KeyConstants::LEGACY_SAPLING_PAYMENT_ADDRESS, ConvertedSaplingPaymentAddressSize));
+    if (sapling.has_value()) {
+        return sapling.value();
+    }
+
+    // Try parsing as a Sprout address under the legacy base58 prefix ("zc*").
+    auto sprout = DecodeSprout<libzcash::SproutPaymentAddress, libzcash::SproutPaymentAddress>(
+            keyConstants,
+            str,
+            std::make_pair(KeyConstants::LEGACY_ZCPAYMENT_ADDRESS, libzcash::SerializedSproutPaymentAddressSize));
+    if (sprout.has_value()) {
+        return sprout.value();
+    }
+
+    // Finally, try parsing as a legacy-prefixed transparent address.
+    return examine(DecodeLegacyDestination(str), match {
+        [](const CKeyID& keyIdIn) {
+            std::optional<libzcash::PaymentAddress> keyId = keyIdIn;
+            return keyId;
+        },
+        [](const CScriptID& scriptIdIn) {
+            std::optional<libzcash::PaymentAddress> scriptId = scriptIdIn;
+            return scriptId;
+        },
+        [](const CNoDestination&) {
+            std::optional<libzcash::PaymentAddress> result = std::nullopt;
+            return result;
+        }
+    });
+}
+
+std::string KeyIO::ZecToYecShielded(const std::string& str) const
+{
+    auto legacy = DecodeLegacyPaymentAddress(str);
+    if (!legacy.has_value()) {
+        return std::string();
+    }
+    return EncodePaymentAddress(legacy.value());
 }
 
 bool KeyIO::IsValidPaymentAddressString(const std::string& str) const

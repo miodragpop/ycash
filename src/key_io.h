@@ -1,6 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2015 The Bitcoin Core developers
 // Copyright (c) 2016-2023 The Zcash developers
+// Copyright (c) 2019-present The Ycash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -33,11 +34,34 @@ public:
 
     std::string EncodeDestination(const CTxDestination& dest) const;
     CTxDestination DecodeDestination(const std::string& str) const;
+    /**
+     * Decode a Zcash-encoded transparent address (using the LEGACY_* base58
+     * prefixes). Used by pre-fork callsites such as founders reward decoding
+     * and by ZecToYec() to convert legacy user input.
+     */
+    CTxDestination DecodeLegacyDestination(const std::string& str) const;
+    /**
+     * Re-encode a Zcash-encoded transparent address string under the Ycash
+     * canonical prefixes. Returns the canonical encoding on success, or the
+     * Ycash encoding of CNoDestination on failure.
+     */
+    std::string ZecToYec(const std::string& str) const;
 
     bool IsValidDestinationString(const std::string& str) const;
 
     std::string EncodePaymentAddress(const libzcash::PaymentAddress& zaddr) const;
     std::optional<libzcash::PaymentAddress> DecodePaymentAddress(const std::string& str) const;
+    /**
+     * Decode a Zcash-encoded shielded payment address (using the LEGACY_*
+     * base58 / bech32 prefixes for Sprout and Sapling, respectively).
+     */
+    std::optional<libzcash::PaymentAddress> DecodeLegacyPaymentAddress(const std::string& str) const;
+    /**
+     * Re-encode a Zcash-encoded shielded payment address string under the
+     * Ycash canonical prefixes. Returns the canonical encoding on success,
+     * or an empty string on failure.
+     */
+    std::string ZecToYecShielded(const std::string& str) const;
     bool IsValidPaymentAddressString(const std::string& str) const;
     std::string EncodeTexAddress(const CKeyID& p2pkhAddr) const;
 
