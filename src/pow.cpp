@@ -13,6 +13,7 @@
 #include "primitives/block.h"
 #include "streams.h"
 #include "uint256.h"
+#include "util/system.h"
 
 #include <librustzcash.h>
 #include <rust/equihash.h>

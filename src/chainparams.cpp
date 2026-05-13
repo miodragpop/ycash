@@ -149,7 +149,7 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_ZFUTURE].nActivationHeight =
             Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
 
-        consensus.nFundingPeriodLength = consensus.nPostBlossomSubsidyHalvingInterval / 48;
+
 
         nYdfMandateEndHeight = 2275000;
         assert(nYdfMandateEndHeight >= consensus.vUpgrades[Consensus::UPGRADE_YCASH].nActivationHeight);
@@ -282,21 +282,11 @@ public:
         fZIP209Enabled = true;
         hashSproutValuePoolCheckpointBlock = uint256S("0000000000c7b46b6bc04b4cbf87d8bb08722aebd51232619b214f7273f8460e");
 
-        // Chain supply checkpoint at NU6.1 activation (height 3146400).
-        // This allows nodes with legacy block index data (written by zcashd
-        // versions older than 5.4.0, which did not serialize nChainSupplyDelta)
-        // to bootstrap nChainTotalSupply and nChainTransparentValue without
-        // requiring a reindex. The other pool balances are included so that
-        // we do not need to trust that the computed values from before the
-        // checkpoint are correct.
-        nChainSupplyCheckpointHeight = 3146400;
-        nChainSupplyCheckpointTotalSupply = 1640588297804480;
-        nChainSupplyCheckpointTransparentValue = 1158133657237751;
-        nChainSupplyCheckpointSproutValue = 2562695744028;
-        nChainSupplyCheckpointSaplingValue = 64691367655556;
-        nChainSupplyCheckpointOrchardValue = 415200558417145;
-        nChainSupplyCheckpointLockboxValue = 18750000;
-        hashChainSupplyCheckpointBlock = uint256S("0000000000b98a7d8f390793fa113bf6755935f0c14ea817af07d2c16f2c3ef4");
+        // Ycash mainnet has no inherited chain supply checkpoint; the Zcash
+        // checkpoint values referred to Zcash heights (NU6.1 activation) and
+        // pool sizes that do not apply on Ycash. Leave all values at their
+        // defaults (zero / null) so the checkpoint mechanism is effectively
+        // disabled. Future Ycash-specific checkpoints can be added here.
 
         // Founders reward script expects a vector of 2-of-3 multisig addresses
         vFoundersRewardAddress = {
@@ -441,7 +431,7 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_ZFUTURE].nActivationHeight =
             Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
 
-        consensus.nFundingPeriodLength = consensus.nPostBlossomSubsidyHalvingInterval / 48;
+
 
         nYdfMandateEndHeight = 900000;
         assert(nYdfMandateEndHeight >= consensus.vUpgrades[Consensus::UPGRADE_YCASH].nActivationHeight);
@@ -560,15 +550,9 @@ public:
         fZIP209Enabled = true;
         hashSproutValuePoolCheckpointBlock = uint256S("000a95d08ba5dcbabe881fc6471d11807bcca7df5f1795c99f3ec4580db4279b");
 
-        // Chain supply checkpoint at NU6.1 activation (height 3536500).
-        nChainSupplyCheckpointHeight = 3536500;
-        nChainSupplyCheckpointTotalSupply = 1690647512835043;
-        nChainSupplyCheckpointTransparentValue = 1499728640946163;
-        nChainSupplyCheckpointSproutValue = 42832983037484;
-        nChainSupplyCheckpointSaplingValue = 140562922195481;
-        nChainSupplyCheckpointOrchardValue = 7522947905915;
-        nChainSupplyCheckpointLockboxValue = 18750000;
-        hashChainSupplyCheckpointBlock = uint256S("01b947c7556b23040dc6840e9d3e4c6d9478c67a87b9737a83be848729d6e0af");
+        // Ycash testnet has no inherited chain supply checkpoint; the Zcash
+        // testnet checkpoint values do not apply on Ycash testnet. Leave all
+        // values at their defaults to disable the checkpoint mechanism.
 
         // Founders reward script expects a vector of 2-of-3 multisig addresses
         vFoundersRewardAddress = {
@@ -674,7 +658,7 @@ public:
         consensus.vUpgrades[Consensus::UPGRADE_ZFUTURE].nActivationHeight =
             Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
 
-        consensus.nFundingPeriodLength = consensus.nPostBlossomSubsidyHalvingInterval / 48;
+
         // Defined funding streams can be enabled with node config flags.
 
         nYdfMandateEndHeight = 5;
@@ -781,20 +765,6 @@ public:
         consensus.vUpgrades[idx].nActivationHeight = nActivationHeight;
     }
 
-    void UpdateFundingStreamParameters(Consensus::FundingStreamIndex idx, Consensus::FundingStream fs)
-    {
-        assert(idx >= Consensus::FIRST_FUNDING_STREAM && idx < Consensus::MAX_FUNDING_STREAMS);
-        consensus.vFundingStreams[idx] = fs;
-    }
-
-    void UpdateOnetimeLockboxDisbursementParameters(
-        Consensus::OnetimeLockboxDisbursementIndex idx,
-        Consensus::OnetimeLockboxDisbursement ld)
-    {
-        assert(idx >= Consensus::FIRST_ONETIME_LOCKBOX_DISBURSEMENT && idx < Consensus::MAX_ONETIME_LOCKBOX_DISBURSEMENTS);
-        consensus.vOnetimeLockboxDisbursements[idx] = ld;
-    }
-
     void UpdateRegtestPow(
         int64_t nPowMaxAdjustDown,
         int64_t nPowMaxAdjustUp,
@@ -827,7 +797,6 @@ public:
         nChainSupplyCheckpointSproutValue = 20000000000;
         nChainSupplyCheckpointSaplingValue = 0;
         nChainSupplyCheckpointOrchardValue = 0;
-        nChainSupplyCheckpointLockboxValue = 0;
         hashChainSupplyCheckpointBlock.SetNull();
     }
 };
@@ -971,7 +940,10 @@ namespace {
 // and return the most recent NUInfo entry whose Equihash override is non-zero,
 // or nullptr if no override applies (caller should use the chainparams default).
 const NUInfo* GetEquihashOverride(int nHeight, const Consensus::Params& params) {
-    for (int idx = CurrentEpoch(nHeight, params); idx >= Consensus::BASE_SPROUT; --idx) {
+    // Note: UpgradeIndex is enum class : uint32_t so a plain `int idx >=
+    // Consensus::BASE_SPROUT` comparison promotes the loop variable to
+    // unsigned and never terminates. Cast the comparator down to int.
+    for (int idx = CurrentEpoch(nHeight, params); idx >= int(Consensus::BASE_SPROUT); --idx) {
         const NUInfo& info = NetworkUpgradeInfo[idx];
         if (info.nEquihashN != NUInfo::EQUIHASH_DEFAULT ||
             info.nEquihashK != NUInfo::EQUIHASH_DEFAULT) {
@@ -999,18 +971,6 @@ unsigned int CChainParams::EquihashK(int nHeight) const {
 void UpdateNetworkUpgradeParameters(Consensus::UpgradeIndex idx, int nActivationHeight)
 {
     regTestParams.UpdateNetworkUpgradeParameters(idx, nActivationHeight);
-}
-
-void UpdateFundingStreamParameters(Consensus::FundingStreamIndex idx, Consensus::FundingStream fs)
-{
-    regTestParams.UpdateFundingStreamParameters(idx, fs);
-}
-
-void UpdateOnetimeLockboxDisbursementParameters(
-    Consensus::OnetimeLockboxDisbursementIndex idx,
-    Consensus::OnetimeLockboxDisbursement ld)
-{
-    regTestParams.UpdateOnetimeLockboxDisbursementParameters(idx, ld);
 }
 
 void UpdateRegtestPow(

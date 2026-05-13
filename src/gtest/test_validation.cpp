@@ -357,7 +357,6 @@ TEST(Validation, SetChainPoolValuesAccumulatesWhenParentIsPopulated) {
     { SCOPED_TRACE("genesis sprout"); ExpectAmount(10, fakeIndex1.nChainSproutValue); }
     { SCOPED_TRACE("genesis sapling"); ExpectAmount(0, fakeIndex1.nChainSaplingValue); }
     { SCOPED_TRACE("genesis orchard"); ExpectAmount(0, fakeIndex1.nChainOrchardValue); }
-    { SCOPED_TRACE("genesis lockbox"); ExpectAmount(0, fakeIndex1.nChainLockboxValue); }
 
     // Call SetChainPoolValues on the child. With the eager accumulation,
     // the child's chain pool values should be populated immediately, without
@@ -370,7 +369,6 @@ TEST(Validation, SetChainPoolValuesAccumulatesWhenParentIsPopulated) {
     { SCOPED_TRACE("child sprout"); ExpectAmount(30, fakeIndex2.nChainSproutValue); }
     { SCOPED_TRACE("child sapling"); ExpectAmount(0, fakeIndex2.nChainSaplingValue); }
     { SCOPED_TRACE("child orchard"); ExpectAmount(0, fakeIndex2.nChainOrchardValue); }
-    { SCOPED_TRACE("child lockbox"); ExpectAmount(0, fakeIndex2.nChainLockboxValue); }
 
     // Clean up: ensure that the fake CBlockIndex objects aren't still
     // referenced by mapBlocksUnlinked (fakeIndex2 was never inserted, but
@@ -427,11 +425,6 @@ TEST(Validation, ReceivedBlockTransactions) {
     { SCOPED_TRACE("ExpectAmount"); ExpectAmount(0, fakeIndex2.nOrchardValue); }
     EXPECT_FALSE(fakeIndex2.nChainOrchardValue.has_value());
 
-    // Lockbox pool values should not be set
-    { SCOPED_TRACE("ExpectAmount"); ExpectAmount(0, fakeIndex1.nLockboxValue); }
-    EXPECT_FALSE(fakeIndex1.nChainLockboxValue.has_value());
-    { SCOPED_TRACE("ExpectAmount"); ExpectAmount(0, fakeIndex2.nLockboxValue); }
-    EXPECT_FALSE(fakeIndex2.nChainLockboxValue.has_value());
 
     // Mark the second block's transactions as received first
     CValidationState state;
@@ -464,11 +457,6 @@ TEST(Validation, ReceivedBlockTransactions) {
     { SCOPED_TRACE("ExpectAmount"); ExpectAmount(0, fakeIndex2.nOrchardValue); }
     EXPECT_FALSE(fakeIndex2.nChainOrchardValue.has_value());
 
-    // Same for the lockbox (TODO: make these nonzero)
-    { SCOPED_TRACE("ExpectAmount"); ExpectAmount(0, fakeIndex1.nLockboxValue); }
-    EXPECT_FALSE(fakeIndex1.nChainLockboxValue.has_value());
-    { SCOPED_TRACE("ExpectAmount"); ExpectAmount(0, fakeIndex2.nLockboxValue); }
-    EXPECT_FALSE(fakeIndex2.nChainLockboxValue.has_value());
 
     // Now mark the first block's transactions as received
     {
@@ -498,11 +486,6 @@ TEST(Validation, ReceivedBlockTransactions) {
     { SCOPED_TRACE("ExpectAmount"); ExpectAmount(0, fakeIndex2.nOrchardValue); }
     { SCOPED_TRACE("ExpectAmount"); ExpectAmount(0, fakeIndex2.nChainOrchardValue); }
 
-    // Lockbox pool values should now be set for both blocks (TODO: make these nonzero)
-    { SCOPED_TRACE("ExpectAmount"); ExpectAmount(0, fakeIndex1.nLockboxValue); }
-    { SCOPED_TRACE("ExpectAmount"); ExpectAmount(0, fakeIndex1.nChainLockboxValue); }
-    { SCOPED_TRACE("ExpectAmount"); ExpectAmount(0, fakeIndex2.nLockboxValue); }
-    { SCOPED_TRACE("ExpectAmount"); ExpectAmount(0, fakeIndex2.nChainLockboxValue); }
 
     // Ensure that the fake CBlockIndex objects aren't still referenced by mapBlocksUnlinked.
     // (In practice, we only have &fakeIndex1 as a key pointing to &fakeIndex2 after the
@@ -523,7 +506,6 @@ TEST(Validation, FallbackChainSupplyCheckpoint) {
     const CAmount cpSproutValue = chainparams.ChainSupplyCheckpointSproutValue();
     const CAmount cpSaplingValue = chainparams.ChainSupplyCheckpointSaplingValue();
     const CAmount cpOrchardValue = chainparams.ChainSupplyCheckpointOrchardValue();
-    const CAmount cpLockboxValue = chainparams.ChainSupplyCheckpointLockboxValue();
 
     CBlockHeader header;
 
@@ -538,7 +520,6 @@ TEST(Validation, FallbackChainSupplyCheckpoint) {
     EXPECT_FALSE(beforeCheckpoint.nChainSproutValue.has_value());
     EXPECT_FALSE(beforeCheckpoint.nChainSaplingValue.has_value());
     EXPECT_FALSE(beforeCheckpoint.nChainOrchardValue.has_value());
-    EXPECT_FALSE(beforeCheckpoint.nChainLockboxValue.has_value());
 
     // At the checkpoint height with the correct hash, values are injected.
     CBlockIndex atCheckpoint(header);
@@ -551,7 +532,6 @@ TEST(Validation, FallbackChainSupplyCheckpoint) {
     EXPECT_FALSE(atCheckpoint.nChainSproutValue.has_value());
     EXPECT_FALSE(atCheckpoint.nChainSaplingValue.has_value());
     EXPECT_FALSE(atCheckpoint.nChainOrchardValue.has_value());
-    EXPECT_FALSE(atCheckpoint.nChainLockboxValue.has_value());
 
     FallbackChainSupplyCheckpoint(&atCheckpoint, chainparams);
 
@@ -565,8 +545,6 @@ TEST(Validation, FallbackChainSupplyCheckpoint) {
     EXPECT_EQ(atCheckpoint.nChainSaplingValue.value(), cpSaplingValue);
     ASSERT_TRUE(atCheckpoint.nChainOrchardValue.has_value());
     EXPECT_EQ(atCheckpoint.nChainOrchardValue.value(), cpOrchardValue);
-    ASSERT_TRUE(atCheckpoint.nChainLockboxValue.has_value());
-    EXPECT_EQ(atCheckpoint.nChainLockboxValue.value(), cpLockboxValue);
 
     // If values are already set correctly, the fallback should succeed
     // and not overwrite them.
@@ -576,7 +554,6 @@ TEST(Validation, FallbackChainSupplyCheckpoint) {
     EXPECT_EQ(atCheckpoint.nChainSproutValue.value(), cpSproutValue);
     EXPECT_EQ(atCheckpoint.nChainSaplingValue.value(), cpSaplingValue);
     EXPECT_EQ(atCheckpoint.nChainOrchardValue.value(), cpOrchardValue);
-    EXPECT_EQ(atCheckpoint.nChainLockboxValue.value(), cpLockboxValue);
 
     // If values are set but WRONG, the fallback should return false
     // (indicating corruption).
@@ -641,12 +618,10 @@ TEST(Validation, FallbackChainSupplyCheckpoint) {
     afterCheckpoint.nChainSproutValue = std::nullopt;
     afterCheckpoint.nChainSaplingValue = std::nullopt;
     afterCheckpoint.nChainOrchardValue = std::nullopt;
-    afterCheckpoint.nChainLockboxValue = std::nullopt;
     FallbackChainSupplyCheckpoint(&afterCheckpoint, chainparams);
     EXPECT_FALSE(afterCheckpoint.nChainTotalSupply.has_value());
     EXPECT_FALSE(afterCheckpoint.nChainTransparentValue.has_value());
     EXPECT_FALSE(afterCheckpoint.nChainSproutValue.has_value());
     EXPECT_FALSE(afterCheckpoint.nChainSaplingValue.has_value());
     EXPECT_FALSE(afterCheckpoint.nChainOrchardValue.has_value());
-    EXPECT_FALSE(afterCheckpoint.nChainLockboxValue.has_value());
 }

@@ -314,17 +314,6 @@ public:
     //! Will be std::nullopt if and only if nChainTx is zero.
     std::optional<CAmount> nChainOrchardValue;
 
-    //! Change in value held by the development fund lockbox over this block.
-    //!
-    //! Not a std::optional because this is added before NU6 activation, so we can
-    //! rely on the invariant that every block before this was added had nLockboxValue = 0.
-    CAmount nLockboxValue;
-
-    //! (memory only) Total value held by the development fund lockbox up to
-    //! and including this block. Will be std::nullopt if and only if nChainTx
-    //! is zero.
-    std::optional<CAmount> nChainLockboxValue;
-
     //! Root of the Sapling commitment tree as of the end of this block.
     //!
     //! - For blocks prior to (not including) the Heartwood activation block, this is
@@ -395,9 +384,6 @@ public:
         nChainTotalSupply = std::nullopt;
         nTransparentValue = std::nullopt;
         nChainTransparentValue = std::nullopt;
-        nLockboxValue = 0;
-        nChainLockboxValue = std::nullopt;
-
         nSproutValue = std::nullopt;
         nChainSproutValue = std::nullopt;
         nSaplingValue = 0;
@@ -459,8 +445,6 @@ public:
         nChainSaplingValue = std::nullopt;
         nOrchardValue = 0;
         nChainOrchardValue = std::nullopt;
-        nLockboxValue = 0;
-        nChainLockboxValue = std::nullopt;
         hashSproutAnchor = uint256();
         hashFinalSproutRoot = uint256();
         hashFinalSaplingRoot = uint256();
@@ -485,7 +469,7 @@ public:
         nBits          = block.nBits;
         nNonce         = block.nNonce;
         nSolution      = block.nSolution;
-        MetricsIncrementCounter("zcashd.debug.memory.allocated_equihash_solutions");
+        MetricsIncrementCounter("ycashd.debug.memory.allocated_equihash_solutions");
     }
 
     CDiskBlockPos GetBlockPos() const {
@@ -687,13 +671,6 @@ public:
             READWRITE(hashAuthDataRoot);
             READWRITE(hashFinalOrchardRoot);
             READWRITE(nOrchardValue);
-        }
-
-        // Only read/write NU6 data if the client version used to create this
-        // index was storing them. For block indices written before the client
-        // was NU6-aware, these are always null / zero.
-        if ((s.GetType() & SER_DISK) && (nVersion >= NU6_DATA_VERSION)) {
-            READWRITE(nLockboxValue);
         }
 
         // If you have just added new serialized fields above, remember to add

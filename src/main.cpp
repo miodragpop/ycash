@@ -14,7 +14,6 @@
 #include "checkpoints.h"
 #include "checkqueue.h"
 #include "consensus/consensus.h"
-#include "consensus/funding.h"
 #include "consensus/merkle.h"
 #include "consensus/upgrades.h"
 #include "consensus/validation.h"
@@ -1009,12 +1008,6 @@ bool ContextualCheckTransaction(
                 REJECT_INVALID, "bad-txns-oversize");
     }
 
-    // From Canopy onward, coinbase transaction must include outputs corresponding to the
-    // ZIP 207 consensus funding streams active at the current block height. To avoid
-    // double-decrypting, we detect any shielded funding streams during the Heartwood
-    // consensus check. If Canopy is not yet active, fundingStreamElements will be empty.
-    auto fundingStreamElements = consensus.GetActiveFundingStreamElements(nHeight);
-
     // Rules that apply to Heartwood and later:
     if (heartwoodActive) {
         if (tx.IsCoinBase()) {
@@ -1051,16 +1044,7 @@ bool ContextualCheckTransaction(
                         REJECT_INVALID, "bad-cb-output-desc-invalid-ct");
                 }
 
-                // ZIP 207: detect shielded funding stream elements
-                if (canopyActive) {
-                    for (auto it = fundingStreamElements.begin(); it != fundingStreamElements.end(); ++it) {
-                        const libzcash::SaplingPaymentAddress* streamAddr = std::get_if<libzcash::SaplingPaymentAddress>(&(it->first));
-                        if (streamAddr && zaddr == *streamAddr && value == it->second) {
-                            fundingStreamElements.erase(it);
-                            break;
-                        }
-                    }
-                }
+                (void)zaddr; (void)value;
 
                 // ZIP 212: after ZIP 212 any Sapling output of a coinbase tx that is
                 // decrypted to a note plaintext, MUST have note plaintext lead byte equal
@@ -1100,32 +1084,8 @@ bool ContextualCheckTransaction(
             }
         }
 
-        if (tx.IsCoinBase()) {
-            // Detect transparent funding streams.
-            for (const CTxOut& output : tx.vout) {
-                for (auto it = fundingStreamElements.begin(); it != fundingStreamElements.end(); ++it) {
-                    const CScript* taddr = std::get_if<CScript>(&(it->first));
-                    if (taddr && output.scriptPubKey == *taddr && output.nValue == it->second) {
-                        fundingStreamElements.erase(it);
-                        break;
-                    }
-                }
-            }
-
-            if (nu6Active) {
-                for (auto it = fundingStreamElements.begin(); it != fundingStreamElements.end(); ++it) {
-                    if (std::holds_alternative<Consensus::Lockbox>(it->first)) {
-                        fundingStreamElements.erase(it);
-                        break;
-                    }
-                }
-            }
-
-            if (!fundingStreamElements.empty()) {
-                return state.DoS(100, error("ContextualCheckTransaction(): funding stream missing at height %d", nHeight),
-                                 REJECT_INVALID, "cb-funding-stream-missing");
-            }
-        }
+        // Ycash has no ZIP 207 funding streams; the equivalent Zcash
+        // logic that checked for funding-stream outputs has been removed.
     } else {
         // Rules that apply generally before Canopy. These were
         // previously noncontextual checks that became contextual
@@ -1254,33 +1214,8 @@ bool ContextualCheckTransaction(
         }
     }
 
-    // Rules that apply to NU6.1 or later:
-    if (nu6point1Active) {
-        if (tx.IsCoinBase()) {
-            // Get the set of expected one-time lockbox disbursements, and ensure that the
-            // coinbase transaction contains them.
-            auto lockboxDisbursements = consensus.GetLockboxDisbursementsForHeight(nHeight);
-
-            // Only iterate over the coinbase outputs if this is an activation block.
-            if (!lockboxDisbursements.empty()) {
-                // Note that this logic relies on the set of recipient addresses for lockbox
-                // disbursements being disjoint from the set of funding stream recipients.
-                for (const CTxOut& output : tx.vout) {
-                    for (auto it = lockboxDisbursements.begin(); it != lockboxDisbursements.end(); ++it) {
-                        if (output.scriptPubKey == it->GetRecipient() && output.nValue == it->GetAmount()) {
-                            lockboxDisbursements.erase(it);
-                            break;
-                        }
-                    }
-                }
-
-                if (!lockboxDisbursements.empty()) {
-                    return state.DoS(100, error("ContextualCheckTransaction(): lockbox disbursement missing at height %d", nHeight),
-                                    REJECT_INVALID, "cb-lockbox-disbursement-missing");
-                }
-            }
-        }
-    }
+    // Ycash has no ZIP 271 one-time lockbox disbursements; the
+    // equivalent Zcash NU6.1 logic has been removed.
 
     // Rules that apply to the future epoch
     if (futureActive) {
@@ -3315,41 +3250,21 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     // given what has been checked already. These should be used conservatively
     // due to the impact of crashing the node.
 
-    // `nChainSaplingValue`, `nChainOrchardValue`, and `nChainLockboxValue` are
-    // always populated at this point:
-    //
-    // - For normal block connection via `ConnectTip`, the block index has been
-    //   through `ReceivedBlockTransactions` which accumulates from `pprev`.
-    // - For `TestNewBlockAtTipValidity`, `SetChainPoolValues` eagerly
-    //   accumulates from `pprev == chainActive.Tip()`, which is always
-    //   populated.
-    // - For `VerifyDB`, the active chain has been fully reconstructed by
-    //   `LoadBlockIndexDB` at startup, which re-accumulates chain values for
-    //   all blocks with parents that have populated values.
-    //
-    // So `nullopt` values here indicate a programming error (independently of
+    // `nChainSaplingValue` and `nChainOrchardValue` are always populated at this
+    // point (see ConnectTip / SetChainPoolValues / VerifyDB). `nullopt` values
+    // here indicate a programming error (independently of
     // `chainparams.ZIP209Enabled()`).
     assert(pindex->nChainSaplingValue.has_value());
     assert(pindex->nChainOrchardValue.has_value());
-    assert(pindex->nChainLockboxValue.has_value());
     const CAmount sapling_supply = pindex->nChainSaplingValue.value();
     const CAmount orchard_supply = pindex->nChainOrchardValue.value();
-    const CAmount lockbox_supply = pindex->nChainLockboxValue.value();
 
     // Shielded pool turnstile checks (ZIP 209)
     //
     // Reject a block that results in an out-of-range shielded value pool
     // balance.
     if (chainparams.ZIP209Enabled()) {
-        // Sprout
-        //
-        // `nChainSproutValue` is expected to be populated here. A legacy
-        // block index written by a client older than SPROUT_VALUE_VERSION
-        // (1.0.14) may have `nSproutValue == std::nullopt` for blocks below
-        // the hardcoded Sprout value pool checkpoint height, which would
-        // propagate into `nChainSproutValue == std::nullopt`. If that
-        // happens, the node must be reindexed to recompute per-block
-        // Sprout deltas from disk.
+        // Sprout: see comment on nChainSproutValue below for the legacy case.
         if (!pindex->nChainSproutValue.has_value()) {
             return AbortNode(
                 state,
@@ -3367,42 +3282,26 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         if (!MoneyRange(pindex->nChainSproutValue.value())) {
             return state.DoS(100,
-                error("%s: turnstile violation in Sprout shielded value pool at height %d (sprout=%d, sapling=%d, orchard=%d, lockbox=%d)", __func__,
-                      pindex->nHeight, pindex->nChainSproutValue.value(), sapling_supply, orchard_supply, lockbox_supply),
+                error("%s: turnstile violation in Sprout shielded value pool at height %d (sprout=%d, sapling=%d, orchard=%d)", __func__,
+                      pindex->nHeight, pindex->nChainSproutValue.value(), sapling_supply, orchard_supply),
                 REJECT_INVALID, "turnstile-violation-sprout-shielded-pool");
         }
 
         // Sapling
         if (!MoneyRange(sapling_supply)) {
             return state.DoS(100,
-                error("%s: turnstile violation in Sapling shielded value pool at height %d (sprout=%d, sapling=%d, orchard=%d, lockbox=%d)", __func__,
-                      pindex->nHeight, pindex->nChainSproutValue.value(), sapling_supply, orchard_supply, lockbox_supply),
+                error("%s: turnstile violation in Sapling shielded value pool at height %d (sprout=%d, sapling=%d, orchard=%d)", __func__,
+                      pindex->nHeight, pindex->nChainSproutValue.value(), sapling_supply, orchard_supply),
                 REJECT_INVALID, "turnstile-violation-sapling-shielded-pool");
         }
 
         // Orchard
         if (!MoneyRange(orchard_supply)) {
             return state.DoS(100,
-                error("%s: turnstile violation in Orchard shielded value pool at height %d (sprout=%d, sapling=%d, orchard=%d, lockbox=%d)", __func__,
-                      pindex->nHeight, pindex->nChainSproutValue.value(), sapling_supply, orchard_supply, lockbox_supply),
+                error("%s: turnstile violation in Orchard shielded value pool at height %d (sprout=%d, sapling=%d, orchard=%d)", __func__,
+                      pindex->nHeight, pindex->nChainSproutValue.value(), sapling_supply, orchard_supply),
                 REJECT_INVALID, "turnstile-violation-orchard");
         }
-    }
-
-    // Lockbox turnstile check (§ 4.17)
-    //
-    // This check is a necessary consensus rule when transaction-defined lockbox
-    // disbursement is present. zcashd will never implement v6 transactions, and
-    // so this check in practice is defending against a protocol specification
-    // error in defining the one-time lockbox disbursement(s). It should not be
-    // conditional on `chainparams.ZIP209Enabled()`.
-    if (!MoneyRange(lockbox_supply)) {
-        return state.DoS(100,
-            error("%s: invalid lockbox disbursement amount at height %d (sprout=%s, sapling=%d, orchard=%d, lockbox=%d)", __func__,
-                  pindex->nHeight,
-                  pindex->nChainSproutValue.has_value() ? strprintf("%d", pindex->nChainSproutValue.value()) : "nullopt",
-                  sapling_supply, orchard_supply, lockbox_supply),
-            REJECT_INVALID, "invalid-lockbox-disbursement-amount");
     }
 
     // Do not allow blocks that contain transactions which 'overwrite' older transactions,
@@ -3514,13 +3413,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     // Grab the consensus branch ID for this block.
     auto consensusBranchId = CurrentEpochBranchId(pindex->nHeight, consensusParams);
 
-    // Initialize the chain supply delta to the value delta of the lockbox for the block,
-    // as previously computed using `SetChainPoolValues`.
-    CAmount chainSupplyDelta = pindex->nLockboxValue;
-    if (!MoneyDeltaRange(chainSupplyDelta)) {
-        return state.DoS(100, error("%s: chain supply delta out of range: %d at height %d", __func__, chainSupplyDelta, pindex->nHeight),
-            REJECT_INVALID, "bad-chain-supply-delta-out-of-range");
-    }
+    // Ycash has no lockbox; chain supply delta starts at zero and is
+    // adjusted as transactions are processed.
+    CAmount chainSupplyDelta = 0;
     CAmount transparentValueDelta = 0;
     size_t total_sapling_tx = 0;
     size_t total_orchard_tx = 0;
@@ -3635,12 +3530,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (tx.IsCoinBase())
         {
-            // Add the output value of the coinbase transaction to the chain supply
-            // delta.
-            // - This includes lockbox disbursement outputs, which are canceled out by
-            //   the subtractions from `nLockboxValue` in `SetChainPoolValues`.
-            // - This includes fees, which are then canceled out by the fee subtractions
-            //   in the other branch of this conditional.
+            // Add the output value of the coinbase transaction to the chain
+            // supply delta. This includes fees, which are then canceled out by
+            // the fee subtractions in the other branch of this conditional.
             try {
                 chainSupplyDelta += tx.GetValueOut();
             } catch (const std::runtime_error& e) {
@@ -3854,11 +3746,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             assert(MoneyRange(sprout_supply));
             assert(MoneyRange(sapling_supply));
             assert(MoneyRange(orchard_supply));
-            assert(MoneyRange(lockbox_supply));
 
             // `nChainTotalSupply` and `nChainTransparentValue` may be unpopulated
-            // if a parent block index entry was written by a zcashd version older
-            // than `TRANSPARENT_VALUE_VERSION` and so lacks `nChainSupplyDelta`.
+            // if a parent block index entry was written by an older zcashd that
+            // predates `TRANSPARENT_VALUE_VERSION` and so lacks `nChainSupplyDelta`.
             // This is normally a "reindex required" condition, but on regtest the
             // `-regtestallowlegacychainsupplydata` flag allows tests that load such
             // legacy caches to skip the check instead.
@@ -3868,24 +3759,24 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
                 if (!MoneyRange(transparent_supply)) {
                     return state.DoS(100,
-                        error("%s: turnstile violation in transparent value pool at height %d (sprout=%d, sapling=%d, orchard=%d, lockbox=%d, transparent=%d, total=%d)", __func__,
-                              pindex->nHeight, sprout_supply, sapling_supply, orchard_supply, lockbox_supply, transparent_supply, total_supply),
+                        error("%s: turnstile violation in transparent value pool at height %d (sprout=%d, sapling=%d, orchard=%d, transparent=%d, total=%d)", __func__,
+                              pindex->nHeight, sprout_supply, sapling_supply, orchard_supply, transparent_supply, total_supply),
                         REJECT_INVALID, "turnstile-violation-transparent");
                 }
                 if (!MoneyRange(total_supply)) {
                     return state.DoS(100,
-                        error("%s: turnstile violation in total supply at height %d (sprout=%d, sapling=%d, orchard=%d, lockbox=%d, transparent=%d, total=%d)", __func__,
-                              pindex->nHeight, sprout_supply, sapling_supply, orchard_supply, lockbox_supply, transparent_supply, total_supply),
+                        error("%s: turnstile violation in total supply at height %d (sprout=%d, sapling=%d, orchard=%d, transparent=%d, total=%d)", __func__,
+                              pindex->nHeight, sprout_supply, sapling_supply, orchard_supply, transparent_supply, total_supply),
                         REJECT_INVALID, "turnstile-violation-total");
                 }
 
-                static_assert(MAX_MONEY <= std::numeric_limits<CAmount>::max() / 5, "sum of five MoneyRange CAmounts must fit in CAmount");
-                const CAmount expected_total_supply = transparent_supply + sprout_supply + sapling_supply + orchard_supply + lockbox_supply;
+                static_assert(MAX_MONEY <= std::numeric_limits<CAmount>::max() / 4, "sum of four MoneyRange CAmounts must fit in CAmount");
+                const CAmount expected_total_supply = transparent_supply + sprout_supply + sapling_supply + orchard_supply;
                 if (expected_total_supply != total_supply) {
                     return AbortNode(
                         state,
-                        strprintf("%s: chain total supply does not match sum of pool balances at height %d (sprout=%d, sapling=%d, orchard=%d, lockbox=%d, transparent=%d, total=%d)", __func__,
-                                  pindex->nHeight, sprout_supply, sapling_supply, orchard_supply, lockbox_supply, transparent_supply, total_supply),
+                        strprintf("%s: chain total supply does not match sum of pool balances at height %d (sprout=%d, sapling=%d, orchard=%d, transparent=%d, total=%d)", __func__,
+                                  pindex->nHeight, sprout_supply, sapling_supply, orchard_supply, transparent_supply, total_supply),
                         _("The chain total supply does not match the sum of the pool balances. This indicates a fatal problem with the node's pool accounting. "
                           "Please restart ycashd with -reindex."));
                 }
@@ -4007,7 +3898,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         return state.DoS(100, error("%s: coinbase output value out of range at height %d", __func__, pindex->nHeight),
             REJECT_INVALID, "bad-cb-output-value-out-of-range");
     }
-    cbTotalOutputValue += pindex->nLockboxValue;
     if (!MoneyRange(cbTotalOutputValue)) {
         return state.DoS(100, error("%s: coinbase output value out of range at height %d", __func__, pindex->nHeight),
             REJECT_INVALID, "bad-cb-output-value-out-of-range");
@@ -4020,19 +3910,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     if (cbTotalOutputValue > cbTotalInputValue) {
         return state.DoS(100,
             error("%s: coinbase pays too much (actual=%d vs limit=%d)", __func__,
-                cbTotalOutputValue - pindex->nLockboxValue, cbTotalInputValue - pindex->nLockboxValue),
+                cbTotalOutputValue, cbTotalInputValue),
                 REJECT_INVALID, "bad-cb-amount");
-    } else if (
-        consensusParams.NetworkUpgradeActive(pindex->nHeight, Consensus::UPGRADE_NU6) &&
-        cbTotalOutputValue != cbTotalInputValue
-    ) {
-        return state.DoS(100,
-            error(
-                "%s: coinbase pays the wrong amount (actual=%d vs expected=%d; lockbox value is %d)", __func__,
-                cbTotalOutputValue - pindex->nLockboxValue,
-                cbTotalInputValue - pindex->nLockboxValue,
-                pindex->nLockboxValue),
-            REJECT_INVALID, "bad-cb-not-exact");
     }
 
     // Ensure Sapling authorizations are valid (if we are checking them)
@@ -5057,9 +4936,9 @@ static bool CheckBlockMerkleRoot(const CBlock& block, bool* mutated);
 // malformed block) or a hint telling the user to reindex (for the on-load
 // path where an overflow implies persisted-data corruption).
 //
-// On success, sets sproutValue, saplingValue, orchardValue, and lockboxValue
-// to the corresponding per-block deltas, and returns true. Returns false if
-// any running sum goes out of MoneyDeltaRange.
+// On success, sets sproutValue, saplingValue, and orchardValue to the
+// corresponding per-block deltas, and returns true. Returns false if any
+// running sum goes out of MoneyDeltaRange.
 static bool ComputePoolDeltas(
     const CBlock& block,
     const CChainParams& chainparams,
@@ -5067,32 +4946,11 @@ static bool ComputePoolDeltas(
     const char* corruptionHint,
     CAmount& sproutValue,
     CAmount& saplingValue,
-    CAmount& orchardValue,
-    CAmount& lockboxValue)
+    CAmount& orchardValue)
 {
     sproutValue = 0;
     saplingValue = 0;
     orchardValue = 0;
-
-    // Each lockbox disbursement produces a negative change to the lockbox value.
-    // Each lockbox funding stream produces a positive change to the lockbox value.
-    lockboxValue = 0;
-    for (auto disbursement : chainparams.GetConsensus().GetLockboxDisbursementsForHeight(nHeight)) {
-        lockboxValue -= disbursement.GetAmount();
-        if (!MoneyDeltaRange(lockboxValue)) {
-            return error("%s: lockbox value delta out of range: %d at height %d.%s", __func__,
-                lockboxValue, nHeight, corruptionHint);
-        }
-    }
-    for (auto elem : chainparams.GetConsensus().GetActiveFundingStreamElements(nHeight)) {
-        if (std::holds_alternative<Consensus::Lockbox>(elem.first)) {
-            lockboxValue += elem.second;
-            if (!MoneyDeltaRange(lockboxValue)) {
-                return error("%s: lockbox value delta out of range: %d at height %d.%s", __func__,
-                    lockboxValue, nHeight, corruptionHint);
-            }
-        }
-    }
 
     for (const auto& tx : block.vtx) {
         // Negative valueBalanceSapling "takes" money from the transparent value pool
@@ -5169,10 +5027,10 @@ static bool CheckRecomputedPoolDeltas(const CBlockIndex* pindex, const CChainPar
     // Recompute pool deltas from the block data. If an overflow is detected
     // here, it indicates persisted-deltas corruption (since the same block
     // was accepted at tip previously), so hint at reindexing.
-    CAmount sproutValue, saplingValue, orchardValue, lockboxValue;
+    CAmount sproutValue, saplingValue, orchardValue;
     if (!ComputePoolDeltas(block, chainparams, pindex->nHeight,
                            " This may indicate on-disk corruption; please restart with -reindex.",
-                           sproutValue, saplingValue, orchardValue, lockboxValue)) {
+                           sproutValue, saplingValue, orchardValue)) {
         return false;
     }
 
@@ -5198,8 +5056,7 @@ static bool CheckRecomputedPoolDeltas(const CBlockIndex* pindex, const CChainPar
     }
     return checkDelta("nSproutValue", pindex->nSproutValue.value(), sproutValue)
         && checkDelta("nSaplingValue", pindex->nSaplingValue, saplingValue)
-        && checkDelta("nOrchardValue", pindex->nOrchardValue, orchardValue)
-        && checkDelta("nLockboxValue", pindex->nLockboxValue, lockboxValue);
+        && checkDelta("nOrchardValue", pindex->nOrchardValue, orchardValue);
 }
 
 bool FallbackChainSupplyCheckpoint(CBlockIndex *pindex, const CChainParams& chainparams)
@@ -5223,7 +5080,6 @@ bool FallbackChainSupplyCheckpoint(CBlockIndex *pindex, const CChainParams& chai
          + chainparams.ChainSupplyCheckpointSproutValue()
          + chainparams.ChainSupplyCheckpointSaplingValue()
          + chainparams.ChainSupplyCheckpointOrchardValue()
-         + chainparams.ChainSupplyCheckpointLockboxValue()
         == chainparams.ChainSupplyCheckpointTotalSupply());
 
     // Helper: inject a checkpoint value if nullopt, or error if it mismatches.
@@ -5256,16 +5112,13 @@ bool FallbackChainSupplyCheckpoint(CBlockIndex *pindex, const CChainParams& chai
                            chainparams.ChainSupplyCheckpointSaplingValue())
         && applyCheckpoint("nChainOrchardValue",
                            pindex->nChainOrchardValue,
-                           chainparams.ChainSupplyCheckpointOrchardValue())
-        && applyCheckpoint("nChainLockboxValue",
-                           pindex->nChainLockboxValue,
-                           chainparams.ChainSupplyCheckpointLockboxValue());
+                           chainparams.ChainSupplyCheckpointOrchardValue());
 }
 
-// Set `nChain<pool>Value` fields on `pindex` for Sprout, Sapling, Orchard, and
-// Lockbox pools by accumulating the per-block deltas into the parent's chain
-// totals. The per-block delta fields (`nSproutValue`, `nSaplingValue`,
-// `nOrchardValue`, `nLockboxValue`) must already be populated on `pindex`.
+// Set `nChain<pool>Value` fields on `pindex` for Sprout, Sapling, and Orchard
+// pools by accumulating the per-block deltas into the parent's chain totals.
+// The per-block delta fields (`nSproutValue`, `nSaplingValue`, `nOrchardValue`)
+// must already be populated on `pindex`.
 //
 // For the genesis block (`pprev == nullptr`), the chain values are set equal
 // to the per-block deltas. We assert `nHeight == 0` to catch the mis-use where
@@ -5292,7 +5145,6 @@ static bool AccumulateChainPoolValues(CBlockIndex *pindex)
         pindex->nChainSproutValue = pindex->nSproutValue;
         pindex->nChainSaplingValue = pindex->nSaplingValue;
         pindex->nChainOrchardValue = pindex->nOrchardValue;
-        pindex->nChainLockboxValue = pindex->nLockboxValue;
         return true;
     }
 
@@ -5334,17 +5186,6 @@ static bool AccumulateChainPoolValues(CBlockIndex *pindex)
         pindex->nChainOrchardValue = std::nullopt;
     }
 
-    // Lockbox
-    if (pindex->pprev->nChainLockboxValue.has_value()) {
-        CAmount chainLockboxValue = pindex->pprev->nChainLockboxValue.value();
-        if (!MoneyRange(chainLockboxValue) || !MoneyDeltaRange(pindex->nLockboxValue)) {
-            return error("%s: lockbox pool value out of range at height %d", __func__, pindex->nHeight);
-        }
-        pindex->nChainLockboxValue = chainLockboxValue + pindex->nLockboxValue;
-    } else {
-        pindex->nChainLockboxValue = std::nullopt;
-    }
-
     return true;
 }
 
@@ -5361,12 +5202,11 @@ bool SetChainPoolValues(
     // pindex->pprev is only permitted to be null for the genesis block
     assert (pindex->pprev || pindex->nHeight == 0);
 
-    CAmount sproutValue, saplingValue, orchardValue, lockboxValue;
+    CAmount sproutValue, saplingValue, orchardValue;
     if (!ComputePoolDeltas(block, chainparams, pindex->nHeight, "",
-                           sproutValue, saplingValue, orchardValue, lockboxValue)) {
+                           sproutValue, saplingValue, orchardValue)) {
         return false;
     }
-    LogPrint("valuepool", "%s: Lockbox value is %d at height %d", __func__, lockboxValue, pindex->nHeight);
 
     // These values can only be computed here for the genesis block.
     // For all other blocks, we update them in ConnectBlock instead.
@@ -5396,8 +5236,6 @@ bool SetChainPoolValues(
     pindex->nSproutValue = sproutValue;
     pindex->nSaplingValue = saplingValue;
     pindex->nOrchardValue = orchardValue;
-    pindex->nLockboxValue = lockboxValue;
-    pindex->nChainLockboxValue = std::nullopt;
 
     // Accumulate per-pool chain values from pprev. This makes chain values
     // available to ConnectBlock in the TestNewBlockAtTipValidity path, where
@@ -6452,7 +6290,6 @@ bool static LoadBlockIndexDB(const CChainParams& chainparams)
                     pindex->nChainSproutValue = std::nullopt;
                     pindex->nChainSaplingValue = std::nullopt;
                     pindex->nChainOrchardValue = std::nullopt;
-                    pindex->nChainLockboxValue = std::nullopt;
                     mapBlocksUnlinked.insert(std::make_pair(pindex->pprev, pindex));
                 }
             } else {

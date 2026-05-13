@@ -72,7 +72,6 @@ public:
     CAmount ChainSupplyCheckpointSproutValue() const { return nChainSupplyCheckpointSproutValue; }
     CAmount ChainSupplyCheckpointSaplingValue() const { return nChainSupplyCheckpointSaplingValue; }
     CAmount ChainSupplyCheckpointOrchardValue() const { return nChainSupplyCheckpointOrchardValue; }
-    CAmount ChainSupplyCheckpointLockboxValue() const { return nChainSupplyCheckpointLockboxValue; }
     uint256 ChainSupplyCheckpointBlockHash() const { return hashChainSupplyCheckpointBlock; }
     /**
      * When true, the turnstile checks defined by ZIP 209 are enforced in
@@ -184,7 +183,6 @@ protected:
     CAmount nChainSupplyCheckpointSproutValue = 0;
     CAmount nChainSupplyCheckpointSaplingValue = 0;
     CAmount nChainSupplyCheckpointOrchardValue = 0;
-    CAmount nChainSupplyCheckpointLockboxValue = 0;
     uint256 hashChainSupplyCheckpointBlock;
     bool fZIP209Enabled = false;
     bool fRegTestAllowLegacyChainSupplyData = false;
@@ -218,17 +216,5 @@ void UpdateRegtestPow(
     int64_t nPowMaxAdjustUp,
     uint256 powLimit,
     bool noRetargeting);
-
-/**
- * Allows modifying the regtest funding stream parameters.
- */
-void UpdateFundingStreamParameters(Consensus::FundingStreamIndex idx, Consensus::FundingStream fs);
-
-/**
- * Allows modifying the regtest one-time lockbox disbursement parameters.
- */
-void UpdateOnetimeLockboxDisbursementParameters(
-    Consensus::OnetimeLockboxDisbursementIndex idx,
-    Consensus::OnetimeLockboxDisbursement ld);
 
 #endif // BITCOIN_CHAINPARAMS_H

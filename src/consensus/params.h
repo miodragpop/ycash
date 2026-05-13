@@ -10,7 +10,6 @@
 
 #include <script/script.h>
 #include <amount.h>
-#include <consensus/funding.h>
 #include "uint256.h"
 #include "key_constants.h"
 #include <zcash/address/sapling.hpp>
@@ -90,143 +89,6 @@ struct NetworkUpgrade {
      * work of this block, otherwise this detection will have false positives.
      */
     std::optional<uint256> hashActivationBlock;
-};
-
-/**
- * Type for the development funding lockbox(es). At present there is only one; this is
- * not implemented as a singleton because it needs to be copyable so long as the
- * `FundingStream` type is so.
- */
-class Lockbox
-{
-public:
-    Lockbox() {}
-
-    // At present there is only a single lockbox.
-    friend bool operator==(const Lockbox& lhs, const Lockbox& rhs)
-    {
-        return true;
-    }
-
-    friend bool operator<(const Lockbox& lhs, const Lockbox& rhs)
-    {
-        return false;
-    }
-};
-
-typedef std::variant<libzcash::SaplingPaymentAddress, CScript, Lockbox> FundingStreamRecipient;
-typedef std::pair<FundingStreamRecipient, CAmount> FundingStreamElement;
-
-/**
- * Index into Params.vFundingStreams.
- *
- * Being array indices, these MUST be numbered consecutively.
- */
-enum FundingStreamIndex : uint32_t {
-    FS_ZIP214_BP,
-    FS_ZIP214_ZF,
-    FS_ZIP214_MG,
-    FS_FPF_ZCG,
-    FS_DEFERRED,
-    FS_FPF_ZCG_H3,
-    FS_CCF_H3,
-    MAX_FUNDING_STREAMS,
-};
-const auto FIRST_FUNDING_STREAM = FS_ZIP214_BP;
-
-extern const struct FSInfo FundingStreamInfo[];
-
-enum FundingStreamError {
-    CANOPY_NOT_ACTIVE,
-    ILLEGAL_RANGE,
-    INSUFFICIENT_RECIPIENTS,
-    NU6_NOT_ACTIVE,
-};
-
-class FundingStream
-{
-private:
-    int startHeight;
-    int endHeight;
-    std::vector<FundingStreamRecipient> recipients;
-
-    FundingStream(int startHeight, int endHeight, const std::vector<FundingStreamRecipient>& recipients):
-        startHeight(startHeight), endHeight(endHeight), recipients(recipients) { }
-public:
-    FundingStream(const FundingStream& fs):
-        startHeight(fs.startHeight), endHeight(fs.endHeight), recipients(fs.recipients) { }
-
-    static std::variant<FundingStream, FundingStreamError> ValidateFundingStream(
-        const Consensus::Params& params,
-        const int startHeight,
-        const int endHeight,
-        const std::vector<FundingStreamRecipient>& recipients
-    );
-
-    static FundingStream ParseFundingStream(
-        const Consensus::Params& params,
-        const KeyConstants& keyConstants,
-        const int startHeight,
-        const int endHeight,
-        const std::vector<std::string>& strAddresses,
-        const bool allowDeferredPool);
-
-    int GetStartHeight() const { return startHeight; };
-    int GetEndHeight() const { return endHeight; };
-    const std::vector<FundingStreamRecipient>& GetRecipients() const {
-        return recipients;
-    };
-
-    FundingStreamRecipient Recipient(const Params& params, int nHeight) const;
-};
-
-/**
- * Index into Params.vOnetimeLockboxDisbursements.
- *
- * Being array indices, these MUST be numbered consecutively.
- */
-enum OnetimeLockboxDisbursementIndex : uint32_t {
-    LD_ZIP271_NU6_1_CHUNK_1,
-    LD_ZIP271_NU6_1_CHUNK_2,
-    LD_ZIP271_NU6_1_CHUNK_3,
-    LD_ZIP271_NU6_1_CHUNK_4,
-    LD_ZIP271_NU6_1_CHUNK_5,
-    LD_ZIP271_NU6_1_CHUNK_6,
-    LD_ZIP271_NU6_1_CHUNK_7,
-    LD_ZIP271_NU6_1_CHUNK_8,
-    LD_ZIP271_NU6_1_CHUNK_9,
-    LD_ZIP271_NU6_1_CHUNK_10,
-    MAX_ONETIME_LOCKBOX_DISBURSEMENTS
-};
-const auto FIRST_ONETIME_LOCKBOX_DISBURSEMENT = LD_ZIP271_NU6_1_CHUNK_1;
-
-/**
- * An amount of funds that the activation block for the given upgrade must
- * disburse from the lockbox to the given recipient.
- */
-class OnetimeLockboxDisbursement
-{
-private:
-    UpgradeIndex upgrade;
-    CAmount zatoshis;
-    CScript recipient;
-
-    OnetimeLockboxDisbursement(UpgradeIndex upgrade, CAmount zatoshis, CScript& recipient):
-        upgrade(upgrade), zatoshis(zatoshis), recipient(recipient) { }
-public:
-    OnetimeLockboxDisbursement(const OnetimeLockboxDisbursement& fs):
-        upgrade(fs.upgrade), zatoshis(fs.zatoshis), recipient(fs.recipient) { }
-
-    static OnetimeLockboxDisbursement Parse(
-        const Consensus::Params& params,
-        const KeyConstants& keyConstants,
-        const UpgradeIndex upgrade,
-        const CAmount zatoshis,
-        const std::string& strAddress);
-
-    UpgradeIndex GetUpgrade() const { return upgrade; };
-    CAmount GetAmount() const { return zatoshis; };
-    CScript GetRecipient() const { return recipient; };
 };
 
 enum ConsensusFeature : uint32_t {
@@ -370,7 +232,6 @@ struct Params {
 
     int GetLastFoundersRewardBlockHeight(int nHeight) const;
 
-    int FundingPeriodIndex(int fundingStreamStartHeight, int nHeight) const;
 
     /** Used to check majorities for block version upgrade */
     int nMajorityEnforceBlockUpgrade;
@@ -378,71 +239,10 @@ struct Params {
     int nMajorityWindow;
     NetworkUpgrade vUpgrades[MAX_NETWORK_UPGRADES];
 
-    int nFundingPeriodLength;
-    std::optional<FundingStream> vFundingStreams[MAX_FUNDING_STREAMS];
-    void AddZIP207FundingStream(
-        const KeyConstants& keyConstants,
-        FundingStreamIndex idx,
-        int startHeight,
-        int endHeight,
-        const std::vector<std::string>& addresses);
-
-    void AddZIP207LockboxStream(
-        const KeyConstants& keyConstants,
-        FundingStreamIndex idx,
-        int startHeight,
-        int endHeight);
-
-    std::optional<OnetimeLockboxDisbursement> vOnetimeLockboxDisbursements[MAX_ONETIME_LOCKBOX_DISBURSEMENTS];
-
-    /**
-     * Defines a one-time lockbox disbursement for this network.
-     *
-     * The disbursement amounts are hard-coded, instead of being calculated as the amount
-     * in the lockbox at the upgrade activation. `nChainLockboxValue` tracks the latter,
-     * but we only know it once we've received all of a block's ancestors, which would be
-     * too late in the consensus rules. We need to be able to calculate `lockboxValue` in
-     * `SetChainPoolValues`, at which point we only know the block's height and contents.
-     */
-    void AddZIP271LockboxDisbursement(
-        const KeyConstants& keyConstants,
-        OnetimeLockboxDisbursementIndex idx,
-        UpgradeIndex upgrade,
-        CAmount zatoshis,
-        const std::string& strAddress);
-
     /**
      * Returns the total block subsidy as of the given block height
      */
     CAmount GetBlockSubsidy(int nHeight) const;
-
-    /**
-     * Returns the vector of active funding streams as of the given height.
-     */
-    std::vector<std::pair<FSInfo, FundingStream>> GetActiveFundingStreams(int nHeight) const;
-
-    /**
-     * Returns the vector of active funding stream elements as of the given height.
-     */
-    std::set<FundingStreamElement> GetActiveFundingStreamElements(int nHeight) const;
-
-    /**
-     * Returns the active funding stream elements at the given height, with
-     * values determined based upon the specified block subsidy amount. This
-     * should always be set to the value returned by `GetBlockSubsidy` for the
-     * given height; it is passed explicitly rather than derived internally
-     * as many call sites will have already called `GetBlockSubsidy` directly
-     * for other purposes.
-     */
-    std::set<FundingStreamElement> GetActiveFundingStreamElements(
-        int nHeight,
-        CAmount blockSubsidy) const;
-
-    /**
-     * Returns the vector of one-time lockbox disbursements occurring at the
-     * given height.
-     */
-    std::vector<OnetimeLockboxDisbursement> GetLockboxDisbursementsForHeight(int nHeight) const;
 
     /**
      * A set of features that have been explicitly force-enabled

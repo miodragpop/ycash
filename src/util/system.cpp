@@ -79,8 +79,8 @@
 
 using namespace std;
 
-const char * const BITCOIN_CONF_FILENAME = "zcash.conf";
-const char * const BITCOIN_PID_FILENAME = "zcashd.pid";
+const char * const BITCOIN_CONF_FILENAME = "ycash.conf";
+const char * const BITCOIN_PID_FILENAME = "ycashd.pid";
 
 CCriticalSection cs_args;
 map<string, string> mapArgs;
@@ -214,7 +214,7 @@ static std::string FormatException(const std::exception* pex, const char* pszThr
     char pszModule[MAX_PATH] = "";
     GetModuleFileNameA(NULL, pszModule, sizeof(pszModule));
 #else
-    const char* pszModule = "Zcash";
+    const char* pszModule = "Ycash";
 #endif
     if (pex)
         return strprintf(
@@ -232,13 +232,13 @@ void PrintExceptionContinue(const std::exception* pex, const char* pszThread)
 
 fs::path GetDefaultDataDir()
 {
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Zcash
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Zcash
-    // Mac: ~/Library/Application Support/Zcash
-    // Unix: ~/.zcash
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Ycash
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Ycash
+    // Mac: ~/Library/Application Support/Ycash
+    // Unix: ~/.ycash
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "Zcash";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "Ycash";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -250,10 +250,10 @@ fs::path GetDefaultDataDir()
     // Mac
     pathRet /= "Library/Application Support";
     TryCreateDirectory(pathRet);
-    return pathRet / "Zcash";
+    return pathRet / "Ycash";
 #else
     // Unix
-    return pathRet / ".zcash";
+    return pathRet / ".ycash";
 #endif
 #endif
 }
@@ -382,7 +382,7 @@ void ReadConfigFile(const std::string& confPath,
 {
     fs::ifstream streamConfig(GetConfigFile(confPath));
     if (!streamConfig.good())
-        throw missing_zcash_conf();
+        throw missing_ycash_conf();
 
     set<string> setOptions;
     setOptions.insert("*");
@@ -394,11 +394,9 @@ void ReadConfigFile(const std::string& confPath,
         "connect",
         "debug",
         "externalip",
-        "fundingstream",
         "loadblock",
         "metricsallowip",
         "nuparams",
-        "onetimelockboxdisbursement",
         "onlynet",
         "rpcallowip",
         "rpcauth",
@@ -425,7 +423,7 @@ void ReadConfigFile(const std::string& confPath,
             }
 
             InterpretNegativeSetting(strKey, strValue);
-            // Don't overwrite existing settings so command line settings override zcash.conf
+            // Don't overwrite existing settings so command line settings override ycash.conf
             if (mapSettingsRet.count(strKey) == 0)
                 mapSettingsRet[strKey] = strValue;
             mapMultiSettingsRet[strKey].push_back(strValue);
@@ -661,7 +659,7 @@ void SetThreadPriority(int nPriority)
 std::string PrivacyInfo()
 {
     return "\n" +
-           FormatParagraph(strprintf(_("In order to ensure you are adequately protecting your privacy when using Zcash, please see <%s>."),
+           FormatParagraph(strprintf(_("In order to ensure you are adequately protecting your privacy when using Ycash, please see <%s>."),
                                      "https://z.cash/support/security/")) + "\n";
 }
 

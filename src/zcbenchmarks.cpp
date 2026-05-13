@@ -625,7 +625,6 @@ double benchmark_connectblock_slow()
     index.nChainSproutValue = MAX_MONEY;
     index.nChainSaplingValue = MAX_MONEY;
     index.nChainOrchardValue = MAX_MONEY;
-    index.nChainLockboxValue = MAX_MONEY;
 
     recompute_hash_block_commitments(block, index, view);
 
@@ -688,7 +687,6 @@ double benchmark_connectblock_sapling()
     index.nChainSproutValue = MAX_MONEY;
     index.nChainSaplingValue = MAX_MONEY;
     index.nChainOrchardValue = MAX_MONEY;
-    index.nChainLockboxValue = MAX_MONEY;
 
     recompute_hash_block_commitments(block, index, view);
 
@@ -746,7 +744,6 @@ double benchmark_connectblock_orchard()
     index.nChainSproutValue = MAX_MONEY;
     index.nChainSaplingValue = MAX_MONEY;
     index.nChainOrchardValue = MAX_MONEY;
-    index.nChainLockboxValue = MAX_MONEY;
 
     recompute_hash_block_commitments(block, index, view);
 

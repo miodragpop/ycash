@@ -3,7 +3,6 @@
 #include "main.h"
 #include "util/moneystr.h"
 #include "chainparams.h"
-#include "consensus/funding.h"
 #include "fs.h"
 #include "key_io.h"
 #include "util/strencodings.h"
@@ -108,16 +107,6 @@ void checkNumberOfUniqueAddresses(int nUnique) {
     EXPECT_EQ(addresses.size(), nUnique);
 }
 
-int GetMaxFundingStreamHeight(const Consensus::Params& params) {
-    int result = 0;
-    for (auto fs : params.vFundingStreams) {
-        if (fs && result < fs.value().GetEndHeight() - 1) {
-            result = fs.value().GetEndHeight() - 1;
-        }
-    }
-
-    return result;
-}
 
 
 TEST(FoundersRewardTest, General) {
@@ -282,72 +271,5 @@ TEST(FoundersRewardTest, PerAddressRewardTestnet) {
     verifyNumberOfYcashRewards(48);
 }
 
-// Verify that post-Canopy, block rewards are split according to ZIP 207.
-TEST(FundingStreamsRewardTest, Zip207Distribution) {
-    auto consensus = RegtestActivateCanopy(false, 200);
-
-    int minHeight = GetLastFoundersRewardHeight(consensus) + 1;
-
-    KeyIO keyIO(Params());
-    auto sk = libzcash::SaplingSpendingKey(uint256());
-    for (int idx = Consensus::FIRST_FUNDING_STREAM; idx < Consensus::MAX_FUNDING_STREAMS; idx++) {
-        // we can just use the same addresses for all streams, all we're trying to do here
-        // is validate that the streams add up to the 20% of block reward.
-        auto shieldedAddr = keyIO.EncodePaymentAddress(sk.default_address());
-        UpdateFundingStreamParameters(
-            (Consensus::FundingStreamIndex) idx,
-            Consensus::FundingStream::ParseFundingStream(
-                consensus,
-                Params(),
-                minHeight, 
-                minHeight + 12, 
-                {
-                    "s2Xi8gr2eXXT2f8Jx8axGD2qwutsQPwjNYG",
-                    shieldedAddr,
-                },
-                false
-            )
-        );
-    }
-
-    int maxHeight = GetMaxFundingStreamHeight(consensus);
-    std::map<std::string, CAmount> ms;
-    for (int nHeight = minHeight; nHeight <= maxHeight; nHeight++) {
-        auto blockSubsidy = consensus.GetBlockSubsidy(nHeight);
-        auto elems = consensus.GetActiveFundingStreamElements(nHeight, blockSubsidy);
-
-        CAmount totalFunding = 0;
-        for (Consensus::FundingStreamElement elem : elems) {
-            totalFunding += elem.second;
-        }
-        EXPECT_EQ(totalFunding, blockSubsidy / 5);
-    }
-
-    RegtestDeactivateCanopy();
-}
-
-TEST(FundingStreamsRewardTest, ParseFundingStream) {
-    auto consensus = RegtestActivateCanopy(false, 200);
-
-    int minHeight = GetLastFoundersRewardHeight(consensus) + 1;
-
-    KeyIO keyIO(Params());
-    auto sk = libzcash::SaplingSpendingKey(uint256());
-    auto shieldedAddr = keyIO.EncodePaymentAddress(sk.default_address());
-    ASSERT_THROW(
-        Consensus::FundingStream::ParseFundingStream(
-            consensus,
-            Params(),
-            minHeight, 
-            minHeight + 13, 
-            {
-                "s2Xi8gr2eXXT2f8Jx8axGD2qwutsQPwjNYG",
-                shieldedAddr,
-            },
-            false
-        ),
-        std::runtime_error
-    );
-
-    RegtestDeactivateCanopy();
-}
+// FundingStreamsRewardTest tests removed: Ycash has no ZIP 207 funding
+// streams; the related infrastructure is gone from the consensus layer.
