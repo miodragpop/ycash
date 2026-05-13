@@ -154,29 +154,50 @@ public:
         nYdfMandateEndHeight = 2275000;
         assert(nYdfMandateEndHeight >= consensus.vUpgrades[Consensus::UPGRADE_YCASH].nActivationHeight);
 
-        // guarantees the first 2 characters, when base58 encoded, are "t1"
-        keyConstants.base58Prefixes[PUBKEY_ADDRESS]     = {0x1C,0xB8};
-        // guarantees the first 2 characters, when base58 encoded, are "t3"
-        keyConstants.base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xBD};
+        // guarantees the first 2 characters, when base58 encoded, are "s1"
+        keyConstants.base58Prefixes[PUBKEY_ADDRESS]     = {0x1C,0x28};
+        // guarantees the first 2 characters, when base58 encoded, are "s3"
+        keyConstants.base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0x2C};
         // the first character, when base58 encoded, is "5" or "K" or "L" (as in Bitcoin)
         keyConstants.base58Prefixes[SECRET_KEY]         = {0x80};
         // do not rely on these BIP32 prefixes; they are not specified and may change
         keyConstants.base58Prefixes[EXT_PUBLIC_KEY]     = {0x04,0x88,0xB2,0x1E};
         keyConstants.base58Prefixes[EXT_SECRET_KEY]     = {0x04,0x88,0xAD,0xE4};
-        // guarantees the first 2 characters, when base58 encoded, are "zc"
-        keyConstants.base58Prefixes[ZCPAYMENT_ADDRESS]  = {0x16,0x9A};
+        // guarantees the first 2 characters, when base58 encoded, are "yc"
+        keyConstants.base58Prefixes[ZCPAYMENT_ADDRESS]  = {0x16,0x36};
         // guarantees the first 4 characters, when base58 encoded, are "ZiVK"
         keyConstants.base58Prefixes[ZCVIEWING_KEY]      = {0xA8,0xAB,0xD3};
         // guarantees the first 2 characters, when base58 encoded, are "SK"
         keyConstants.base58Prefixes[ZCSPENDING_KEY]     = {0xAB,0x36};
 
-        keyConstants.bech32HRPs[SAPLING_PAYMENT_ADDRESS]      = "zs";
+        keyConstants.bech32HRPs[SAPLING_PAYMENT_ADDRESS]      = "ys";
         keyConstants.bech32HRPs[SAPLING_FULL_VIEWING_KEY]     = "zviews";
         keyConstants.bech32HRPs[SAPLING_INCOMING_VIEWING_KEY] = "zivks";
         keyConstants.bech32HRPs[SAPLING_EXTENDED_SPEND_KEY]   = "secret-extended-key-main";
         keyConstants.bech32HRPs[SAPLING_EXTENDED_FVK]         = "zxviews";
 
         keyConstants.bech32mHRPs[TEX_ADDRESS]                 = "tex";
+
+        // Legacy (Zcash-era) prefixes, retained so pre-fork data and
+        // Zcash-encoded user input can be decoded explicitly via
+        // KeyIO::ZecToYec* and the founders reward / pre-fork callsites.
+        // guarantees the first 2 characters, when base58 encoded, are "t1"
+        keyConstants.base58Prefixes[LEGACY_PUBKEY_ADDRESS]     = {0x1C,0xB8};
+        // guarantees the first 2 characters, when base58 encoded, are "t3"
+        keyConstants.base58Prefixes[LEGACY_SCRIPT_ADDRESS]     = {0x1C,0xBD};
+        keyConstants.base58Prefixes[LEGACY_SECRET_KEY]         = {0x80};
+        keyConstants.base58Prefixes[LEGACY_EXT_PUBLIC_KEY]     = {0x04,0x88,0xB2,0x1E};
+        keyConstants.base58Prefixes[LEGACY_EXT_SECRET_KEY]     = {0x04,0x88,0xAD,0xE4};
+        // guarantees the first 2 characters, when base58 encoded, are "zc"
+        keyConstants.base58Prefixes[LEGACY_ZCPAYMENT_ADDRESS]  = {0x16,0x9A};
+        keyConstants.base58Prefixes[LEGACY_ZCVIEWING_KEY]      = {0xA8,0xAB,0xD3};
+        keyConstants.base58Prefixes[LEGACY_ZCSPENDING_KEY]     = {0xAB,0x36};
+
+        keyConstants.bech32HRPs[LEGACY_SAPLING_PAYMENT_ADDRESS]      = "zs";
+        keyConstants.bech32HRPs[LEGACY_SAPLING_FULL_VIEWING_KEY]     = "zviews";
+        keyConstants.bech32HRPs[LEGACY_SAPLING_INCOMING_VIEWING_KEY] = "zivks";
+        keyConstants.bech32HRPs[LEGACY_SAPLING_EXTENDED_SPEND_KEY]   = "secret-extended-key-main";
+        keyConstants.bech32HRPs[LEGACY_SAPLING_EXTENDED_FVK]         = "zxviews";
         // Ycash mainnet has no ZIP 207 funding streams; the post-Sapling
         // founders reward is paid to the YDF addresses in vFoundersRewardAddress
         // until nYdfMandateEndHeight and is optional thereafter.
@@ -407,29 +428,50 @@ public:
         nYdfMandateEndHeight = 900000;
         assert(nYdfMandateEndHeight >= consensus.vUpgrades[Consensus::UPGRADE_YCASH].nActivationHeight);
 
-        // guarantees the first 2 characters, when base58 encoded, are "tm"
-        keyConstants.base58Prefixes[PUBKEY_ADDRESS]     = {0x1D,0x25};
+        // guarantees the first 2 characters, when base58 encoded, are "sm"
+        keyConstants.base58Prefixes[PUBKEY_ADDRESS]     = {0x1C,0x95};
         // guarantees the first 2 characters, when base58 encoded, are "t2"
-        keyConstants.base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xBA};
+        keyConstants.base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0x2A};
         // the first character, when base58 encoded, is "9" or "c" (as in Bitcoin)
         keyConstants.base58Prefixes[SECRET_KEY]         = {0xEF};
         // do not rely on these BIP32 prefixes; they are not specified and may change
         keyConstants.base58Prefixes[EXT_PUBLIC_KEY]     = {0x04,0x35,0x87,0xCF};
         keyConstants.base58Prefixes[EXT_SECRET_KEY]     = {0x04,0x35,0x83,0x94};
-        // guarantees the first 2 characters, when base58 encoded, are "zt"
-        keyConstants.base58Prefixes[ZCPAYMENT_ADDRESS]  = {0x16,0xB6};
+        // guarantees the first 2 characters, when base58 encoded, are "yt"
+        keyConstants.base58Prefixes[ZCPAYMENT_ADDRESS]  = {0x16,0x52};
         // guarantees the first 4 characters, when base58 encoded, are "ZiVt"
         keyConstants.base58Prefixes[ZCVIEWING_KEY]      = {0xA8,0xAC,0x0C};
         // guarantees the first 2 characters, when base58 encoded, are "ST"
         keyConstants.base58Prefixes[ZCSPENDING_KEY]     = {0xAC,0x08};
 
-        keyConstants.bech32HRPs[SAPLING_PAYMENT_ADDRESS]      = "ztestsapling";
+        keyConstants.bech32HRPs[SAPLING_PAYMENT_ADDRESS]      = "ytestsapling";
         keyConstants.bech32HRPs[SAPLING_FULL_VIEWING_KEY]     = "zviewtestsapling";
         keyConstants.bech32HRPs[SAPLING_INCOMING_VIEWING_KEY] = "zivktestsapling";
         keyConstants.bech32HRPs[SAPLING_EXTENDED_SPEND_KEY]   = "secret-extended-key-test";
         keyConstants.bech32HRPs[SAPLING_EXTENDED_FVK]         = "zxviewtestsapling";
 
         keyConstants.bech32mHRPs[TEX_ADDRESS]                 = "textest";
+
+        // Legacy (Zcash-era) prefixes for testnet, retained so pre-fork
+        // founders reward addresses and Zcash-encoded user input can be
+        // decoded via the ZecToYec helpers.
+        // guarantees the first 2 characters, when base58 encoded, are "tm"
+        keyConstants.base58Prefixes[LEGACY_PUBKEY_ADDRESS]     = {0x1D,0x25};
+        // guarantees the first 2 characters, when base58 encoded, are "t2"
+        keyConstants.base58Prefixes[LEGACY_SCRIPT_ADDRESS]     = {0x1C,0xBA};
+        keyConstants.base58Prefixes[LEGACY_SECRET_KEY]         = {0xEF};
+        keyConstants.base58Prefixes[LEGACY_EXT_PUBLIC_KEY]     = {0x04,0x35,0x87,0xCF};
+        keyConstants.base58Prefixes[LEGACY_EXT_SECRET_KEY]     = {0x04,0x35,0x83,0x94};
+        // guarantees the first 2 characters, when base58 encoded, are "zt"
+        keyConstants.base58Prefixes[LEGACY_ZCPAYMENT_ADDRESS]  = {0x16,0xB6};
+        keyConstants.base58Prefixes[LEGACY_ZCVIEWING_KEY]      = {0xA8,0xAC,0x0C};
+        keyConstants.base58Prefixes[LEGACY_ZCSPENDING_KEY]     = {0xAC,0x08};
+
+        keyConstants.bech32HRPs[LEGACY_SAPLING_PAYMENT_ADDRESS]      = "ztestsapling";
+        keyConstants.bech32HRPs[LEGACY_SAPLING_FULL_VIEWING_KEY]     = "zviewtestsapling";
+        keyConstants.bech32HRPs[LEGACY_SAPLING_INCOMING_VIEWING_KEY] = "zivktestsapling";
+        keyConstants.bech32HRPs[LEGACY_SAPLING_EXTENDED_SPEND_KEY]   = "secret-extended-key-test";
+        keyConstants.bech32HRPs[LEGACY_SAPLING_EXTENDED_FVK]         = "zxviewtestsapling";
 
 
         // On testnet we activate this rule 6 blocks after Blossom activation. From block 299188 and
@@ -604,24 +646,40 @@ public:
         nYdfMandateEndHeight = 5;
         assert(nYdfMandateEndHeight >= consensus.vUpgrades[Consensus::UPGRADE_YCASH].nActivationHeight);
 
-        // These prefixes are the same as the testnet prefixes
-        keyConstants.base58Prefixes[PUBKEY_ADDRESS]     = {0x1D,0x25};
-        keyConstants.base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xBA};
+        // These prefixes are the same as the testnet prefixes (Ycash post-fork).
+        keyConstants.base58Prefixes[PUBKEY_ADDRESS]     = {0x1C,0x95};
+        keyConstants.base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0x2A};
         keyConstants.base58Prefixes[SECRET_KEY]         = {0xEF};
         // do not rely on these BIP32 prefixes; they are not specified and may change
         keyConstants.base58Prefixes[EXT_PUBLIC_KEY]     = {0x04,0x35,0x87,0xCF};
         keyConstants.base58Prefixes[EXT_SECRET_KEY]     = {0x04,0x35,0x83,0x94};
-        keyConstants.base58Prefixes[ZCPAYMENT_ADDRESS]  = {0x16,0xB6};
+        keyConstants.base58Prefixes[ZCPAYMENT_ADDRESS]  = {0x16,0x52};
         keyConstants.base58Prefixes[ZCVIEWING_KEY]      = {0xA8,0xAC,0x0C};
         keyConstants.base58Prefixes[ZCSPENDING_KEY]     = {0xAC,0x08};
 
-        keyConstants.bech32HRPs[SAPLING_PAYMENT_ADDRESS]      = "zregtestsapling";
+        keyConstants.bech32HRPs[SAPLING_PAYMENT_ADDRESS]      = "yregtestsapling";
         keyConstants.bech32HRPs[SAPLING_FULL_VIEWING_KEY]     = "zviewregtestsapling";
         keyConstants.bech32HRPs[SAPLING_INCOMING_VIEWING_KEY] = "zivkregtestsapling";
         keyConstants.bech32HRPs[SAPLING_EXTENDED_SPEND_KEY]   = "secret-extended-key-regtest";
         keyConstants.bech32HRPs[SAPLING_EXTENDED_FVK]         = "zxviewregtestsapling";
 
         keyConstants.bech32mHRPs[TEX_ADDRESS]                 = "texregtest";
+
+        // Legacy prefixes for regtest mirror the Zcash testnet values.
+        keyConstants.base58Prefixes[LEGACY_PUBKEY_ADDRESS]     = {0x1D,0x25};
+        keyConstants.base58Prefixes[LEGACY_SCRIPT_ADDRESS]     = {0x1C,0xBA};
+        keyConstants.base58Prefixes[LEGACY_SECRET_KEY]         = {0xEF};
+        keyConstants.base58Prefixes[LEGACY_EXT_PUBLIC_KEY]     = {0x04,0x35,0x87,0xCF};
+        keyConstants.base58Prefixes[LEGACY_EXT_SECRET_KEY]     = {0x04,0x35,0x83,0x94};
+        keyConstants.base58Prefixes[LEGACY_ZCPAYMENT_ADDRESS]  = {0x16,0xB6};
+        keyConstants.base58Prefixes[LEGACY_ZCVIEWING_KEY]      = {0xA8,0xAC,0x0C};
+        keyConstants.base58Prefixes[LEGACY_ZCSPENDING_KEY]     = {0xAC,0x08};
+
+        keyConstants.bech32HRPs[LEGACY_SAPLING_PAYMENT_ADDRESS]      = "zregtestsapling";
+        keyConstants.bech32HRPs[LEGACY_SAPLING_FULL_VIEWING_KEY]     = "zviewregtestsapling";
+        keyConstants.bech32HRPs[LEGACY_SAPLING_INCOMING_VIEWING_KEY] = "zivkregtestsapling";
+        keyConstants.bech32HRPs[LEGACY_SAPLING_EXTENDED_SPEND_KEY]   = "secret-extended-key-regtest";
+        keyConstants.bech32HRPs[LEGACY_SAPLING_EXTENDED_FVK]         = "zxviewregtestsapling";
 
         // The best chain should have at least this much work.
         consensus.nMinimumChainWork = uint256S("0x00");

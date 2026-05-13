@@ -1,4 +1,5 @@
 // Copyright (c) 2020-2023 The Zcash developers
+// Copyright (c) 2019-present The Ycash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
@@ -22,6 +23,20 @@ public:
         ZCSPENDING_KEY,
         ZCVIEWING_KEY,
 
+        // Legacy (Zcash-era) prefixes, retained so that pre-fork data
+        // (founders reward addresses, Zcash-encoded user input handled by
+        // the ZecToYec helpers) can still be decoded after the Ycash fork
+        // swapped the canonical prefixes.
+        LEGACY_PUBKEY_ADDRESS,
+        LEGACY_SCRIPT_ADDRESS,
+        LEGACY_SECRET_KEY,
+        LEGACY_EXT_PUBLIC_KEY,
+        LEGACY_EXT_SECRET_KEY,
+
+        LEGACY_ZCPAYMENT_ADDRESS,
+        LEGACY_ZCSPENDING_KEY,
+        LEGACY_ZCVIEWING_KEY,
+
         MAX_BASE58_TYPES
     };
 
@@ -31,6 +46,12 @@ public:
         SAPLING_INCOMING_VIEWING_KEY,
         SAPLING_EXTENDED_SPEND_KEY,
         SAPLING_EXTENDED_FVK,
+
+        LEGACY_SAPLING_PAYMENT_ADDRESS,
+        LEGACY_SAPLING_FULL_VIEWING_KEY,
+        LEGACY_SAPLING_INCOMING_VIEWING_KEY,
+        LEGACY_SAPLING_EXTENDED_SPEND_KEY,
+        LEGACY_SAPLING_EXTENDED_FVK,
 
         MAX_BECH32_TYPES
     };
