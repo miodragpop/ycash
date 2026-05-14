@@ -8,9 +8,33 @@
 #include "policy/policy.h"
 
 #include "main.h"
+#include "primitives/transaction.h"
 #include "tinyformat.h"
 #include "util/system.h"
 #include "util/strencodings.h"
+
+CAmount PerSaplingOutputFees(const CTransaction& tx)
+{
+    // Ycash anti-spam mempool fee floor scaled by Sapling output count.
+    // Originally introduced in ycash-official to mitigate the 2022 Zcash
+    // many-shielded-outputs spam attack; ported here to run alongside the
+    // ZIP 317 unpaid-action rule.
+    //
+    // Within the grace range (<= DEFAULT_EXEMPT_SAPLING_OUTPUTS outputs),
+    // the floor is a single DEFAULT_PER_SAPLING_OUTPUT_FEE; beyond that,
+    // each additional output adds DEFAULT_PER_SAPLING_OUTPUT_FEE.
+    const unsigned int nTotalSaplingOutputs = tx.GetSaplingOutputsCount();
+
+    if (nTotalSaplingOutputs == 0) {
+        return 0;
+    }
+
+    if (nTotalSaplingOutputs <= DEFAULT_EXEMPT_SAPLING_OUTPUTS) {
+        return DEFAULT_PER_SAPLING_OUTPUT_FEE;
+    }
+
+    return (nTotalSaplingOutputs - DEFAULT_EXEMPT_SAPLING_OUTPUTS) * DEFAULT_PER_SAPLING_OUTPUT_FEE;
+}
 
 
     /**

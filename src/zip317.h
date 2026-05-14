@@ -21,7 +21,25 @@ static const size_t P2PKH_STANDARD_OUTPUT_SIZE = 34;
 // Constants for block template construction.
 static const int64_t WEIGHT_RATIO_SCALE = INT64_C(10000000000000000);
 static const int64_t WEIGHT_RATIO_CAP = 4;
-static const size_t DEFAULT_BLOCK_UNPAID_ACTION_LIMIT = 0;
+
+// NOTE: ZIP 317 mempool / block-template policy is intentionally OFF by default
+// in Ycash. The ZIP 317 code paths (conventional fee, unpaid actions, weighted
+// block construction, ZIP 401 low-fee eviction penalty) remain compiled and
+// fully wired -- only the per-tx and per-block unpaid-action *limits* are
+// raised to SIZE_MAX so the rejection and free-action capping become no-ops.
+//
+// Day-to-day shielded-output spam is handled by the much simpler Ycash
+// per-Sapling-output fee floor (see `PerSaplingOutputFees` in policy/policy.cpp),
+// which is ported from ycash-official and runs in AcceptToMemoryPool.
+//
+// To re-activate ZIP 317 in the future:
+//   - At runtime (per-node opt-in, no release required):
+//       ycashd -txunpaidactionlimit=0 -blockunpaidactionlimit=0
+//   - As a network-wide default: change the two constants below back to 0 and
+//     ship a release. ZIP 317 is *relay policy*, not consensus, so a soft
+//     default change is sufficient; a UPGRADE_* activation height is not
+//     required (and would be overkill).
+static const size_t DEFAULT_BLOCK_UNPAID_ACTION_LIMIT = SIZE_MAX;
 
 /// Limit on the number of unpaid actions a transaction can have to be accepted to the mempool.
 static const size_t DEFAULT_TX_UNPAID_ACTION_LIMIT = DEFAULT_BLOCK_UNPAID_ACTION_LIMIT;

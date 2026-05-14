@@ -1241,7 +1241,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (GetArg("-txunpaidactionlimit", 0) < 0) {
         return InitError(_("-txunpaidactionlimit cannot be configured with a negative value."));
     }
-    nTxUnpaidActionLimit = GetArg("-txunpaidactionlimit", DEFAULT_TX_UNPAID_ACTION_LIMIT);
+    nTxUnpaidActionLimit = (size_t) GetArg("-txunpaidactionlimit", (int64_t) DEFAULT_TX_UNPAID_ACTION_LIMIT);
 
     // Option to startup with mocktime set (used for regression testing);
     // a mocktime of 0 (the default) selects the system clock.

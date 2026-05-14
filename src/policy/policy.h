@@ -7,6 +7,7 @@
 #ifndef BITCOIN_POLICY_POLICY_H
 #define BITCOIN_POLICY_POLICY_H
 
+#include "amount.h"
 #include "consensus/consensus.h"
 #include "script/interpreter.h"
 #include "script/standard.h"
@@ -15,6 +16,19 @@
 
 class CChainParams;
 class CCoinsViewCache;
+class CTransaction;
+
+// Ycash per-Sapling-output mempool fee floor (anti-spam policy, see policy.cpp).
+static const CAmount DEFAULT_PER_SAPLING_OUTPUT_FEE = 1000;
+static const unsigned int DEFAULT_EXEMPT_SAPLING_OUTPUTS = 50;
+
+/**
+ * Minimum fee, in yoshis, that a transaction must pay to be accepted to the
+ * mempool under the Ycash per-Sapling-output anti-spam policy. Ported from
+ * ycash-official; runs alongside (and independently of) the ZIP 317 unpaid
+ * action limit in AcceptToMemoryPool.
+ */
+CAmount PerSaplingOutputFees(const CTransaction& tx);
 
 /** Default for -blockmaxsize, which controls the maximum block size the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = MAX_BLOCK_SIZE;

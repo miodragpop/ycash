@@ -41,6 +41,13 @@ enum UpgradeIndex : uint32_t {
     UPGRADE_HEARTWOOD,
     UPGRADE_CANOPY,
     UPGRADE_NU5,
+    // NU6 / NU6.1 are Zcash funding-stream plumbing (ZIP-1015 / ZIP-2001 /
+    // ZIP-2002 lockbox + disbursement). Ycash no longer diverts any portion
+    // of the block subsidy to a development fund -- the YDF mandate has
+    // ended and miners keep the full subsidy -- so there is no funding
+    // pipeline for these upgrades to manage and they will never activate.
+    // Entries are kept as NO_ACTIVATION_HEIGHT placeholders to preserve the
+    // upgrade enum ordering shared with upstream tooling.
     UPGRADE_NU6,
     UPGRADE_NU6_1,
     // Add new network upgrades before this line.

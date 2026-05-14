@@ -112,7 +112,7 @@ std::optional<unsigned int> expiryDeltaArg = std::nullopt;
 
 CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 CAmount maxTxFee = DEFAULT_TRANSACTION_MAXFEE;
-CAmount nTxUnpaidActionLimit = DEFAULT_TX_UNPAID_ACTION_LIMIT;
+size_t nTxUnpaidActionLimit = DEFAULT_TX_UNPAID_ACTION_LIMIT;
 
 CTxMemPool mempool(::minRelayTxFee);
 
@@ -1905,6 +1905,20 @@ bool AcceptToMemoryPool(
                     " The minimum acceptance/relay fee for this transaction is %d " + MINOR_CURRENCY_UNIT,
                     tx.GetHash().ToString(), nSize, nModifiedFees, nModifiedFees - nFees, minRelayFee);
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "min relay fee not met");
+        }
+
+        // Ycash per-Sapling-output anti-spam fee floor. Rejects shielded-output
+        // spam independently of (and in addition to) the ZIP 317 check below.
+        // See policy/policy.cpp for the formula.
+        CAmount txPerSaplingOutputFees = PerSaplingOutputFees(tx);
+        if (nFees < txPerSaplingOutputFees) {
+            LogPrint("mempool",
+                    "Not accepting transaction with txid %s to the mempool: fees %d " + MINOR_CURRENCY_UNIT +
+                    " are below the per-Sapling-output floor of %d " + MINOR_CURRENCY_UNIT +
+                    " for %d Sapling outputs",
+                    tx.GetHash().ToString(), nFees, txPerSaplingOutputFees, tx.GetSaplingOutputsCount());
+            return state.DoS(0, false, REJECT_INSUFFICIENTFEE,
+                             strprintf("insufficient per-Sapling-output fee: %d < %d", nFees, txPerSaplingOutputFees));
         }
 
         // Transactions with more than `-txunpaidactionlimit` unpaid actions (calculated

@@ -226,7 +226,7 @@ extern CFeeRate minRelayTxFee;
 /** Absolute maximum transaction fee (in yoshis) used by wallet and mempool (rejects high fee in sendrawtransaction). */
 extern CAmount maxTxFee;
 /** Limit on the number of unpaid actions a transaction can have to be accepted to the mempool. */
-extern CAmount nTxUnpaidActionLimit;
+extern size_t nTxUnpaidActionLimit;
 /** If the tip is older than this (in seconds), the node is considered to be in initial block download. */
 extern int64_t nMaxTipAge;
 

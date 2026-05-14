@@ -23,20 +23,19 @@ static const int SPROUT_VALUE_VERSION = 1001400;
 static const int SAPLING_VALUE_VERSION = 1010100;
 static const int CHAIN_HISTORY_ROOT_VERSION = 2010200;
 static const int NU5_DATA_VERSION = 4050000;
-static const int TRANSPARENT_VALUE_VERSION = 5040026;
-static const int NU6_DATA_VERSION = 5100025;
+static const int TRANSPARENT_VALUE_VERSION = 6120350;
 
 /**
  * Maximum amount of time that a block timestamp is allowed to be ahead of the
  * median-time-past of the previous block.
  */
-static const int64_t MAX_FUTURE_BLOCK_TIME_MTP = 90 * 60;
+static const int64_t MAX_FUTURE_BLOCK_TIME_MTP = 90 * 60 * 2;
 
 /**
  * Maximum amount of time that a block timestamp is allowed to be ahead of the
  * current local time.
  */
-static const int64_t MAX_FUTURE_BLOCK_TIME_LOCAL = 2 * 60 * 60;
+static const int64_t MAX_FUTURE_BLOCK_TIME_LOCAL = 2 * 60 * 60 * 2;
 
 /**
  * Timestamp window used as a grace period by code that compares external
