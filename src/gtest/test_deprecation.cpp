@@ -1,21 +1,33 @@
+// Copyright (c) 2017-2023 The Zcash developers
+// Copyright (c) 2026 The Ycash developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or https://www.opensource.org/licenses/mit-license.php .
+
+// Ycash does not enforce node deprecation. DEPRECATION_HEIGHT is pinned to
+// INT_MAX in deprecation.h so EnforceNodeDeprecation's shutdown and warning
+// branches are unreachable; the upstream Zcash test cases (warning at
+// DEPRECATION_HEIGHT - DEPRECATION_WARN_LIMIT, shutdown at/after
+// DEPRECATION_HEIGHT) would either overflow at DEPRECATION_HEIGHT + 1 or
+// describe behavior that no longer exists. The tests below instead pin the
+// new contract: the node never warns and never requests shutdown, on any
+// network, at any height we can represent.
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "chainparams.h"
 #include "clientversion.h"
 #include "deprecation.h"
-#include "fs.h"
 #include "init.h"
 #include "ui_interface.h"
 #include "util/system.h"
-#include "util/strencodings.h"
 
-#include <fstream>
+#include <limits>
+#include <string>
 
 using namespace boost::placeholders;
 using ::testing::StrictMock;
 
-static const std::string CLIENT_VERSION_STR = FormatVersion(CLIENT_VERSION);
 extern std::atomic<bool> fRequestShutdown;
 
 class MockUIInterface {
@@ -39,7 +51,6 @@ protected:
         uiInterface.ThreadSafeMessageBox.disconnect_all_slots();
         uiInterface.ThreadSafeMessageBox.connect(boost::bind(ThreadSafeMessageBox, &mock_, _1, _2, _3));
         SelectParams(CBaseChainParams::MAIN);
-
     }
 
     void TearDown() override {
@@ -48,103 +59,56 @@ protected:
     }
 
     StrictMock<MockUIInterface> mock_;
-
-    static std::vector<std::string> read_lines(fs::path filepath) {
-        std::vector<std::string> result;
-
-        std::ifstream f(filepath.string().c_str());
-        std::string line;
-        while (std::getline(f,line)) {
-            result.push_back(line);
-        }
-
-        return result;
-    }
 };
 
-TEST_F(DeprecationTest, NonDeprecatedNodeKeepsRunning) {
+// Sentinel: deprecation is intentionally disabled in Ycash.
+TEST_F(DeprecationTest, DeprecationIsDisabled) {
+    EXPECT_EQ(DEPRECATION_HEIGHT, std::numeric_limits<int>::max());
+}
+
+// At genesis-like heights, the node must not warn or shut down. StrictMock
+// will fail the test if ThreadSafeMessageBox is invoked.
+TEST_F(DeprecationTest, NodeAtLowHeightNeitherWarnsNorShutsDown) {
     EXPECT_FALSE(ShutdownRequested());
-    EnforceNodeDeprecation(Params(), DEPRECATION_HEIGHT - DEPRECATION_WARN_LIMIT - 1);
+    EnforceNodeDeprecation(Params(), 0);
+    EnforceNodeDeprecation(Params(), 0, /*forceLogging=*/true);
     EXPECT_FALSE(ShutdownRequested());
 }
 
-TEST_F(DeprecationTest, NodeNearDeprecationIsWarned) {
+// At any plausible Ycash chain height, the node must not warn or shut down.
+TEST_F(DeprecationTest, NodeAtTypicalHeightNeitherWarnsNorShutsDown) {
     EXPECT_FALSE(ShutdownRequested());
-    EXPECT_CALL(mock_, ThreadSafeMessageBox(::testing::_, "", CClientUIInterface::MSG_WARNING));
-    EnforceNodeDeprecation(Params(), DEPRECATION_HEIGHT - DEPRECATION_WARN_LIMIT);
-    EXPECT_FALSE(ShutdownRequested());
-}
-
-TEST_F(DeprecationTest, NodeNearDeprecationWarningIsNotDuplicated) {
-    EXPECT_FALSE(ShutdownRequested());
-    EnforceNodeDeprecation(Params(), DEPRECATION_HEIGHT - DEPRECATION_WARN_LIMIT + 1);
+    EnforceNodeDeprecation(Params(), 2'000'000);
+    EnforceNodeDeprecation(Params(), 2'000'000, /*forceLogging=*/true);
     EXPECT_FALSE(ShutdownRequested());
 }
 
-TEST_F(DeprecationTest, NodeNearDeprecationWarningIsRepeatedOnStartup) {
+// Even at the maximum representable height the node must not shut down.
+// (DEPRECATION_HEIGHT is INT_MAX, so this is the boundary case.)
+TEST_F(DeprecationTest, NodeAtIntMaxHeightDoesNotShutDown) {
     EXPECT_FALSE(ShutdownRequested());
-    EXPECT_CALL(mock_, ThreadSafeMessageBox(::testing::_, "", CClientUIInterface::MSG_WARNING));
-    EnforceNodeDeprecation(Params(), DEPRECATION_HEIGHT - DEPRECATION_WARN_LIMIT + 1, true);
+    EnforceNodeDeprecation(Params(), std::numeric_limits<int>::max());
     EXPECT_FALSE(ShutdownRequested());
 }
 
-TEST_F(DeprecationTest, DeprecatedNodeShutsDown) {
-    EXPECT_FALSE(ShutdownRequested());
-    EXPECT_CALL(mock_, ThreadSafeMessageBox(::testing::_, "", CClientUIInterface::MSG_ERROR));
-    EnforceNodeDeprecation(Params(), DEPRECATION_HEIGHT);
-    EXPECT_TRUE(ShutdownRequested());
+// EstimatedNodeDeprecationTime must not overflow when DEPRECATION_HEIGHT
+// is pinned to INT_MAX -- the implementation saturates to INT64_MAX.
+TEST_F(DeprecationTest, EstimatedDeprecationTimeIsSaturated) {
+    FixedClock clock(std::chrono::seconds(1000));
+    EXPECT_EQ(EstimatedNodeDeprecationTime(clock, 0),
+              std::numeric_limits<int64_t>::max());
+    EXPECT_EQ(EstimatedNodeDeprecationTime(clock, 2'000'000),
+              std::numeric_limits<int64_t>::max());
 }
 
-TEST_F(DeprecationTest, DeprecatedNodeErrorIsNotDuplicated) {
-    EXPECT_FALSE(ShutdownRequested());
-    EnforceNodeDeprecation(Params(), DEPRECATION_HEIGHT + 1);
-    EXPECT_TRUE(ShutdownRequested());
-}
-
-TEST_F(DeprecationTest, DeprecatedNodeErrorIsRepeatedOnStartup) {
-    EXPECT_FALSE(ShutdownRequested());
-    EXPECT_CALL(mock_, ThreadSafeMessageBox(::testing::_, "", CClientUIInterface::MSG_ERROR));
-    EnforceNodeDeprecation(Params(), DEPRECATION_HEIGHT + 1, true);
-    EXPECT_TRUE(ShutdownRequested());
-}
-
-TEST_F(DeprecationTest, DeprecatedNodeIgnoredOnRegtest) {
+// Regtest and testnet behavior is unchanged: enforcement is skipped there
+// regardless of mainnet policy.
+TEST_F(DeprecationTest, RegtestAndTestnetAreUnaffected) {
     SelectParams(CBaseChainParams::REGTEST);
+    EnforceNodeDeprecation(Params(), 0);
     EXPECT_FALSE(ShutdownRequested());
-    EnforceNodeDeprecation(Params(), DEPRECATION_HEIGHT+1);
-    EXPECT_FALSE(ShutdownRequested());
-}
 
-TEST_F(DeprecationTest, DeprecatedNodeIgnoredOnTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
+    EnforceNodeDeprecation(Params(), 0);
     EXPECT_FALSE(ShutdownRequested());
-    EnforceNodeDeprecation(Params(), DEPRECATION_HEIGHT+1);
-    EXPECT_FALSE(ShutdownRequested());
-}
-
-TEST_F(DeprecationTest, AlertNotify) {
-    fs::path temp = fs::temp_directory_path() /
-        fs::unique_path("alertnotify-%%%%.txt");
-
-    mapArgs["-alertnotify"] = std::string("echo %s >> ") + temp.string();
-
-    EXPECT_CALL(mock_, ThreadSafeMessageBox(::testing::_, "", CClientUIInterface::MSG_WARNING));
-    EnforceNodeDeprecation(Params(), DEPRECATION_HEIGHT - DEPRECATION_WARN_LIMIT, false, false);
-
-    std::vector<std::string> r = read_lines(temp);
-    EXPECT_EQ(r.size(), 1u);
-
-    // -alertnotify restricts the message to safe characters.
-    auto expectedMsg = strprintf(
-        "This version will be deprecated at block height %d, and will automatically shut down. You should upgrade to the latest version of Ycash.",
-        DEPRECATION_HEIGHT);
-
-    // Windows built-in echo semantics are different than posixy shells. Quotes and
-    // whitespace are printed literally.
-#ifndef WIN32
-    EXPECT_EQ(r[0], expectedMsg);
-#else
-    EXPECT_EQ(r[0], strprintf("'%s' ", expectedMsg));
-#endif
-    fs::remove(temp);
 }

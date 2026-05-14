@@ -34,12 +34,22 @@ bool fEnableSetTxFee = true;
 static const std::string CLIENT_VERSION_STR = FormatVersion(CLIENT_VERSION);
 
 int64_t EstimatedNodeDeprecationTime(const CClock& clock, int nHeight) {
-    auto blocksToDeprecation = DEPRECATION_HEIGHT - nHeight;
-
+    // Ycash pins DEPRECATION_HEIGHT to INT_MAX, so the projected wall-clock
+    // deprecation time is effectively infinite. Saturate to INT64_MAX rather
+    // than overflowing through the 32-bit multiplication.
+    if (DEPRECATION_HEIGHT == std::numeric_limits<int>::max()) {
+        return std::numeric_limits<int64_t>::max();
+    }
+    int64_t blocksToDeprecation = (int64_t)DEPRECATION_HEIGHT - (int64_t)nHeight;
     return clock.GetTime() + (blocksToDeprecation * Consensus::POST_BLOSSOM_POW_TARGET_SPACING);
 }
 
 void EnforceNodeDeprecation(const CChainParams& params, int nHeight, bool forceLogging, bool fThread) {
+    // Ycash disables node deprecation by pinning DEPRECATION_HEIGHT to INT_MAX.
+    // Skip the rest of this function entirely so the boundary case
+    // nHeight == DEPRECATION_HEIGHT cannot trigger the shutdown branch.
+    if (DEPRECATION_HEIGHT == std::numeric_limits<int>::max()) return;
+
     // Do not enforce deprecation in regtest or on testnet
     std::string networkID = params.NetworkIDString();
     if (networkID != "main") return;

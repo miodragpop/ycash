@@ -9,17 +9,26 @@
 #include "consensus/params.h"
 #include "util/time.h"
 
+#include <limits>
+
 // Deprecation policy:
-// Per https://zips.z.cash/zip-0200
-// Shut down nodes running this version of code, `RELEASE_TO_DEPRECATION_WEEKS` weeks' worth
-// of blocks after the estimated release block height. A warning is shown during the 14 days'
-// worth of blocks prior to shut down.
-static const int APPROX_RELEASE_HEIGHT = 3336460;
-static const int RELEASE_TO_DEPRECATION_WEEKS = 10;
+// Upstream Zcash (per ZIP-200) shuts a node down RELEASE_TO_DEPRECATION_WEEKS
+// after the release height to force users onto newer versions. Ycash does not
+// enforce this -- there is no foundation pushing upgrades on a fixed schedule,
+// and stale nodes are preferable to nodes that stop relaying blocks on a
+// hardcoded date. DEPRECATION_HEIGHT is pinned to INT_MAX so the shutdown
+// branch in EnforceNodeDeprecation is unreachable and the 14-day warning fires
+// at a height no real chain will ever see.
+//
+// APPROX_RELEASE_HEIGHT is unrelated to deprecation: it is used by
+// signrawtransaction to pick a consensus branch ID for offline signing when
+// the local chain tip is behind the real network. It must therefore reflect a
+// height in the *currently active* Ycash epoch (Canopy at 1100006 on mainnet
+// at the time of this release).
+static const int APPROX_RELEASE_HEIGHT = 1500000;
 static const int EXPECTED_BLOCKS_PER_HOUR = 3600 / Consensus::POST_BLOSSOM_POW_TARGET_SPACING;
 static_assert(EXPECTED_BLOCKS_PER_HOUR == 48, "The value of Consensus::POST_BLOSSOM_POW_TARGET_SPACING was chosen such that this assertion holds.");
-static const int ACTIVATION_TO_DEPRECATION_BLOCKS = (RELEASE_TO_DEPRECATION_WEEKS * 7 * 24 * EXPECTED_BLOCKS_PER_HOUR);
-static const int DEPRECATION_HEIGHT = APPROX_RELEASE_HEIGHT + ACTIVATION_TO_DEPRECATION_BLOCKS;
+static const int DEPRECATION_HEIGHT = std::numeric_limits<int>::max();
 
 // Number of blocks before deprecation to warn users
 static const int DEPRECATION_WARN_LIMIT = 14 * 24 * EXPECTED_BLOCKS_PER_HOUR;
