@@ -35,6 +35,8 @@ void EnsureWalletIsUnlocked();
 bool EnsureWalletIsAvailable(bool avoidException);
 
 UniValue importwallet_impl(const UniValue& params, bool fImportZKeys);
+static void WriteWalletDumpToFile(const fs::path& exportfilepath);
+void MaybeAutoExportAfterImport(const std::string& method);
 
 
 std::string static EncodeDumpTime(int64_t nTime) {
@@ -151,6 +153,7 @@ UniValue importprivkey(const UniValue& params, bool fHelp)
         // Imported key is not derived from the mnemonic seed; mark the wallet
         // so getwalletinfo reports a partial-backup warning.
         pwalletMain->SetHasExternalImports();
+        MaybeAutoExportAfterImport("importprivkey");
 
         if (fRescan) {
             pwalletMain->ScanForWalletTransactions(chainActive.Genesis(), true, false);
@@ -481,6 +484,7 @@ UniValue importwallet_impl(const UniValue& params, bool fImportZKeys)
     // this wallet's mnemonic seed; mark the wallet so getwalletinfo reports
     // a partial-backup warning. Cheap to over-report (the flag is sticky).
     pwalletMain->SetHasExternalImports();
+    MaybeAutoExportAfterImport("importwallet");
 
     if (!fGood)
         throw JSONRPCError(RPC_WALLET_ERROR, "Error adding some keys to wallet");
@@ -536,47 +540,13 @@ UniValue dumpwallet(const UniValue& params, bool fHelp)
     throw JSONRPCError(RPC_METHOD_NOT_FOUND, "dumpwallet has been removed. Use z_exportwallet instead.");
 }
 
-UniValue z_exportwallet(const UniValue& params, bool fHelp)
+// Writes a complete z_exportwallet-format dump of pwalletMain to `exportfilepath`.
+// Callers must hold cs_main and pwalletMain->cs_wallet, and must have unlocked
+// the wallet beforehand. Throws JSONRPCError on filesystem failure.
+static void WriteWalletDumpToFile(const fs::path& exportfilepath)
 {
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
-    if (fHelp || params.size() != 1)
-        throw runtime_error(
-            "z_exportwallet \"filename\"\n"
-            "\nExports all wallet keys, for taddr and zaddr, in a human-readable format.  Overwriting an existing file is not permitted.\n"
-            "\nArguments:\n"
-            "1. \"filename\"    (string, required) The filename, saved in folder set by zcashd -exportdir option\n"
-            "\nResult:\n"
-            "\"path\"           (string) The full path of the destination file\n"
-            "\nExamples:\n"
-            + HelpExampleCli("z_exportwallet", "\"test\"")
-            + HelpExampleRpc("z_exportwallet", "\"test\"")
-        );
-
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-
-    EnsureWalletIsUnlocked();
-
-    fs::path exportdir;
-    try {
-        exportdir = GetExportDir();
-    } catch (const std::runtime_error& e) {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, e.what());
-    }
-    if (exportdir.empty()) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Cannot export wallet until the zcashd -exportdir option has been set");
-    }
-    std::string unclean = params[0].get_str();
-    std::string clean = SanitizeFilename(unclean);
-    if (clean.compare(unclean) != 0) {
-        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Filename is invalid as only alphanumeric characters are allowed.  Try '%s' instead.", clean));
-    }
-    fs::path exportfilepath = exportdir / clean;
-
-    if (fs::exists(exportfilepath)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot overwrite existing file " + exportfilepath.string());
-    }
+    AssertLockHeld(cs_main);
+    AssertLockHeld(pwalletMain->cs_wallet);
 
     ofstream file;
     file.open(exportfilepath.string().c_str());
@@ -590,7 +560,7 @@ UniValue z_exportwallet(const UniValue& params, bool fHelp)
 
     // sort time/key pairs
     std::vector<std::pair<int64_t, CKeyID> > vKeyBirth;
-    for (std::map<CKeyID, int64_t>::const_iterator it = mapKeyBirth.begin(); it != mapKeyBirth.end(); it++) {
+    for (auto it = mapKeyBirth.begin(); it != mapKeyBirth.end(); it++) {
         vKeyBirth.push_back(std::make_pair(it->second, it->first));
     }
     mapKeyBirth.clear();
@@ -598,7 +568,6 @@ UniValue z_exportwallet(const UniValue& params, bool fHelp)
 
     KeyIO keyIO(Params());
 
-    // produce output
     file << strprintf("# Wallet dump created by Ycash %s\n", CLIENT_BUILD);
     file << strprintf("# * Created on %s\n", EncodeDumpTime(GetTime()));
     file << strprintf("# * Best block at time of backup was %i (%s),\n", chainActive.Height(), chainActive.Tip()->GetBlockHash().ToString());
@@ -631,7 +600,7 @@ UniValue z_exportwallet(const UniValue& params, bool fHelp)
     }
 
     file << "\n";
-    for (std::vector<std::pair<int64_t, CKeyID> >::const_iterator it = vKeyBirth.begin(); it != vKeyBirth.end(); it++) {
+    for (auto it = vKeyBirth.begin(); it != vKeyBirth.end(); it++) {
         const CKeyID &keyid = it->second;
         std::string strTime = EncodeDumpTime(it->first);
         std::string strAddr = keyIO.EncodeDestination(keyid);
@@ -690,7 +659,99 @@ UniValue z_exportwallet(const UniValue& params, bool fHelp)
 
     file << "# End of dump\n";
     file.close();
+}
 
+// If -autoexportafterimport is enabled and -exportdir is configured, write a
+// fresh wallet dump into the export dir. Called from import RPCs *after* the
+// new key has been added (so the dump captures it). Best-effort: failures are
+// logged but do not propagate, since the import itself has already succeeded.
+//
+// The caller must hold cs_main and pwalletMain->cs_wallet. The dump filename
+// is `autoexport-<utc-timestamp>-<method>.dat`.
+void MaybeAutoExportAfterImport(const std::string& method)
+{
+    if (!GetBoolArg("-autoexportafterimport", false)) {
+        return;
+    }
+
+    fs::path exportdir;
+    try {
+        exportdir = GetExportDir();
+    } catch (const std::runtime_error& e) {
+        LogPrintf("MaybeAutoExportAfterImport: GetExportDir failed: %s\n", e.what());
+        return;
+    }
+    if (exportdir.empty()) {
+        LogPrintf("MaybeAutoExportAfterImport: -autoexportafterimport is set but "
+                  "-exportdir is not configured; skipping auto-export.\n");
+        return;
+    }
+
+    // Build filename: autoexport-YYYYMMDDTHHMMSSZ-<method>.dat. Use a
+    // filesystem-safe basic ISO 8601 (no colons / dashes) so the file is
+    // portable across Windows.
+    fs::path target = exportdir / strprintf("autoexport-%s-%s.dat",
+                                            DateTimeStrFormat("%Y%m%dT%H%M%SZ", GetTime()),
+                                            method);
+    if (fs::exists(target)) {
+        LogPrintf("MaybeAutoExportAfterImport: %s already exists; skipping.\n",
+                  target.string());
+        return;
+    }
+
+    try {
+        WriteWalletDumpToFile(target);
+        LogPrintf("MaybeAutoExportAfterImport: wallet snapshot written to %s\n",
+                  target.string());
+    } catch (const std::exception& e) {
+        LogPrintf("MaybeAutoExportAfterImport: failed to write %s: %s\n",
+                  target.string(), e.what());
+    }
+}
+
+UniValue z_exportwallet(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "z_exportwallet \"filename\"\n"
+            "\nExports all wallet keys, for taddr and zaddr, in a human-readable format.  Overwriting an existing file is not permitted.\n"
+            "\nArguments:\n"
+            "1. \"filename\"    (string, required) The filename, saved in folder set by zcashd -exportdir option\n"
+            "\nResult:\n"
+            "\"path\"           (string) The full path of the destination file\n"
+            "\nExamples:\n"
+            + HelpExampleCli("z_exportwallet", "\"test\"")
+            + HelpExampleRpc("z_exportwallet", "\"test\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    fs::path exportdir;
+    try {
+        exportdir = GetExportDir();
+    } catch (const std::runtime_error& e) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, e.what());
+    }
+    if (exportdir.empty()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Cannot export wallet until the zcashd -exportdir option has been set");
+    }
+    std::string unclean = params[0].get_str();
+    std::string clean = SanitizeFilename(unclean);
+    if (clean.compare(unclean) != 0) {
+        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Filename is invalid as only alphanumeric characters are allowed.  Try '%s' instead.", clean));
+    }
+    fs::path exportfilepath = exportdir / clean;
+
+    if (fs::exists(exportfilepath)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot overwrite existing file " + exportfilepath.string());
+    }
+
+    WriteWalletDumpToFile(exportfilepath);
     return exportfilepath.string();
 }
 
@@ -801,6 +862,7 @@ UniValue z_importkey(const UniValue& params, bool fHelp)
     // Imported key is not derived from the mnemonic seed; mark the wallet
     // so getwalletinfo reports a partial-backup warning.
     pwalletMain->SetHasExternalImports();
+    MaybeAutoExportAfterImport("z_importkey");
 
     // We want to scan for transactions and notes
     if (fRescan) {
