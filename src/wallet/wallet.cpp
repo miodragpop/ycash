@@ -5915,6 +5915,43 @@ DBErrors CWallet::LoadWallet(bool& fFirstRunRet)
         return nLoadWalletRet;
     fFirstRunRet = !vchDefaultKey.IsValid();
 
+    // Detect spending keys that predate the mnemonic seed. A pre-mnemonic
+    // wallet stores transparent and Sapling spending keys with no ZIP-32
+    // metadata (empty hdKeypath, null seedFp). Those keys cannot be
+    // recovered from any mnemonic phrase this wallet generates later,
+    // so they belong in the same backup-incomplete category as keys added
+    // by importprivkey / z_importkey.
+    //
+    // Only act on first detection: once fHasExternalImports has been
+    // persisted, subsequent loads are no-ops.
+    if (!fHasExternalImports) {
+        bool foundLegacyKey = false;
+        for (const auto& [keyid, meta] : mapKeyMetadata) {
+            if (meta.hdKeypath.empty() && meta.seedFp.IsNull()) {
+                CKey key;
+                if (GetKey(keyid, key)) {
+                    foundLegacyKey = true;
+                    break;
+                }
+            }
+        }
+        if (!foundLegacyKey) {
+            for (const auto& [ivk, meta] : mapSaplingZKeyMetadata) {
+                if (meta.hdKeypath.empty() && meta.seedFp.IsNull()) {
+                    foundLegacyKey = true;
+                    break;
+                }
+            }
+        }
+        if (foundLegacyKey) {
+            LogPrintf("Wallet contains spending keys that predate the mnemonic "
+                      "seed; flagging as having external imports for backup "
+                      "tracking purposes.\n");
+            // Use the same persistence path as runtime imports.
+            SetHasExternalImports();
+        }
+    }
+
     uiInterface.LoadWallet(this);
 
     return DB_LOAD_OK;

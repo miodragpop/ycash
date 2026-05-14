@@ -186,7 +186,16 @@ protected:
     uint256 hashChainSupplyCheckpointBlock;
     bool fZIP209Enabled = false;
     bool fRegTestAllowLegacyChainSupplyData = false;
-    bool fRequireWalletBackup = true;
+    // Whether the wallet refuses to generate new addresses until the user has
+    // confirmed the mnemonic backup via walletconfirmbackup / ycashd-wallet-tool.
+    // Ycash defaults this to false on every network: closed-source exchange and
+    // explorer software does not implement the backup-acknowledgement step, and
+    // an old pre-mnemonic wallet.dat that ends up with an auto-generated phrase
+    // it has no reason to back up would otherwise be blocked from issuing
+    // deposit addresses. Operators who want strict behavior can pass
+    // `-walletrequirebackup=1`. The has_external_imports flag in getwalletinfo
+    // still surfaces the partial-backup hazard separately.
+    bool fRequireWalletBackup = false;
 };
 
 /**
