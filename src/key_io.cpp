@@ -604,6 +604,48 @@ std::optional<libzcash::ViewingKey> KeyIO::DecodeViewingKey(const std::string& s
         );
 }
 
+// Sapling incoming viewing key has a fixed 32-byte payload. Bech32 5-bit
+// regrouping with the standard ceiling formula yields 52 data characters.
+static const size_t ConvertedSaplingIncomingViewingKeySize = (32 * 8 + 4) / 5;
+
+std::string KeyIO::EncodeIVK(const libzcash::SaplingIncomingViewingKey& ivk) const
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << ivk;
+    std::vector<unsigned char> serkey(ss.begin(), ss.end());
+    std::vector<unsigned char> data;
+    data.reserve((serkey.size() * 8 + 4) / 5);
+    ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, serkey.begin(), serkey.end());
+    std::string ret = bech32::Encode(bech32::Encoding::BECH32,
+                                     keyConstants.Bech32HRP(KeyConstants::SAPLING_INCOMING_VIEWING_KEY),
+                                     data);
+    memory_cleanse(serkey.data(), serkey.size());
+    memory_cleanse(data.data(), data.size());
+    return ret;
+}
+
+std::optional<libzcash::SaplingIncomingViewingKey> KeyIO::DecodeIVK(const std::string& str) const
+{
+    auto bech = bech32::Decode(str);
+    if (bech.encoding != bech32::Encoding::BECH32 ||
+        bech.hrp != keyConstants.Bech32HRP(KeyConstants::SAPLING_INCOMING_VIEWING_KEY) ||
+        bech.data.size() != ConvertedSaplingIncomingViewingKeySize) {
+        return std::nullopt;
+    }
+
+    std::vector<unsigned char> raw;
+    raw.reserve((bech.data.size() * 5) / 8);
+    if (!ConvertBits<5, 8, false>([&](unsigned char c) { raw.push_back(c); },
+                                  bech.data.begin(), bech.data.end())) {
+        return std::nullopt;
+    }
+
+    CDataStream ss(raw, SER_NETWORK, PROTOCOL_VERSION);
+    libzcash::SaplingIncomingViewingKey ivk;
+    ss >> ivk;
+    return ivk;
+}
+
 std::string KeyIO::EncodeSpendingKey(const libzcash::SpendingKey& zkey) const
 {
     return std::visit(SpendingKeyEncoder(keyConstants), zkey);

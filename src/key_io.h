@@ -68,6 +68,16 @@ public:
     std::string EncodeViewingKey(const libzcash::ViewingKey& vk) const;
     std::optional<libzcash::ViewingKey> DecodeViewingKey(const std::string& str) const;
 
+    /**
+     * Sapling incoming-viewing-key (`zivks...`) codec. Ported from
+     * ycash-official to support exchanges and explorers that round-trip
+     * IVK-only viewing keys via the legacy z_exportivk / z_importivk RPCs.
+     * Distinct from EncodeViewingKey / DecodeViewingKey, which handle the
+     * larger SaplingExtendedFullViewingKey (`zviews...`) form.
+     */
+    std::string EncodeIVK(const libzcash::SaplingIncomingViewingKey& ivk) const;
+    std::optional<libzcash::SaplingIncomingViewingKey> DecodeIVK(const std::string& str) const;
+
     std::string EncodeSpendingKey(const libzcash::SpendingKey& zkey) const;
     std::optional<libzcash::SpendingKey> DecodeSpendingKey(const std::string& str) const;
 
