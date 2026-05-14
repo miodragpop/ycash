@@ -4221,6 +4221,20 @@ bool CWallet::MnemonicVerified() {
     return mnemonicHDChain.has_value() && mnemonicHDChain.value().IsMnemonicSeedBackupConfirmed();
 }
 
+void CWallet::SetHasExternalImports() {
+    LOCK(cs_wallet);
+    if (fHasExternalImports) {
+        return;
+    }
+    fHasExternalImports = true;
+    if (fFileBacked && !CWalletDB(strWalletFile).WriteHasExternalImports(true)) {
+        throw std::runtime_error(
+                "CWallet::SetHasExternalImports(): writing external-imports flag failed");
+    }
+    LogPrintf("Wallet now contains imported keys outside the ZIP-32 derivation tree; "
+              "the recovery phrase alone will not back up these keys.\n");
+}
+
 HDSeed CWallet::GetHDSeedForRPC() const {
     auto seed = GetMnemonicSeed();
     if (!seed.has_value()) {
@@ -6565,7 +6579,7 @@ std::string CWallet::GetWalletHelpString(bool showDebug)
     strUsage += HelpMessageOpt("-walletnotify=<cmd>", _("Execute command when a wallet transaction changes (%s in cmd is replaced by TxID)"));
     strUsage += HelpMessageOpt("-zapwallettxes=<mode>", _("Delete all wallet transactions and only recover those parts of the blockchain through -rescan on startup") +
                                " " + _("(1 = keep tx meta data e.g. account owner and payment request information, 2 = drop tx meta data)"));
-    strUsage += HelpMessageOpt("-walletrequirebackup=<bool>", _("By default, the wallet will not allow generation of new spending keys & addresses from the mnemonic seed until the backup of that seed has been confirmed with the `zcashd-wallet-tool` utility. A user may start zcashd with `-walletrequirebackup=false` to allow generation of spending keys even if the backup has not yet been confirmed."));
+    strUsage += HelpMessageOpt("-walletrequirebackup=<bool>", _("By default, the wallet will not allow generation of new spending keys & addresses from the mnemonic seed until the backup of that seed has been confirmed with the `ycashd-wallet-tool` utility. A user may start ycashd with `-walletrequirebackup=false` to allow generation of spending keys even if the backup has not yet been confirmed."));
 
     if (showDebug)
     {

@@ -1383,6 +1383,17 @@ protected:
     /* the hd chain metadata for keys derived from the mnemonic seed */
     std::optional<CHDChain> mnemonicHDChain;
 
+    /* True once any key has been imported into the wallet from outside the
+     * ZIP-32 derivation tree (importprivkey, z_importkey, z_importviewingkey,
+     * importwallet). Persisted as `hasexternalimports` in walletdb.
+     *
+     * When true the wallet's recovery phrase is no longer a complete backup:
+     * restoring from the phrase alone will not recover funds at imported
+     * addresses. Reported in getwalletinfo, and walletconfirmbackup requires
+     * an extra `acknowledge_imports=true` argument before flipping
+     * MnemonicVerified. */
+    bool fHasExternalImports = false;
+
     /* the network ID string for the network for which this wallet was created */
     std::string networkIdString;
 
@@ -2170,6 +2181,14 @@ public:
      * wallet's seed as having been backed up if the phrases match. */
     bool VerifyMnemonicSeed(const SecureString& mnemonic);
     bool MnemonicVerified();
+
+    /* Returns true if the wallet contains any key imported from outside the
+     * ZIP-32 derivation tree (see fHasExternalImports). */
+    bool HasExternalImports() const { return fHasExternalImports; }
+    /* Mark the wallet as containing external imports and persist to walletdb. */
+    void SetHasExternalImports();
+    /* Set the flag without persisting (used by LoadWallet). */
+    void LoadHasExternalImports(bool value) { fHasExternalImports = value; }
 
     /* Set the current mnemonic phrase, without saving it to disk (used by LoadWallet) */
     bool LoadMnemonicSeed(const MnemonicSeed& seed);

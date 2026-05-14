@@ -2588,9 +2588,9 @@ UniValue walletconfirmbackup(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() != 1)
+    if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
-            "walletconfirmbackup \"emergency recovery phrase\"\n"
+            "walletconfirmbackup \"emergency recovery phrase\" ( acknowledge_imports )\n"
             "\nCAUTION: This is an internal method that is not intended to be called directly by\n"
             "users. Please use the ycashd-wallet-tool utility (built or installed in the same directory\n"
             "as ycashd) instead. In particular, this method should not be used from ycash-cli, in order\n"
@@ -2599,10 +2599,17 @@ UniValue walletconfirmbackup(const UniValue& params, bool fHelp)
             "which can be obtained by making a call to z_exportwallet. The ycashd embedded wallet\n"
             "requires confirmation that the emergency recovery phrase has been backed up before it\n"
             "will permit new spending keys or addresses to be generated.\n"
+            "\nIf the wallet contains keys imported from outside the ZIP-32 derivation tree\n"
+            "(see getwalletinfo.has_external_imports), the recovery phrase alone is not a\n"
+            "complete backup. In that case this call requires the second argument\n"
+            "`acknowledge_imports=true` to confirm the caller understands that wallet.dat\n"
+            "or z_exportwallet must also be preserved.\n"
             "\nArguments:\n"
             "1. \"emergency recovery phrase\" (string, required) The full recovery phrase returned as part\n"
             "   of the data returned by z_exportwallet. An error will be returned if the value provided\n"
             "   does not match the wallet's existing emergency recovery phrase.\n"
+            "2. acknowledge_imports        (bool, optional, default=false) Must be true if the wallet\n"
+            "   contains externally-imported keys; ignored otherwise.\n"
             "\nExamples:\n"
             + HelpExampleRpc("walletconfirmbackup", "\"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art\"")
         );
@@ -2610,6 +2617,23 @@ UniValue walletconfirmbackup(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     EnsureWalletIsUnlocked();
+
+    // If the wallet contains externally-imported keys, the recovery phrase is
+    // not a complete backup -- require the caller to acknowledge this before
+    // we flip MnemonicVerified to true.
+    if (pwalletMain->HasExternalImports()) {
+        bool acknowledged = (params.size() > 1 && !params[1].isNull())
+                                ? params[1].get_bool()
+                                : false;
+        if (!acknowledged) {
+            throw JSONRPCError(
+                    RPC_WALLET_ERROR,
+                    "This wallet contains keys imported from outside the ZIP-32 derivation tree. "
+                    "The emergency recovery phrase alone will NOT recover funds at imported "
+                    "addresses. Back up wallet.dat or run z_exportwallet first, then re-issue "
+                    "this call with acknowledge_imports=true.");
+        }
+    }
 
     SecureString strMnemonicPhrase(params[0].get_str());
     boost::trim(strMnemonicPhrase);
@@ -2925,6 +2949,10 @@ UniValue getwalletinfo(const UniValue& params, bool fHelp)
             "  \"legacy_seedfp\": \"uint256\",   (string, optional) if this wallet was created prior to release 4.5.2, this will contain the BLAKE2b-256\n"
             "                                    hash of the legacy HD seed that was used to derive Sapling addresses prior to the 4.5.2 upgrade to mnemonic\n"
             "                                    emergency recovery phrases. This field was previously named \"seedfp\".\n"
+            "  \"has_external_imports\": true,   (bool, optional) only present and true when the wallet contains keys imported from outside the ZIP-32\n"
+            "                                    derivation tree (importprivkey, z_importkey, importwallet). When set, the recovery phrase alone is NOT\n"
+            "                                    a complete backup. Back up wallet.dat or run z_exportwallet to capture the imported keys.\n"
+            "  \"external_imports_warning\": \"...\", (string, optional) human-readable warning, only present when has_external_imports is true.\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("getwalletinfo", "")
@@ -2961,6 +2989,14 @@ UniValue getwalletinfo(const UniValue& params, bool fHelp)
     auto legacySeed = pwalletMain->GetLegacyHDSeed();
     if (legacySeed.has_value())
         obj.pushKV("legacy_seedfp", legacySeed.value().Fingerprint().GetHex());
+    if (pwalletMain->HasExternalImports()) {
+        obj.pushKV("has_external_imports", true);
+        obj.pushKV("external_imports_warning",
+                   "Wallet contains keys imported from outside the ZIP-32 derivation tree. "
+                   "Restoring from the emergency recovery phrase alone will NOT recover funds "
+                   "at these addresses. Back up wallet.dat or run z_exportwallet to preserve "
+                   "the imported keys.");
+    }
     return obj;
 }
 

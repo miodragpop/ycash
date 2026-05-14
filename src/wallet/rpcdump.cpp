@@ -148,6 +148,10 @@ UniValue importprivkey(const UniValue& params, bool fHelp)
         // whenever a key is imported, we need to scan the whole chain
         pwalletMain->nTimeFirstKey = 1; // 0 would be considered 'no value'
 
+        // Imported key is not derived from the mnemonic seed; mark the wallet
+        // so getwalletinfo reports a partial-backup warning.
+        pwalletMain->SetHasExternalImports();
+
         if (fRescan) {
             pwalletMain->ScanForWalletTransactions(chainActive.Genesis(), true, false);
         }
@@ -473,6 +477,11 @@ UniValue importwallet_impl(const UniValue& params, bool fImportZKeys)
     pwalletMain->ScanForWalletTransactions(pindex, false, false);
     pwalletMain->MarkDirty();
 
+    // Imported wallet dump typically contains keys that did not originate from
+    // this wallet's mnemonic seed; mark the wallet so getwalletinfo reports
+    // a partial-backup warning. Cheap to over-report (the flag is sticky).
+    pwalletMain->SetHasExternalImports();
+
     if (!fGood)
         throw JSONRPCError(RPC_WALLET_ERROR, "Error adding some keys to wallet");
 
@@ -788,6 +797,10 @@ UniValue z_importkey(const UniValue& params, bool fHelp)
 
     // whenever a key is imported, we need to scan the whole chain
     pwalletMain->nTimeFirstKey = 1; // 0 would be considered 'no value'
+
+    // Imported key is not derived from the mnemonic seed; mark the wallet
+    // so getwalletinfo reports a partial-backup warning.
+    pwalletMain->SetHasExternalImports();
 
     // We want to scan for transactions and notes
     if (fRescan) {

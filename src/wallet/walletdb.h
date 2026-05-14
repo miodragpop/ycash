@@ -454,6 +454,7 @@ public:
     bool WriteMnemonicSeed(const MnemonicSeed& seed);
     bool WriteCryptedMnemonicSeed(const uint256& seedFp, const std::vector<unsigned char>& vchCryptedSecret);
     bool WriteMnemonicHDChain(const CHDChain& chain);
+    bool WriteHasExternalImports(bool value);
 
     /// Write spending key to wallet database, where key is payment address and value is spending key.
     bool WriteZKey(const libzcash::SproutPaymentAddress& addr, const libzcash::SproutSpendingKey& key, const CKeyMetadata &keyMeta);

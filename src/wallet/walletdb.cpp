@@ -863,6 +863,12 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             auto chain = CHDChain::Read(ssValue);
             pwallet->SetMnemonicHDChain(chain, true);
         }
+        else if (strType == "hasexternalimports")
+        {
+            bool value;
+            ssValue >> value;
+            pwallet->LoadHasExternalImports(value);
+        }
         else if (strType == "networkinfo")
         {
             std::pair<std::string, std::string> networkInfo;
@@ -1137,7 +1143,7 @@ DBErrors CWalletDB::ZapWalletTx(CWallet* pwallet, vector<CWalletTx>& vWtx)
 void ThreadFlushWalletDB(const string& strFile)
 {
     // Make this thread recognisable as the wallet flushing thread
-    RenameThread("zc-wallet-flush");
+    RenameThread("yc-wallet-flush");
 
     static bool fOneThread;
     if (fOneThread)
@@ -1363,6 +1369,12 @@ bool CWalletDB::WriteMnemonicHDChain(const CHDChain& chain)
 {
     nWalletDBUpdateCounter++;
     return Write(std::string("mnemonichdchain"), chain);
+}
+
+bool CWalletDB::WriteHasExternalImports(bool value)
+{
+    nWalletDBUpdateCounter++;
+    return Write(std::string("hasexternalimports"), value);
 }
 
 void CWalletDB::IncrementUpdateCounter()
