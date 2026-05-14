@@ -412,7 +412,7 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "         \"reqSigs\" : n,            (numeric) The required sigs\n"
             "         \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
             "         \"addresses\" : [           (json array of string)\n"
-            "           \"zcashaddress\"          (string) Zcash address\n"
+            "           \"ycashaddress\"          (string) Ycash address\n"
             "           ,...\n"
             "         ]\n"
             "       }\n"
@@ -686,8 +686,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( locktime ) ( expiryheight )\n"
             + Deprecated(fEnableCreateRawTransaction,
                          "createrawtransaction",
-                         "Zallet will instead provide new RPC methods that operate on PCZTs:\n"
-                         "https://github.com/zcash/wallet/issues/99") +
+                         "") +
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
             "Returns hex-encoded raw transaction.\n"
             "Note that the transaction's inputs are not signed, and\n"
@@ -705,7 +704,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "     ]\n"
             "2. \"addresses\"           (string, required) a json object with addresses as keys and amounts as values\n"
             "    {\n"
-            "      \"address\": x.xxx   (numeric, required) The key is the Zcash address, the value is the " + CURRENCY_UNIT + " amount\n"
+            "      \"address\": x.xxx   (numeric, required) The key is the Ycash address, the value is the " + CURRENCY_UNIT + " amount\n"
             "      ,...\n"
             "    }\n"
             "3. locktime              (numeric, optional, default=0) Raw locktime. Non-0 value also locktime-activates inputs\n"
@@ -791,7 +790,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
     for (const std::string& name_ : addrList) {
         CTxDestination destination = keyIO.DecodeDestination(name_);
         if (!IsValidDestination(destination)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Zcash address: ") + name_);
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Ycash address: ") + name_);
         }
 
         if (!destinations.insert(destination).second) {
@@ -850,7 +849,7 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             "         \"reqSigs\" : n,            (numeric) The required sigs\n"
             "         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n"
             "         \"addresses\" : [           (json array of string)\n"
-            "           \"t12tvKAXCxZjSmdNbao16dKXC8tRWfcF5oc\"   (string) zcash address\n"
+            "           \"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\"   (string) Ycash address\n"
             "           ,...\n"
             "         ]\n"
             "       }\n"
@@ -923,7 +922,7 @@ UniValue decodescript(const UniValue& params, bool fHelp)
             "  \"type\":\"type\", (string) The output type\n"
             "  \"reqSigs\": n,    (numeric) The required signatures\n"
             "  \"addresses\": [   (json array of string)\n"
-            "     \"address\"     (string) Zcash address\n"
+            "     \"address\"     (string) Ycash address\n"
             "     ,...\n"
             "  ],\n"
             "  \"p2sh\",\"address\" (string) script address\n"
@@ -969,8 +968,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             "signrawtransaction \"hexstring\" ( [{\"txid\":\"id\",\"vout\":n,\"scriptPubKey\":\"hex\",\"redeemScript\":\"hex\"},...] [\"privatekey1\",...] sighashtype )\n"
             + Deprecated(fEnableSignRawTransaction,
                          "signrawtransaction",
-                         "Zallet will instead provide new RPC methods that operate on PCZTs:\n"
-                         "https://github.com/zcash/wallet/issues/99") +
+                         "") +
             "\nSign inputs for raw transaction (serialized, hex-encoded).\n"
             "The second optional argument (may be null) is an array of previous transaction outputs that\n"
             "this transaction depends on but may not yet be in the block chain.\n"

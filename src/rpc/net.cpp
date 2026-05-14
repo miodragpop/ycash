@@ -457,8 +457,7 @@ UniValue getdeprecationinfo(const UniValue& params, bool fHelp)
             "  \"deprecated_features\": [...],              (array of string) a list of currently-deprecated but not yet disabled features\n"
             "  \"disabled_features\": [...]                 (array of string) a list of the deprecated and currently-disabled features that should be expected to be\n"
             "                                             removed in an upcoming release. These features can be re-enabled via use of the '-allowdeprecated'\n"
-            "                                             configuration option; please see https://zcash.github.io/zcash/user/deprecation.html for additional\n"
-            "                                             information.\n"
+            "                                             configuration option.\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("getdeprecationinfo", "")

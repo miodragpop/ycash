@@ -590,7 +590,7 @@ UniValue z_exportwallet(const UniValue& params, bool fHelp)
     KeyIO keyIO(Params());
 
     // produce output
-    file << strprintf("# Wallet dump created by Zcash %s\n", CLIENT_BUILD);
+    file << strprintf("# Wallet dump created by Ycash %s\n", CLIENT_BUILD);
     file << strprintf("# * Created on %s\n", EncodeDumpTime(GetTime()));
     file << strprintf("# * Best block at time of backup was %i (%s),\n", chainActive.Height(), chainActive.Tip()->GetBlockHash().ToString());
     file << strprintf("#   mined on %s\n", EncodeDumpTime(chainActive.Tip()->GetBlockTime()));

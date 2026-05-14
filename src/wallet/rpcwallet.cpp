@@ -232,7 +232,7 @@ UniValue z_converttex(const UniValue& params, bool fHelp)
             "\"texaddress\"    (string) The converted ZIP 320 (TEX) address\n"
 
             "\nExamples:\n"
-            + HelpExampleCli("z_converttex", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\"")
+            + HelpExampleCli("z_converttex", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\"")
         );
 
     KeyIO keyIO(Params());
@@ -303,7 +303,7 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
     if (nValue > curBalance)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
 
-    // Parse Zcash address
+    // Parse Ycash address
     CScript scriptPubKey = GetScriptForDestination(address);
 
     // Create and send the transaction
@@ -437,10 +437,10 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sendtoaddress", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1")
-            + HelpExampleCli("sendtoaddress", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"donation\" \"seans outpost\"")
-            + HelpExampleCli("sendtoaddress", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"\" \"\" true")
-            + HelpExampleRpc("sendtoaddress", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", 0.1, \"donation\", \"seans outpost\"")
+            + HelpExampleCli("sendtoaddress", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\" 0.1")
+            + HelpExampleCli("sendtoaddress", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\" 0.1 \"donation\" \"seans outpost\"")
+            + HelpExampleCli("sendtoaddress", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\" 0.1 \"\" \"\" true")
+            + HelpExampleRpc("sendtoaddress", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\", 0.1, \"donation\", \"seans outpost\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -557,17 +557,17 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
             "  {\n"
             "    \"source\": \"imported|imported_watchonly|legacy_random|legacy_seed|mnemonic_seed\"\n"
             "    \"transparent\": {\n"
-            "      \"addresses\": [\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\", ...],\n"
-            "      \"changeAddresses\": [\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\", ...]\n"
+            "      \"addresses\": [\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\", ...],\n"
+            "      \"changeAddresses\": [\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\", ...]\n"
             "    },\n"
             "    \"sprout\": {\n"
-            "      \"addresses\": [\"ztbx5DLDxa5ZLFTchHhoPNkKs57QzSyib6UqXpEdy76T1aUdFxJt1w9318Z8DJ73XzbnWHKEZP9Yjg712N5kMmP4QzS9iC9\", ...]\n"
+            "      \"addresses\": [\"ys1s7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya\", ...]\n"
             "    },\n"
             "    \"sapling\": [ -- each element in this list represents a set of diversified addresses derived from a single IVK. \n"
             "      {\n"
             "        \"zip32KeyPath\": \"m/32'/133'/0'\", -- optional field, not present for imported/watchonly sources,\n"
             "        \"addresses\": [\n"
-            "          \"zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya\",\n"
+            "          \"ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq\",\n"
             "          ...\n"
             "        ]\n"
             "      },\n"
@@ -1012,7 +1012,7 @@ UniValue listaddressgroupings(const UniValue& params, bool fHelp)
             "[\n"
             "  [\n"
             "    [\n"
-            "      \"zcashaddress\",     (string) The zcash address\n"
+            "      \"ycashaddress\",     (string) The Ycash address\n"
             "      amount,                 (numeric) The amount in " + CURRENCY_UNIT + "\n"
             "    ]\n"
             "    ,...\n"
@@ -1072,11 +1072,11 @@ UniValue signmessage(const UniValue& params, bool fHelp)
             "\nUnlock the wallet for 30 seconds\n"
             + HelpExampleCli("walletpassphrase", "\"mypassphrase\" 30") +
             "\nCreate the signature\n"
-            + HelpExampleCli("signmessage", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" \"my message\"") +
+            + HelpExampleCli("signmessage", "\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\" \"my message\"") +
             "\nVerify the signature\n"
-            + HelpExampleCli("verifymessage", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" \"signature\" \"my message\"") +
+            + HelpExampleCli("verifymessage", "\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\" \"signature\" \"my message\"") +
             "\nAs json rpc\n"
-            + HelpExampleRpc("signmessage", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\", \"my message\"")
+            + HelpExampleRpc("signmessage", "\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\", \"my message\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1133,13 +1133,13 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
             "Compatible with up to two arguments."
             "\nExamples:\n"
             "\nThe amount from transactions with at least 1 confirmation\n"
-            + HelpExampleCli("getreceivedbyaddress", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\"") +
+            + HelpExampleCli("getreceivedbyaddress", "\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\"") +
             "\nThe amount including unconfirmed transactions, zero confirmations\n"
-            + HelpExampleCli("getreceivedbyaddress", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" 0") +
+            + HelpExampleCli("getreceivedbyaddress", "\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\" 0") +
             "\nThe amount with at least 6 confirmations, very safe\n"
-            + HelpExampleCli("getreceivedbyaddress", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" 6") +
+            + HelpExampleCli("getreceivedbyaddress", "\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\" 6") +
             "\nAs a JSON RPC call\n"
-            + HelpExampleRpc("getreceivedbyaddress", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\", 6")
+            + HelpExampleRpc("getreceivedbyaddress", "\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\", 6")
        );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1290,13 +1290,13 @@ UniValue sendmany(const UniValue& params, bool fHelp)
             "                                    the number of addresses.\n"
             "\nExamples:\n"
             "\nSend two amounts to two different addresses:\n"
-            + HelpExampleCli("sendmany", "\"\" \"{\\\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\\\":0.01,\\\"t1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\"") +
+            + HelpExampleCli("sendmany", "\"\" \"{\\\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\\\":0.01,\\\"s1j145WNXgjEkVRGKiYJHbLXwUYWUWw9rCH\\\":0.02}\"") +
             "\nSend two amounts to two different addresses setting the confirmation and comment:\n"
-            + HelpExampleCli("sendmany", "\"\" \"{\\\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\\\":0.01,\\\"t1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\" 6 \"testing\"") +
+            + HelpExampleCli("sendmany", "\"\" \"{\\\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\\\":0.01,\\\"s1j145WNXgjEkVRGKiYJHbLXwUYWUWw9rCH\\\":0.02}\" 6 \"testing\"") +
             "\nSend two amounts to two different addresses, subtract fee from amount:\n"
-            + HelpExampleCli("sendmany", "\"\" \"{\\\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\\\":0.01,\\\"t1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\" 1 \"\" \"[\\\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\\\",\\\"t1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\"]\"") +
+            + HelpExampleCli("sendmany", "\"\" \"{\\\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\\\":0.01,\\\"s1j145WNXgjEkVRGKiYJHbLXwUYWUWw9rCH\\\":0.02}\" 1 \"\" \"[\\\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\\\",\\\"s1j145WNXgjEkVRGKiYJHbLXwUYWUWw9rCH\\\"]\"") +
             "\nAs a JSON RPC call\n"
-            + HelpExampleRpc("sendmany", "\"\", \"{\\\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\\\":0.01,\\\"t1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\", 6, \"testing\"")
+            + HelpExampleRpc("sendmany", "\"\", \"{\\\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\\\":0.01,\\\"s1j145WNXgjEkVRGKiYJHbLXwUYWUWw9rCH\\\":0.02}\", 6, \"testing\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1404,9 +1404,9 @@ UniValue addmultisigaddress(const UniValue& params, bool fHelp)
 
             "\nExamples:\n"
             "\nAdd a multisig address from 2 addresses\n"
-            + HelpExampleCli("addmultisigaddress", "2 \"[\\\"t16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"t171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"") +
+            + HelpExampleCli("addmultisigaddress", "2 \"[\\\"s1YdUEzTzjYawpW8wkRjwa6tKJPYPvu3CwB\\\",\\\"s1hfWJ4ej1H3s8XCUb7YnrU68K64AsGVUHE\\\"]\"") +
             "\nAs json rpc call\n"
-            + HelpExampleRpc("addmultisigaddress", "2, \"[\\\"t16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"t171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"")
+            + HelpExampleRpc("addmultisigaddress", "2, \"[\\\"s1YdUEzTzjYawpW8wkRjwa6tKJPYPvu3CwB\\\",\\\"s1hfWJ4ej1H3s8XCUb7YnrU68K64AsGVUHE\\\"]\"")
         ;
         throw runtime_error(msg);
     }
@@ -2227,11 +2227,11 @@ UniValue walletconfirmbackup(const UniValue& params, bool fHelp)
         throw runtime_error(
             "walletconfirmbackup \"emergency recovery phrase\"\n"
             "\nCAUTION: This is an internal method that is not intended to be called directly by\n"
-            "users. Please use the zcashd-wallet-tool utility (built or installed in the same directory\n"
-            "as zcashd) instead. In particular, this method should not be used from zcash-cli, in order\n"
+            "users. Please use the ycashd-wallet-tool utility (built or installed in the same directory\n"
+            "as ycashd) instead. In particular, this method should not be used from ycash-cli, in order\n"
             "to avoid exposing the recovery phrase on the command line.\n\n"
             "Notify the wallet that the user has backed up the emergency recovery phrase,\n"
-            "which can be obtained by making a call to z_exportwallet. The zcashd embedded wallet\n"
+            "which can be obtained by making a call to z_exportwallet. The ycashd embedded wallet\n"
             "requires confirmation that the emergency recovery phrase has been backed up before it\n"
             "will permit new spending keys or addresses to be generated.\n"
             "\nArguments:\n"
@@ -2273,7 +2273,7 @@ UniValue walletlock(const UniValue& params, bool fHelp)
             "\nSet the passphrase for 2 minutes to perform a transaction\n"
             + HelpExampleCli("walletpassphrase", "\"my pass phrase\" 120") +
             "\nPerform a send (requires passphrase set)\n"
-            + HelpExampleCli("sendtoaddress", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 1.0") +
+            + HelpExampleCli("sendtoaddress", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\" 1.0") +
             "\nClear the passphrase since we are done before 2 minutes is up\n"
             + HelpExampleCli("walletlock", "") +
             "\nAs json rpc call\n"
@@ -2667,8 +2667,8 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             "Compatible up to five arguments, but can only use the default value for `includeUnsafe` and `queryOptions`."
             "\nExamples\n"
             + HelpExampleCli("listunspent", "")
-            + HelpExampleCli("listunspent", "6 9999999 \"[\\\"t1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"t1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
-            + HelpExampleRpc("listunspent", "6, 9999999 \"[\\\"t1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"t1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
+            + HelpExampleCli("listunspent", "6 9999999 \"[\\\"s1iZaRoYtafWspcieQxg6hhaU4DfZyAdGQf\\\",\\\"s1RSr6xec6Cc98emM4cdq45rkVekHMjRWbw\\\"]\"")
+            + HelpExampleRpc("listunspent", "6, 9999999 \"[\\\"s1iZaRoYtafWspcieQxg6hhaU4DfZyAdGQf\\\",\\\"s1RSr6xec6Cc98emM4cdq45rkVekHMjRWbw\\\"]\"")
         );
 
     RPCTypeCheck(params, boost::assign::list_of(UniValue::VNUM)(UniValue::VNUM)(UniValue::VARR));
@@ -2799,8 +2799,8 @@ UniValue z_listunspent(const UniValue& params, bool fHelp)
 
             "\nExamples\n"
             + HelpExampleCli("z_listunspent", "")
-            + HelpExampleCli("z_listunspent", "6 9999999 false \"[\\\"ztbx5DLDxa5ZLFTchHhoPNkKs57QzSyib6UqXpEdy76T1aUdFxJt1w9318Z8DJ73XzbnWHKEZP9Yjg712N5kMmP4QzS9iC9\\\",\\\"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\\\"]\"")
-            + HelpExampleRpc("z_listunspent", "6 9999999 false \"[\\\"ztbx5DLDxa5ZLFTchHhoPNkKs57QzSyib6UqXpEdy76T1aUdFxJt1w9318Z8DJ73XzbnWHKEZP9Yjg712N5kMmP4QzS9iC9\\\",\\\"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\\\"]\"")
+            + HelpExampleCli("z_listunspent", "6 9999999 false \"[\\\"ys1s7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya\\\",\\\"ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq\\\"]\"")
+            + HelpExampleRpc("z_listunspent", "6 9999999 false \"[\\\"ys1s7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya\\\",\\\"ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq\\\"]\"")
         );
 
     RPCTypeCheck(params, boost::assign::list_of(UniValue::VNUM)(UniValue::VNUM)(UniValue::VBOOL)(UniValue::VARR));
@@ -2972,8 +2972,7 @@ UniValue fundrawtransaction(const UniValue& params, bool fHelp)
             "fundrawtransaction \"hexstring\" includeWatching\n"
             + Deprecated(fEnableFundRawTransaction,
                          "fundrawtransaction",
-                         "Zallet will instead provide new RPC methods that operate on PCZTs:\n"
-                         "https://github.com/zcash/wallet/issues/99") +
+                         "") +
             "\nAdd transparent inputs to a transaction until it has enough in value to meet its out value.\n"
             "This will not modify existing inputs, and will add one change output to the outputs.\n"
             "Note that inputs which were signed may need to be resigned after completion since in/outputs have been added.\n"
@@ -3754,8 +3753,8 @@ UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp)
             "...\n"
             "]\n"
             "\nExamples:\n"
-            + HelpExampleCli("z_listreceivedbyaddress", "\"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\"")
-            + HelpExampleRpc("z_listreceivedbyaddress", "\"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\"")
+            + HelpExampleCli("z_listreceivedbyaddress", "\"ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq\"")
+            + HelpExampleRpc("z_listreceivedbyaddress", "\"ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -4925,11 +4924,11 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"operationid\"          (string) An operationid to pass to z_getoperationstatus to get the result of the operation.\n"
             "\nExamples:\n"
-            + HelpExampleCli("z_sendmany", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" '[{\"address\": \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\", \"amount\": 5.0}]'")
-            + HelpExampleCli("z_sendmany", "\"ANY_TADDR\" '[{\"address\": \"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", \"amount\": 2.0}]'")
-            + HelpExampleCli("z_sendmany", "\"ANY_TADDR\" '[{\"address\": \"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", \"amount\": 2.0}]' 1 null 'AllowFullyTransparent'")
-            + HelpExampleCli("z_sendmany", "\"ANY_TADDR\" '[{\"address\": \"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", \"amount\": 2.0}]' 1 5000")
-            + HelpExampleRpc("z_sendmany", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", [{\"address\": \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\", \"amount\": 5.0}]")
+            + HelpExampleCli("z_sendmany", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\" '[{\"address\": \"ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq\", \"amount\": 5.0}]'")
+            + HelpExampleCli("z_sendmany", "\"ANY_TADDR\" '[{\"address\": \"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\", \"amount\": 2.0}]'")
+            + HelpExampleCli("z_sendmany", "\"ANY_TADDR\" '[{\"address\": \"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\", \"amount\": 2.0}]' 1 null 'AllowFullyTransparent'")
+            + HelpExampleCli("z_sendmany", "\"ANY_TADDR\" '[{\"address\": \"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\", \"amount\": 2.0}]' 1 5000")
+            + HelpExampleRpc("z_sendmany", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\", [{\"address\": \"ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq\", \"amount\": 5.0}]")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -5278,8 +5277,8 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
             "  \"opid\": xxx          (string) An operationid to pass to z_getoperationstatus to get the result of the operation.\n"
             "}\n"
             "\nExamples:\n"
-            + HelpExampleCli("z_shieldcoinbase", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\"")
-            + HelpExampleRpc("z_shieldcoinbase", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\"")
+            + HelpExampleCli("z_shieldcoinbase", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\" \"ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq\"")
+            + HelpExampleRpc("z_shieldcoinbase", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\", \"ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -5490,8 +5489,8 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
             "  \"opid\": xxx                         (string) An operationid to pass to z_getoperationstatus to get the result of the operation.\n"
             "}\n"
             "\nExamples:\n"
-            + HelpExampleCli("z_mergetoaddress", "'[\"ANY_SAPLING\", \"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\"]' ztestsapling19rnyu293v44f0kvtmszhx35lpdug574twc0lwyf4s7w0umtkrdq5nfcauxrxcyfmh3m7slemqsj")
-            + HelpExampleRpc("z_mergetoaddress", "[\"ANY_SAPLING\", \"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\"], \"ztestsapling19rnyu293v44f0kvtmszhx35lpdug574twc0lwyf4s7w0umtkrdq5nfcauxrxcyfmh3m7slemqsj\"")
+            + HelpExampleCli("z_mergetoaddress", "'[\"ANY_SAPLING\", \"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\"]' ytestsapling19rnyu293v44f0kvtmszhx35lpdug574twc0lwyf4s7w0umtkrdq5nfcauxrxcyfmh3m7s4t7xhr")
+            + HelpExampleRpc("z_mergetoaddress", "[\"ANY_SAPLING\", \"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\"], \"ytestsapling19rnyu293v44f0kvtmszhx35lpdug574twc0lwyf4s7w0umtkrdq5nfcauxrxcyfmh3m7s4t7xhr\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);

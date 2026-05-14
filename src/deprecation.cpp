@@ -55,7 +55,7 @@ void EnforceNodeDeprecation(const CChainParams& params, int nHeight, bool forceL
         if (blocksToDeprecation == 0 || forceLogging) {
             auto msg = strprintf(_("This version has been deprecated as of block height %d."),
                                  DEPRECATION_HEIGHT) + " " +
-                       _("You should upgrade to the latest version of Zcash.");
+                       _("You should upgrade to the latest version of Ycash.");
             LogPrintf("*** %s\n", msg);
             AlertNotify(msg, fThread);
             uiInterface.ThreadSafeMessageBox(msg, "", CClientUIInterface::MSG_ERROR);
@@ -65,7 +65,7 @@ void EnforceNodeDeprecation(const CChainParams& params, int nHeight, bool forceL
                (blocksToDeprecation < DEPRECATION_WARN_LIMIT && forceLogging)) {
         std::string msg = strprintf(_("This version will be deprecated at block height %d, and will automatically shut down."),
                             DEPRECATION_HEIGHT) + " " +
-                  _("You should upgrade to the latest version of Zcash.");
+                  _("You should upgrade to the latest version of Ycash.");
         LogPrintf("*** %s\n", msg);
         AlertNotify(msg, fThread);
         uiInterface.ThreadSafeMessageBox(msg, "", CClientUIInterface::MSG_WARNING);
@@ -141,6 +141,5 @@ std::string Deprecated(bool enabled, std::string method, std::string instead) {
     return std::string("\n")
            + method + " is " + status + " and will be removed in a future release.\n"
            + instead + "\n"
-           + reenable
-           + "See https://zcash.github.io/zcash/user/deprecation.html for more information.\n";
+           + reenable;
 }
