@@ -34,36 +34,42 @@ static const int DEPRECATION_HEIGHT = std::numeric_limits<int>::max();
 static const int DEPRECATION_WARN_LIMIT = 14 * 24 * EXPECTED_BLOCKS_PER_HOUR;
 
 //! Defaults for -allowdeprecated
+//
+// Ycash policy: every deprecated feature is allowed by default. The
+// compatibility-layer thesis is that closed-source exchange/explorer
+// software was integrated against a 2018-era API surface and cannot
+// be expected to update on a schedule; turning off RPCs upstream chose
+// to retire (in favor of unified addresses, ZIP-244 templates, etc.)
+// would break those integrations without a path to fix them.
+//
+// Users who want stricter modern defaults can pass `-allowdeprecated=none`
+// or selectively re-enable only the features they need.
 static const std::set<std::string> DEFAULT_ALLOW_DEPRECATED{{
     // Node-level features
     "createrawtransaction",
     "signrawtransaction",
     "getnetworkhashps",
-
-    // Wallet-level features
-#ifdef ENABLE_WALLET
-    "z_gettotalbalance",
-    "fundrawtransaction",
-    "keypoolrefill",
-    "settxfee",
-#endif
-}};
-static const std::set<std::string> DEFAULT_DENY_DEPRECATED{{
-    // Node-level features
     "gbt_oldhashes",
     "deprecationinfo_deprecationheight",
     "addrtype",
 
     // Wallet-level features
 #ifdef ENABLE_WALLET
+    "fundrawtransaction",
+    "keypoolrefill",
+    "settxfee",
     "getnewaddress",
     "getrawchangeaddress",
     "z_getnewaddress",
     "z_getbalance",
+    "z_gettotalbalance",
     "z_listaddresses",
     "legacy_privacy",
     "wallettxvjoinsplit",
 #endif
+}};
+static const std::set<std::string> DEFAULT_DENY_DEPRECATED{{
+    // (empty -- see DEFAULT_ALLOW_DEPRECATED rationale above)
 }};
 
 // Flags that enable deprecated functionality.

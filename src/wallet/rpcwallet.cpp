@@ -178,7 +178,7 @@ UniValue getnewaddress(const UniValue& params, bool fHelp)
             "getnewaddress ( \"\" )\n"
             + Deprecated(fEnableGetNewAddress,
                          "getnewaddress",
-                         "Please use z_getnewaccount and z_getaddressforaccount instead.") +
+                         "") +
             "\nReturns a new transparent Ycash address.\n"
             "Payments received by this API are visible on-chain and do not otherwise\n"
             "provide privacy protections; they should only be used in circumstances \n"
@@ -258,8 +258,7 @@ UniValue getrawchangeaddress(const UniValue& params, bool fHelp)
             "getrawchangeaddress\n"
             + Deprecated(fEnableGetRawChangeAddress,
                          "getrawchangeaddress",
-                         "Change addresses are a wallet-internal feature. Use a unified address\n"
-                         "for a dedicated change account instead.") +
+                         "") +
             "\nReturns a new transparent Ycash address for receiving change.\n"
             "This is for use with raw transactions, NOT normal use. Additionally,\n"
             "the resulting address does not correspond to the \"change\" HD derivation\n"
@@ -3215,7 +3214,7 @@ UniValue z_getnewaddress(const UniValue& params, bool fHelp)
             "z_getnewaddress ( type )\n"
             + Deprecated(fEnableZGetNewAddress,
                          "z_getnewaddress",
-                         "Please use z_getnewaccount and z_getaddressforaccount instead.") +
+                         "") +
             "\nReturns a new shielded address for receiving payments.\n"
             "\nWith no arguments, this currently returns a Sapling address (but that\n"
             "should not be relied on).\n"
@@ -3969,8 +3968,7 @@ UniValue z_getbalance(const UniValue& params, bool fHelp)
             "z_getbalance \"address\" ( minconf inZat )\n"
             + Deprecated(fEnableZGetBalance,
                          "z_getbalance",
-                         "Please use z_getbalanceforaccount, z_getbalanceforviewingkey, or getbalance (for legacy\n"
-                         "transparent balance) instead.") +
+                         "") +
             "\nReturns the balance of a taddr or zaddr belonging to the node's wallet.\n"
             "\nCAUTION: If the wallet has only an incoming viewing key for this address, then spends cannot be"
             "\ndetected, and so the returned balance may be larger than the actual balance."
@@ -4266,7 +4264,7 @@ UniValue z_gettotalbalance(const UniValue& params, bool fHelp)
             "z_gettotalbalance ( minconf includeWatchonly )\n"
             + Deprecated(fEnableZGetTotalBalance,
                          "z_gettotalbalance",
-                         "Please use z_getbalanceforaccount, or getbalance (for legacy transparent balance) instead.") +
+                         "") +
             "\nReturn the total value of funds stored in the node's wallet.\n"
             "\nCAUTION: If the wallet contains any addresses for which it only has incoming viewing keys,"
             "\nthe returned private balance may be larger than the actual balance, because spends cannot"
