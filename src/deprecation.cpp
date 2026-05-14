@@ -29,6 +29,7 @@ bool fEnableWalletTxVJoinSplit = true;
 bool fEnableFundRawTransaction = true;
 bool fEnableKeyPoolRefill = true;
 bool fEnableSetTxFee = true;
+bool fEnableLegacyAccounts = true;
 #endif
 
 static const std::string CLIENT_VERSION_STR = FormatVersion(CLIENT_VERSION);
@@ -125,6 +126,7 @@ std::optional<std::string> LoadAllowedDeprecatedFeatures() {
     fEnableZGetTotalBalance = allowdeprecated.count("z_gettotalbalance") > 0;
     fEnableZListAddresses = allowdeprecated.count("z_listaddresses") > 0;
     fEnableWalletTxVJoinSplit = allowdeprecated.count("wallettxvjoinsplit") > 0;
+    fEnableLegacyAccounts = allowdeprecated.count("accounts") > 0;
 #endif
 
     return std::nullopt;

@@ -1236,6 +1236,372 @@ UniValue getbalance(const UniValue& params, bool fHelp)
     }
 }
 
+// ---------------------------------------------------------------------------
+// Legacy Bitcoin-Core-style accounts API (single-bucket emulation).
+//
+// Upstream Zcash removed the accounts API around v2.0 in favor of the unified-
+// address account model. Ycash keeps these RPCs callable for closed-source
+// exchange and explorer software that was integrated against the 2018-era
+// ycashd API and cannot be expected to update on a schedule.
+//
+// Emulation rules:
+//   - "" is the only valid account name; it represents the entire wallet.
+//   - Any non-empty account name is either rejected with an error or returns
+//     an empty/zero result, depending on whether silently-empty is plausible.
+//   - "move" has no honest single-bucket implementation (it transfers balance
+//     between two accounts) so it always errors.
+//
+// All nine RPCs are gated behind `-allowdeprecated=accounts`, which is on by
+// default per DEFAULT_ALLOW_DEPRECATED.
+// ---------------------------------------------------------------------------
+
+static void RequireDefaultAccount(const std::string& strAccount)
+{
+    if (!strAccount.empty()) {
+        throw JSONRPCError(RPC_WALLET_ACCOUNTS_UNSUPPORTED,
+                           "Only the default account (\"\") is supported. The legacy "
+                           "accounts API is provided as a compatibility shim and does "
+                           "not maintain separate per-account balances.");
+    }
+}
+
+// Sum amounts received by any wallet-owned transparent destination, with the
+// given minimum confirmation depth. Used by getreceivedbyaccount "" and the
+// total in listaccounts / listreceivedbyaccount.
+static CAmount GetReceivedByWallet(int nMinDepth)
+{
+    AssertLockHeld(cs_main);
+    AssertLockHeld(pwalletMain->cs_wallet);
+
+    std::optional<int> asOfHeight = std::nullopt;
+    CAmount nTotal = 0;
+    for (const auto& [hash, wtx] : pwalletMain->mapWallet) {
+        if (wtx.IsCoinBase() || !CheckFinalTx(wtx))
+            continue;
+        if (wtx.GetDepthInMainChain(asOfHeight) < nMinDepth)
+            continue;
+        for (const CTxOut& txout : wtx.vout) {
+            if (IsMine(*pwalletMain, txout.scriptPubKey))
+                nTotal += txout.nValue;
+        }
+    }
+    return nTotal;
+}
+
+UniValue getaccount(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (!fEnableLegacyAccounts || fHelp || params.size() != 1)
+        throw runtime_error(
+            "getaccount \"ycashaddress\"\n"
+            + Deprecated(fEnableLegacyAccounts, "getaccount", "") +
+            "\nReturns the account associated with the given address. Ycash emulates a\n"
+            "single default account (\"\"), so this always returns \"\" for any address\n"
+            "the wallet recognizes.\n"
+            "\nArguments:\n"
+            "1. \"ycashaddress\"  (string, required) The Ycash address for account lookup.\n"
+            "\nResult:\n"
+            "\"accountname\"        (string) the account name (always \"\").\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getaccount", "\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\"")
+            + HelpExampleRpc("getaccount", "\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    KeyIO keyIO(Params());
+    CTxDestination dest = keyIO.DecodeDestination(params[0].get_str());
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Ycash address");
+    }
+    return std::string("");
+}
+
+UniValue getaccountaddress(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (!fEnableLegacyAccounts || fHelp || params.size() != 1)
+        throw runtime_error(
+            "getaccountaddress \"account\"\n"
+            + Deprecated(fEnableLegacyAccounts, "getaccountaddress", "") +
+            "\nReturns the current address for receiving payments to this account. Ycash\n"
+            "emulates a single default account (\"\"); other account names are rejected.\n"
+            "Each call generates a fresh transparent address (no per-account memory).\n"
+            "\nArguments:\n"
+            "1. \"account\"  (string, required) Must be \"\".\n"
+            "\nResult:\n"
+            "\"ycashaddress\"   (string) A new transparent Ycash address.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getaccountaddress", "\"\"")
+            + HelpExampleRpc("getaccountaddress", "\"\"")
+        );
+
+    RequireDefaultAccount(params[0].get_str());
+
+    // Delegate to getnewaddress(""). It already handles locking, keypool, etc.
+    UniValue inner_params(UniValue::VARR);
+    return getnewaddress(inner_params, false);
+}
+
+UniValue getaddressesbyaccount(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (!fEnableLegacyAccounts || fHelp || params.size() != 1)
+        throw runtime_error(
+            "getaddressesbyaccount \"account\"\n"
+            + Deprecated(fEnableLegacyAccounts, "getaddressesbyaccount", "") +
+            "\nReturns the list of transparent addresses in the given account. For the\n"
+            "default account \"\" this returns every transparent address the wallet has\n"
+            "ever generated or imported. Any non-empty account returns an empty array.\n"
+            "\nArguments:\n"
+            "1. \"account\"  (string, required) Account name. Only \"\" returns results.\n"
+            "\nResult:\n"
+            "[\n"
+            "  \"ycashaddress\"  (string) a transparent Ycash address belonging to the wallet\n"
+            "  ,...\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getaddressesbyaccount", "\"\"")
+            + HelpExampleRpc("getaddressesbyaccount", "\"\"")
+        );
+
+    UniValue ret(UniValue::VARR);
+    if (!params[0].get_str().empty()) {
+        return ret;
+    }
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    KeyIO keyIO(Params());
+    for (const auto& [dest, _] : pwalletMain->mapAddressBook) {
+        if (IsValidDestination(dest)) {
+            ret.push_back(keyIO.EncodeDestination(dest));
+        }
+    }
+    return ret;
+}
+
+UniValue getreceivedbyaccount(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (!fEnableLegacyAccounts || fHelp || params.size() < 1 || params.size() > 2)
+        throw runtime_error(
+            "getreceivedbyaccount \"account\" ( minconf )\n"
+            + Deprecated(fEnableLegacyAccounts, "getreceivedbyaccount", "") +
+            "\nReturns the total amount received by addresses in the account. For the\n"
+            "default account \"\" this sums all transparent receipts across the wallet.\n"
+            "Any non-empty account returns 0.\n"
+            "\nArguments:\n"
+            "1. \"account\"  (string, required) Account name. Only \"\" returns nonzero results.\n"
+            "2. minconf    (numeric, optional, default=1) Minimum confirmations.\n"
+            "\nResult:\n"
+            "amount   (numeric) The total amount in " + CURRENCY_UNIT + " received for this account.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getreceivedbyaccount", "\"\"")
+            + HelpExampleCli("getreceivedbyaccount", "\"\" 6")
+            + HelpExampleRpc("getreceivedbyaccount", "\"\", 6")
+        );
+
+    if (!params[0].get_str().empty()) {
+        return ValueFromAmount(0);
+    }
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    int nMinDepth = 1;
+    if (params.size() > 1 && !params[1].isNull()) {
+        nMinDepth = params[1].get_int();
+    }
+    return ValueFromAmount(GetReceivedByWallet(nMinDepth));
+}
+
+UniValue listaccounts(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (!fEnableLegacyAccounts || fHelp || params.size() > 2)
+        throw runtime_error(
+            "listaccounts ( minconf includeWatchonly )\n"
+            + Deprecated(fEnableLegacyAccounts, "listaccounts", "") +
+            "\nReturns a JSON object with account names as keys and balances as values.\n"
+            "Ycash emulates a single default account, so the result always has exactly\n"
+            "one key: \"\".\n"
+            "\nArguments:\n"
+            "1. minconf          (numeric, optional, default=1) Minimum confirmations.\n"
+            "2. includeWatchonly (bool, optional, default=false) Include watch-only addresses.\n"
+            "\nResult:\n"
+            "{                      (json object where keys are account names, and values are amounts)\n"
+            "  \"\": x.xxx,           (numeric) The default account's confirmed transparent balance.\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("listaccounts", "")
+            + HelpExampleCli("listaccounts", "6")
+            + HelpExampleRpc("listaccounts", "6")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    int nMinDepth = 1;
+    if (params.size() > 0 && !params[0].isNull()) {
+        nMinDepth = params[0].get_int();
+    }
+    isminefilter filter = ISMINE_SPENDABLE;
+    if (params.size() > 1 && params[1].get_bool()) {
+        filter = filter | ISMINE_WATCH_ONLY;
+    }
+    CAmount nBalance = pwalletMain->GetBalance(std::nullopt, filter, nMinDepth);
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("", ValueFromAmount(nBalance));
+    return ret;
+}
+
+UniValue listreceivedbyaccount(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (!fEnableLegacyAccounts || fHelp || params.size() > 3)
+        throw runtime_error(
+            "listreceivedbyaccount ( minconf includeempty includeWatchonly )\n"
+            + Deprecated(fEnableLegacyAccounts, "listreceivedbyaccount", "") +
+            "\nList balances by account. Ycash emulates a single default account, so the\n"
+            "result is a one-element array describing the wallet's total transparent receipts.\n"
+            "\nArguments:\n"
+            "1. minconf          (numeric, optional, default=1) Minimum confirmations.\n"
+            "2. includeempty     (bool, optional, default=false) Included for compatibility; ignored.\n"
+            "3. includeWatchonly (bool, optional, default=false) Included for compatibility; ignored.\n"
+            "\nResult:\n"
+            "[\n"
+            "  {\n"
+            "    \"account\":\"accountname\",  (string) the account name (always \"\")\n"
+            "    \"amount\": x.xxx,           (numeric) total amount received\n"
+            "    \"confirmations\": n         (numeric) the confirmation tier requested via minconf\n"
+            "  }\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("listreceivedbyaccount", "")
+            + HelpExampleRpc("listreceivedbyaccount", "6, true, true")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    int nMinDepth = 1;
+    if (params.size() > 0 && !params[0].isNull()) {
+        nMinDepth = params[0].get_int();
+    }
+    CAmount nTotal = GetReceivedByWallet(nMinDepth);
+
+    UniValue entry(UniValue::VOBJ);
+    entry.pushKV("account", "");
+    entry.pushKV("amount", ValueFromAmount(nTotal));
+    entry.pushKV("confirmations", nMinDepth);
+
+    UniValue ret(UniValue::VARR);
+    ret.push_back(entry);
+    return ret;
+}
+
+UniValue setaccount(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (!fEnableLegacyAccounts || fHelp || params.size() < 1 || params.size() > 2)
+        throw runtime_error(
+            "setaccount \"ycashaddress\" \"account\"\n"
+            + Deprecated(fEnableLegacyAccounts, "setaccount", "") +
+            "\nAssigns the address to the given account. Ycash emulates a single default\n"
+            "account, so only \"\" is accepted; the call is then a no-op that succeeds.\n"
+            "Any non-empty account name returns an error.\n"
+            "\nArguments:\n"
+            "1. \"ycashaddress\"  (string, required) The Ycash address to be associated with the account.\n"
+            "2. \"account\"       (string, required) Must be \"\".\n"
+            "\nExamples:\n"
+            + HelpExampleCli("setaccount", "\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\" \"\"")
+            + HelpExampleRpc("setaccount", "\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\", \"\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    KeyIO keyIO(Params());
+    CTxDestination dest = keyIO.DecodeDestination(params[0].get_str());
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Ycash address");
+    }
+    std::string strAccount;
+    if (params.size() > 1) {
+        strAccount = params[1].get_str();
+    }
+    RequireDefaultAccount(strAccount);
+    return NullUniValue;
+}
+
+UniValue sendfrom(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (!fEnableLegacyAccounts || fHelp || params.size() < 3 || params.size() > 6)
+        throw runtime_error(
+            "sendfrom \"fromaccount\" \"toycashaddress\" amount ( minconf \"comment\" \"comment-to\" )\n"
+            + Deprecated(fEnableLegacyAccounts, "sendfrom", "") +
+            "\nSent an amount from the default account to a transparent address. Ycash\n"
+            "emulates a single default account, so the first argument must be \"\".\n"
+            "Any non-empty account is rejected.\n"
+            "\nArguments:\n"
+            "1. \"fromaccount\"      (string, required) Must be \"\".\n"
+            "2. \"toycashaddress\"   (string, required) The transparent Ycash address to send to.\n"
+            "3. amount              (numeric, required) The amount in " + CURRENCY_UNIT + " to send.\n"
+            "4. minconf             (numeric, optional, default=1) Minimum confirmations for inputs.\n"
+            "5. \"comment\"          (string, optional) Stored in the wallet, not sent on chain.\n"
+            "6. \"comment-to\"       (string, optional) Stored in the wallet, not sent on chain.\n"
+            "\nResult:\n"
+            "\"transactionid\"  (string) The transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("sendfrom", "\"\" \"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\" 0.1")
+            + HelpExampleRpc("sendfrom", "\"\", \"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\", 0.1")
+        );
+
+    RequireDefaultAccount(params[0].get_str());
+
+    // Delegate to sendtoaddress: signature is (addr, amount, comment, comment-to,
+    // subtract_fee_from_amount). minconf is no longer a per-call knob in modern
+    // sendtoaddress, so we drop it -- callers receive the wallet's configured
+    // default which is at least as safe.
+    UniValue inner(UniValue::VARR);
+    inner.push_back(params[1]); // address
+    inner.push_back(params[2]); // amount
+    if (params.size() > 4) inner.push_back(params[4]); else inner.push_back("");
+    if (params.size() > 5) inner.push_back(params[5]); else inner.push_back("");
+    return sendtoaddress(inner, false);
+}
+
+UniValue movecmd(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (!fEnableLegacyAccounts || fHelp || params.size() < 3 || params.size() > 5)
+        throw runtime_error(
+            "move \"fromaccount\" \"toaccount\" amount ( minconf \"comment\" )\n"
+            + Deprecated(fEnableLegacyAccounts, "move", "") +
+            "\nMove a specified amount between accounts in the wallet. Ycash does not\n"
+            "maintain separate per-account balances (the accounts API is emulated as a\n"
+            "single default bucket), so this RPC has no honest implementation and\n"
+            "always returns an error. Use sendtoaddress for on-chain transfers.\n"
+        );
+
+    throw JSONRPCError(RPC_WALLET_ACCOUNTS_UNSUPPORTED,
+                       "The accounts API is emulated as a single default account in "
+                       "Ycash; per-account moves are not supported. Use sendtoaddress "
+                       "for on-chain transfers.");
+}
+
 UniValue getunconfirmedbalance(const UniValue &params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -5996,6 +6362,17 @@ static const CRPCCommand commands[] =
     //  --------------------- ------------------------    -----------------------    ----------
     { "rawtransactions",    "fundrawtransaction",       &fundrawtransaction,       false },
     { "hidden",             "resendwallettransactions", &resendwallettransactions, true  },
+    // Legacy Bitcoin-Core-style accounts API (single-bucket emulation).
+    // Gated behind `-allowdeprecated=accounts`; on by default.
+    { "wallet-legacy",      "getaccount",               &getaccount,               true  },
+    { "wallet-legacy",      "getaccountaddress",        &getaccountaddress,        true  },
+    { "wallet-legacy",      "getaddressesbyaccount",    &getaddressesbyaccount,    true  },
+    { "wallet-legacy",      "getreceivedbyaccount",     &getreceivedbyaccount,     false },
+    { "wallet-legacy",      "listaccounts",             &listaccounts,             false },
+    { "wallet-legacy",      "listreceivedbyaccount",    &listreceivedbyaccount,    false },
+    { "wallet-legacy",      "move",                     &movecmd,                  false },
+    { "wallet-legacy",      "sendfrom",                 &sendfrom,                 false },
+    { "wallet-legacy",      "setaccount",               &setaccount,               true  },
     { "wallet",             "addmultisigaddress",       &addmultisigaddress,       true  },
     { "wallet",             "backupwallet",             &backupwallet,             true  },
     { "wallet",             "dumpprivkey",              &dumpprivkey,              true  },

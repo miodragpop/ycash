@@ -66,6 +66,12 @@ static const std::set<std::string> DEFAULT_ALLOW_DEPRECATED{{
     "z_listaddresses",
     "legacy_privacy",
     "wallettxvjoinsplit",
+
+    // Legacy Bitcoin-Core-style accounts API (single-bucket emulation).
+    // Removed upstream in favor of unified addresses, but exchanges and
+    // explorers integrated against the 2018-era ycashd API still call
+    // these. See wallet/rpcwallet.cpp legacy-accounts-compat section.
+    "accounts",
 #endif
 }};
 static const std::set<std::string> DEFAULT_DENY_DEPRECATED{{
@@ -91,6 +97,7 @@ extern bool fEnableWalletTxVJoinSplit;
 extern bool fEnableFundRawTransaction;
 extern bool fEnableKeyPoolRefill;
 extern bool fEnableSetTxFee;
+extern bool fEnableLegacyAccounts;
 #endif
 
 /**
