@@ -3719,6 +3719,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         assert(MoneyDeltaRange(transparentValueDelta));
         pindex->nChainSupplyDelta = chainSupplyDelta;
         pindex->nTransparentValue = transparentValueDelta;
+        pindex->nBlockFee = nFees;
         if (pindex->pprev) {
             if (pindex->pprev->nChainTotalSupply.has_value()) {
                 CAmount chainTotalSupply = pindex->pprev->nChainTotalSupply.value();
@@ -5243,9 +5244,12 @@ bool SetChainPoolValues(
         }
         pindex->nChainSupplyDelta = chainSupplyDelta;
         pindex->nTransparentValue = transparentValueDelta;
+        // The genesis block has no non-coinbase transactions, so its fee is 0.
+        pindex->nBlockFee = 0;
     } else {
         pindex->nChainSupplyDelta = std::nullopt;
         pindex->nTransparentValue = std::nullopt;
+        pindex->nBlockFee = std::nullopt;
     }
 
     pindex->nChainTotalSupply = std::nullopt;

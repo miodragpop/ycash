@@ -285,6 +285,10 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     valuePools.push_back(ValuePoolDesc("orchard", blockindex->nChainOrchardValue, blockindex->nOrchardValue));
     result.pushKV("valuePools", valuePools);
 
+    // Total fee of all non-coinbase transactions in this block. 0 for blocks
+    // indexed before this field existed (until a -reindex repopulates it).
+    result.pushKV("blockfee", blockindex->nBlockFee.value_or(0));
+
     {
         UniValue trees(UniValue::VOBJ);
 

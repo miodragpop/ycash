@@ -286,6 +286,16 @@ public:
     //! Will be std::nullopt if nChainTx is zero.
     std::optional<CAmount> nChainTransparentValue;
 
+    //! Total fee of all non-coinbase transactions in this block (transparent
+    //! plus Sprout/Sapling/Orchard value balances), i.e. the fee portion of
+    //! the block reward, captured authoritatively at ConnectBlock. This is
+    //! NOT derivable from the coinbase: a miner may under-claim and burn part
+    //! of the reward. Lets `getblock` verbosity 1 report the block fee
+    //! without the cost of full (verbosity 2) transaction expansion.
+    //!
+    //! Will be std::nullopt for older blocks until a reindex has taken place.
+    std::optional<CAmount> nBlockFee;
+
     //! Change in value held by the Sprout circuit over this block.
     //! Will be std::nullopt for older blocks on old nodes until a reindex has taken place.
     std::optional<CAmount> nSproutValue;
@@ -383,6 +393,7 @@ public:
         nChainTotalSupply = std::nullopt;
         nTransparentValue = std::nullopt;
         nChainTransparentValue = std::nullopt;
+        nBlockFee = std::nullopt;
         nSproutValue = std::nullopt;
         nChainSproutValue = std::nullopt;
         nSaplingValue = 0;
@@ -438,6 +449,7 @@ public:
         nTransparentValue = std::nullopt;
         nChainTotalSupply = std::nullopt;
         nChainTransparentValue = std::nullopt;
+        nBlockFee = std::nullopt;
         nSproutValue = std::nullopt;
         nChainSproutValue = std::nullopt;
         nSaplingValue = 0;
@@ -638,6 +650,7 @@ public:
         if ((s.GetType() & SER_DISK) && (nVersion >= TRANSPARENT_VALUE_VERSION)) {
             READWRITE(nChainSupplyDelta);
             READWRITE(nTransparentValue);
+            READWRITE(nBlockFee);
         }
 
         // Only read/write nSproutValue if the client version used to create
