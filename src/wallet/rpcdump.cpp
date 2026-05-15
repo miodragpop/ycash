@@ -1258,3 +1258,165 @@ UniValue z_importivk(const UniValue& params, bool fHelp)
     result.pushKV("address", keyIO.EncodePaymentAddress(*saplingAddr));
     return result;
 }
+
+// ---------------------------------------------------------------------------
+// Diversified Sapling addresses.
+//
+// Ported from ycash-official b9f0860fb (2021). A Sapling spending key can
+// derive many unlinkable payment addresses that all share one IVK/FVK
+// (different ZIP-32 diversifier indices). This is the pre-unified-address
+// mechanism for "many receive addresses, one key" -- the exact need a
+// per-user-deposit-address exchange has. Upstream Zcash deleted these RPCs
+// in favour of unified-address accounts, but those are NU5-gated and Ycash
+// does not expose them, so on Ycash this is the only working option.
+//
+// Modernized vs. the 2021 original:
+//   * No hand-rolled arith_uint88 loop. better-ycash's diversifier_index_t
+//     has succ() (nullopt on 88-bit overflow) so the iteration is naturally
+//     bounded -- the unbounded `while(true)` in the original is gone.
+//   * GetSaplingExtendedSpendingKey(addr, ...) replaces the
+//     GetSpendingKeyForPaymentAddress visitor + std::get dance.
+//   * AddSaplingPaymentAddress(ivk, addr) is the renamed
+//     AddSaplingIncomingViewingKey.
+// ---------------------------------------------------------------------------
+
+UniValue z_getalldiversifiedaddresses(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "z_getalldiversifiedaddresses \"zaddr\"\n"
+            "\nReturns every Sapling address in the wallet that shares the same\n"
+            "spending key (IVK/FVK) as the given address -- i.e. all of its peer\n"
+            "diversified addresses.\n"
+            "\nArguments:\n"
+            "1. \"zaddr\"   (string, required) A Sapling address held by the wallet\n"
+            "\nResult:\n"
+            "[\n"
+            "  \"zaddr\"   (string) a peer diversified Sapling address\n"
+            "  ,...\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("z_getalldiversifiedaddresses", "\"ys1...\"")
+            + HelpExampleRpc("z_getalldiversifiedaddresses", "\"ys1...\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    KeyIO keyIO(Params());
+    auto decoded = keyIO.DecodePaymentAddress(params[0].get_str());
+    if (!decoded.has_value()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid zaddr");
+    }
+    auto inSapling = std::get_if<libzcash::SaplingPaymentAddress>(&decoded.value());
+    if (inSapling == nullptr) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
+                           "z_getalldiversifiedaddresses requires a Sapling address");
+    }
+
+    libzcash::SaplingIncomingViewingKey inIvk;
+    libzcash::SaplingExtendedFullViewingKey inXfvk;
+    if (!pwalletMain->GetSaplingIncomingViewingKey(*inSapling, inIvk) ||
+        !pwalletMain->GetSaplingFullViewingKey(inIvk, inXfvk)) {
+        throw JSONRPCError(RPC_WALLET_ERROR,
+                           "Wallet does not hold the viewing key for this zaddr");
+    }
+
+    UniValue ret(UniValue::VARR);
+    std::set<libzcash::SaplingPaymentAddress> addresses;
+    pwalletMain->GetSaplingPaymentAddresses(addresses);
+    for (const auto& addr : addresses) {
+        libzcash::SaplingIncomingViewingKey ivk;
+        libzcash::SaplingExtendedFullViewingKey xfvk;
+        if (pwalletMain->GetSaplingIncomingViewingKey(addr, ivk) &&
+            pwalletMain->GetSaplingFullViewingKey(ivk, xfvk) &&
+            ivk == inIvk && xfvk == inXfvk) {
+            ret.push_back(keyIO.EncodePaymentAddress(addr));
+        }
+    }
+    return ret;
+}
+
+UniValue z_getnewdiversifiedaddress(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "z_getnewdiversifiedaddress \"zaddr\"\n"
+            "\nDerives and adds to the wallet a new Sapling address that shares the\n"
+            "same spending key as the given address (a new diversified address).\n"
+            "\nArguments:\n"
+            "1. \"zaddr\"   (string, required) An existing Sapling address in the wallet\n"
+            "\nResult:\n"
+            "\"zaddr\"      (string) the newly derived diversified Sapling address\n"
+            "\nExamples:\n"
+            + HelpExampleCli("z_getnewdiversifiedaddress", "\"ys1...\"")
+            + HelpExampleRpc("z_getnewdiversifiedaddress", "\"ys1...\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    EnsureWalletIsUnlocked();
+
+    KeyIO keyIO(Params());
+    auto decoded = keyIO.DecodePaymentAddress(params[0].get_str());
+    if (!decoded.has_value()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid zaddr");
+    }
+    auto inSapling = std::get_if<libzcash::SaplingPaymentAddress>(&decoded.value());
+    if (inSapling == nullptr) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
+                           "z_getnewdiversifiedaddress requires a Sapling address");
+    }
+
+    libzcash::SaplingExtendedSpendingKey espk;
+    if (!pwalletMain->GetSaplingExtendedSpendingKey(*inSapling, espk)) {
+        throw JSONRPCError(RPC_WALLET_ERROR,
+                           "Wallet does not hold the spending key for this zaddr");
+    }
+
+    auto xfvk = espk.ToXFVK();
+
+    // Walk diversifier indices from the one after this address's own
+    // diversifier, skipping (a) indices that produce no valid address and
+    // (b) addresses already in the wallet, until we mint a fresh one.
+    // diversifier_index_t::succ() returns nullopt on 88-bit overflow, so the
+    // loop is bounded -- no unbounded while(true) like the 2021 original.
+    libzcash::diversifier_index_t j(0);
+    {
+        // Start the search just past the input address's own diversifier so
+        // we don't re-test indices we already know are taken by it.
+        auto dec = xfvk.DecryptDiversifier(*inSapling);
+        if (dec.has_value()) {
+            auto next = dec.value().first.succ();
+            if (next.has_value()) {
+                j = next.value();
+            }
+        }
+    }
+
+    while (true) {
+        auto maybeAddr = xfvk.Address(j);
+        if (maybeAddr.has_value()) {
+            const libzcash::SaplingPaymentAddress& addr = maybeAddr.value();
+            libzcash::PaymentAddress pa(addr);
+            if (!std::visit(PaymentAddressBelongsToWallet(pwalletMain), pa)) {
+                if (!pwalletMain->AddSaplingPaymentAddress(
+                        espk.expsk.full_viewing_key().in_viewing_key(), addr)) {
+                    throw JSONRPCError(RPC_WALLET_ERROR,
+                                       "Failed to add diversified address to wallet");
+                }
+                return keyIO.EncodePaymentAddress(addr);
+            }
+        }
+        auto next = j.succ();
+        if (!next.has_value()) {
+            throw JSONRPCError(RPC_WALLET_ERROR,
+                               "Diversifier space exhausted; no new address could be derived");
+        }
+        j = next.value();
+    }
+}
