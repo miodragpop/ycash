@@ -60,6 +60,158 @@ static PrecomputedTransactionData PrecomputeForHtlcSpend(
     return PrecomputedTransactionData(tx, allPrevOuts);
 }
 
+// ---------------------------------------------------------------------------
+// Live swap-status resolution.
+//
+// The authoritative state of a swap is a pure function of chain data:
+//   - contract UTXO still unspent           -> OPEN
+//   - spent, spending scriptSig has secret  -> CLAIMED (secret recoverable)
+//   - spent, no secret in scriptSig         -> REFUNDED
+//   - spent but spender not locatable       -> UNKNOWN (txindex-limited)
+//
+// We therefore derive status on demand instead of trusting the stored
+// CAtomicSwapInfo.status field (which is only a cache hint -- it can drift
+// across reorgs / restarts / out-of-band spends). Resolution order for the
+// spending transaction is wallet -> mempool -> GetTransaction (txindex or
+// still-in-a-known-block), so the common case (we are a swap party, the
+// claim/refund tx is in our own wallet) needs no txindex at all.
+// ---------------------------------------------------------------------------
+
+enum SwapChainStatus {
+    SWAPCHAIN_OPEN,      // contract UTXO unspent
+    SWAPCHAIN_CLAIMED,   // spent via the claim path; secret revealed
+    SWAPCHAIN_REFUNDED,  // spent via the refund path
+    SWAPCHAIN_UNKNOWN,   // spent, but the spending tx could not be located
+};
+
+struct SwapResolution {
+    SwapChainStatus status = SWAPCHAIN_UNKNOWN;
+    uint256 spendTxid;
+    std::vector<unsigned char> secret;  // populated iff CLAIMED and extractable
+    bool spendConfirmed = false;
+    int spendHeight = -1;               // -1 if unconfirmed / unknown
+};
+
+// Look for a wallet transaction that spends COutPoint(contractTxid, vout).
+// Returns true and fills txOut on success. Caller holds cs_main + cs_wallet.
+static bool FindSpenderInWallet(
+        const uint256& contractTxid, uint32_t vout, CTransaction& txOut)
+{
+    if (!pwalletMain) return false;
+    for (const auto& [wtxid, wtx] : pwalletMain->mapWallet) {
+        for (const CTxIn& in : wtx.vin) {
+            if (in.prevout.hash == contractTxid && in.prevout.n == vout) {
+                txOut = (CTransaction)wtx;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static SwapResolution ResolveSwapStatus(const CAtomicSwapInfo& swap)
+{
+    AssertLockHeld(cs_main);
+
+    SwapResolution res;
+
+    // 1. Is the contract output still unspent?
+    const CCoins* coins = pcoinsTip ? pcoinsTip->AccessCoins(swap.contractTxid) : nullptr;
+    if (coins != nullptr && coins->IsAvailable(swap.contractVout)) {
+        res.status = SWAPCHAIN_OPEN;
+        return res;
+    }
+
+    // 2. Spent (or contract tx itself unknown to the UTXO set). Find the spender.
+    CTransaction spendTx;
+    bool found = false;
+
+    // 2a. Our own wallet -- the common case for a swap party.
+    if (pwalletMain) {
+        LOCK(pwalletMain->cs_wallet);
+        found = FindSpenderInWallet(swap.contractTxid, swap.contractVout, spendTx);
+    }
+
+    // 2b. Mempool.
+    if (!found) {
+        LOCK(mempool.cs);
+        auto it = mempool.mapNextTx.find(COutPoint(swap.contractTxid, swap.contractVout));
+        if (it != mempool.mapNextTx.end()) {
+            auto ptx = mempool.get(it->second.ptx->GetHash());
+            if (ptx) {
+                spendTx = *ptx;
+                found = true;
+            }
+        }
+    }
+
+    // 2c. GetTransaction: succeeds for a historical spend only if -txindex is
+    // on (or the tx is in a block we can still read). This is the path that
+    // degrades on a pruned/no-txindex node.
+    if (!found) {
+        // We do not know the spending txid yet, only the spent outpoint.
+        // Without txindex there is no outpoint->spender map for historical
+        // spends, so this case stays UNKNOWN. If the stored hint recorded a
+        // spendTxid (e.g. claimswap/refundswap ran here earlier), try it.
+        if (!swap.spendTxid.IsNull()) {
+            uint256 blockHash;
+            if (GetTransaction(swap.spendTxid, spendTx, Params().GetConsensus(), blockHash, true)) {
+                found = true;
+            }
+        }
+    }
+
+    if (!found) {
+        res.status = SWAPCHAIN_UNKNOWN;
+        return res;
+    }
+
+    res.spendTxid = spendTx.GetHash();
+
+    // Confirmation depth of the spend.
+    {
+        uint256 blockHash;
+        CTransaction tmp;
+        if (GetTransaction(res.spendTxid, tmp, Params().GetConsensus(), blockHash, true)
+            && !blockHash.IsNull()) {
+            auto bi = mapBlockIndex.find(blockHash);
+            if (bi != mapBlockIndex.end() && bi->second) {
+                res.spendConfirmed = true;
+                res.spendHeight = bi->second->nHeight;
+            }
+        }
+    }
+
+    // 3. Classify: which input spent our contract outpoint, and does its
+    // scriptSig carry a secret (claim) or not (refund)?
+    for (const CTxIn& in : spendTx.vin) {
+        if (in.prevout.hash == swap.contractTxid && in.prevout.n == swap.contractVout) {
+            std::vector<unsigned char> secret;
+            if (ExtractAtomicSwapSecret(in.scriptSig, secret)) {
+                res.status = SWAPCHAIN_CLAIMED;
+                res.secret = secret;
+            } else {
+                res.status = SWAPCHAIN_REFUNDED;
+            }
+            return res;
+        }
+    }
+
+    // Spender located but no matching input (shouldn't happen) -> unknown.
+    res.status = SWAPCHAIN_UNKNOWN;
+    return res;
+}
+
+static std::string SwapChainStatusString(SwapChainStatus s)
+{
+    switch (s) {
+        case SWAPCHAIN_OPEN:     return "open";
+        case SWAPCHAIN_CLAIMED:  return "claimed";
+        case SWAPCHAIN_REFUNDED: return "refunded";
+        default:                 return "unknown";
+    }
+}
+
 UniValue initiateswap(const UniValue& params, bool fHelp)
 {
     EnsureAtomicSwapsEnabled();
@@ -821,19 +973,38 @@ UniValue getswapsecret(const UniValue& params, bool fHelp)
             "1. \"swapid\"  (string, required) \"<contractTxid>:<vout>\"\n"
         );
 
-    LOCK2(cs_main, pwalletMain->cs_wallet);
+    LOCK(cs_main);
 
     std::string swapId = params[0].get_str();
     CAtomicSwapInfo swapInfo;
     if (!pwalletMain->GetAtomicSwap(swapId, swapInfo)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Swap not found: " + swapId);
     }
-    if (!swapInfo.secretKnown || swapInfo.secret.empty()) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Secret is not known for this swap");
+
+    // The secret is recoverable two ways: it was stored when *we* generated
+    // it (initiator with initiateswap), or it was revealed on-chain by a
+    // claim and we read it back out of the spending tx. Prefer the live
+    // chain reading so this works even for a participant who never had the
+    // secret stored locally.
+    std::vector<unsigned char> secret;
+    if (swapInfo.secretKnown && !swapInfo.secret.empty()) {
+        secret = swapInfo.secret;
+    } else {
+        SwapResolution res = ResolveSwapStatus(swapInfo);
+        if (res.status == SWAPCHAIN_CLAIMED && !res.secret.empty()) {
+            secret = res.secret;
+        }
+    }
+
+    if (secret.empty()) {
+        throw JSONRPCError(RPC_WALLET_ERROR,
+            "Secret is not known for this swap (not generated locally and no "
+            "on-chain claim has revealed it, or the claim could not be located "
+            "-- a pruned node without -txindex cannot resolve historical claims).");
     }
 
     UniValue result(UniValue::VOBJ);
-    result.pushKV("secret", HexStr(swapInfo.secret.begin(), swapInfo.secret.end()));
+    result.pushKV("secret", HexStr(secret.begin(), secret.end()));
     result.pushKV("secretHash", swapInfo.contract.secretHash.GetHex());
     result.pushKV("known", true);
     return result;
@@ -903,7 +1074,7 @@ UniValue listatomicswaps(const UniValue& params, bool fHelp)
             "1. \"status\"  (string, optional) One of: initiated, participated, claimed, refunded, expired, abandoned\n"
         );
 
-    LOCK2(cs_main, pwalletMain->cs_wallet);
+    LOCK(cs_main);
 
     std::string filterStatus;
     if (params.size() > 0) {
@@ -915,9 +1086,14 @@ UniValue listatomicswaps(const UniValue& params, bool fHelp)
 
     UniValue result(UniValue::VARR);
     for (const auto& swap : swaps) {
-        if (!filterStatus.empty() && swap.GetStatusString() != filterStatus) {
+        // Derive authoritative status from chain; filter on that, not the
+        // stored hint.
+        SwapResolution res = ResolveSwapStatus(swap);
+        std::string chainStatus = SwapChainStatusString(res.status);
+        if (!filterStatus.empty() && chainStatus != filterStatus) {
             continue;
         }
+        const bool isOpen = (res.status == SWAPCHAIN_OPEN);
 
         UniValue swapObj(UniValue::VOBJ);
         swapObj.pushKV("swapId", swap.GetSwapId());
@@ -925,7 +1101,8 @@ UniValue listatomicswaps(const UniValue& params, bool fHelp)
         swapObj.pushKV("contractVout", (int)swap.contractVout);
         swapObj.pushKV("amount", ValueFromAmount(swap.amount));
         swapObj.pushKV("role", swap.GetRoleString());
-        swapObj.pushKV("status", swap.GetStatusString());
+        swapObj.pushKV("status", chainStatus);
+        swapObj.pushKV("storedStatusHint", swap.GetStatusString());
         swapObj.pushKV("initiatedTime", swap.initiatedTime);
         if (swap.initiatedTime > 0) {
             swapObj.pushKV("initiatedTimeFormatted",
@@ -949,7 +1126,7 @@ UniValue listatomicswaps(const UniValue& params, bool fHelp)
                            DateTimeStrFormat("%Y-%m-%d %H:%M:%S UTC", swap.contract.lockTime));
         }
 
-        if (swap.status == SWAP_INITIATED || swap.status == SWAP_PARTICIPATED) {
+        if (isOpen) {
             int64_t timeUntilExpiry = 0;
             bool hasExpired = false;
             if (swap.contract.lockTime < LOCKTIME_THRESHOLD) {
@@ -973,25 +1150,21 @@ UniValue listatomicswaps(const UniValue& params, bool fHelp)
             }
         }
 
-        if (!swap.spendTxid.IsNull()) {
-            swapObj.pushKV("spendTxid", swap.spendTxid.GetHex());
-            CTransaction spendTx;
-            uint256 spendBlockHash;
-            if (GetTransaction(swap.spendTxid, spendTx, Params().GetConsensus(), spendBlockHash, true)) {
-                if (!spendBlockHash.IsNull()) {
-                    auto it = mapBlockIndex.find(spendBlockHash);
-                    if (it != mapBlockIndex.end() && it->second) {
-                        swapObj.pushKV("spendBlockHeight", it->second->nHeight);
-                        swapObj.pushKV("spendBlockTime", (int64_t)it->second->GetBlockTime());
-                        swapObj.pushKV("spendBlockTimeFormatted",
-                                       DateTimeStrFormat("%Y-%m-%d %H:%M:%S UTC",
-                                                         it->second->GetBlockTime()));
-                    }
-                } else {
-                    swapObj.pushKV("spendConfirmed", false);
-                    swapObj.pushKV("spendStatus", "pending in mempool");
-                }
+        if (res.status == SWAPCHAIN_CLAIMED || res.status == SWAPCHAIN_REFUNDED) {
+            swapObj.pushKV("spendTxid", res.spendTxid.GetHex());
+            swapObj.pushKV("spendConfirmed", res.spendConfirmed);
+            if (res.spendConfirmed) {
+                swapObj.pushKV("spendBlockHeight", res.spendHeight);
+            } else {
+                swapObj.pushKV("spendStatus", "pending in mempool");
             }
+            if (res.status == SWAPCHAIN_CLAIMED && !res.secret.empty()) {
+                swapObj.pushKV("revealedSecret",
+                               HexStr(res.secret.begin(), res.secret.end()));
+            }
+        } else if (res.status == SWAPCHAIN_UNKNOWN) {
+            swapObj.pushKV("note",
+                "spent but spending tx not locatable (pruned / no -txindex)");
         }
 
         if (!swap.label.empty()) {
@@ -1020,7 +1193,7 @@ UniValue monitorswap(const UniValue& params, bool fHelp)
             "1. \"swapid\"  (string, required) \"<contractTxid>:<vout>\"\n"
         );
 
-    LOCK2(cs_main, pwalletMain->cs_wallet);
+    LOCK(cs_main);
 
     std::string swapId = params[0].get_str();
     CAtomicSwapInfo swapInfo;
@@ -1029,13 +1202,17 @@ UniValue monitorswap(const UniValue& params, bool fHelp)
     }
     const AtomicSwapContract& contract = swapInfo.contract;
 
+    // Authoritative status comes from chain, not the stored hint.
+    SwapResolution res = ResolveSwapStatus(swapInfo);
+    const bool isOpen = (res.status == SWAPCHAIN_OPEN);
+
     bool locktimeReached = (contract.lockTime < LOCKTIME_THRESHOLD)
         ? (chainActive.Height() >= contract.lockTime)
         : (GetTime() >= contract.lockTime);
 
     int64_t timeUntilExpiry = 0;
     bool hasExpired = false;
-    if (swapInfo.status == SWAP_INITIATED || swapInfo.status == SWAP_PARTICIPATED) {
+    if (isOpen) {
         if (contract.lockTime < LOCKTIME_THRESHOLD) {
             int currentHeight = chainActive.Height();
             if (currentHeight >= contract.lockTime) {
@@ -1053,16 +1230,23 @@ UniValue monitorswap(const UniValue& params, bool fHelp)
         }
     }
 
+    // The initiator should refund an still-open, past-locktime contract.
+    // The recipient should claim an open contract while they have the secret.
     bool requiresAction = false;
-    if (swapInfo.status == SWAP_INITIATED && locktimeReached) {
-        requiresAction = true; // initiator can refund
-    } else if (swapInfo.status == SWAP_PARTICIPATED && !swapInfo.spendTxid.IsNull()) {
-        requiresAction = true; // need to respond to counterparty's spend
+    if (isOpen && locktimeReached && swapInfo.role == ROLE_INITIATOR) {
+        requiresAction = true;
+    } else if (isOpen && !locktimeReached && swapInfo.role == ROLE_PARTICIPANT &&
+               swapInfo.secretKnown) {
+        requiresAction = true;
     }
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("swapId", swapInfo.GetSwapId());
-    result.pushKV("status", swapInfo.GetStatusString());
+    // status is now the chain-derived value; the wallet's stored
+    // status string is reported separately as a hint for debugging.
+    result.pushKV("status", SwapChainStatusString(res.status));
+    result.pushKV("storedStatusHint", swapInfo.GetStatusString());
+    result.pushKV("role", swapInfo.GetRoleString());
     result.pushKV("contractTxid", swapInfo.contractTxid.GetHex());
     result.pushKV("contractVout", (int)swapInfo.contractVout);
     result.pushKV("amount", ValueFromAmount(swapInfo.amount));
@@ -1073,31 +1257,27 @@ UniValue monitorswap(const UniValue& params, bool fHelp)
                       DateTimeStrFormat("%Y-%m-%d %H:%M:%S UTC", contract.lockTime));
     }
     result.pushKV("locktimeReached", locktimeReached);
-    if ((swapInfo.status == SWAP_INITIATED || swapInfo.status == SWAP_PARTICIPATED) &&
-        !hasExpired && timeUntilExpiry > 0) {
+    if (isOpen && !hasExpired && timeUntilExpiry > 0) {
         result.pushKV("timeUntilExpiry", HumanReadableDuration(timeUntilExpiry));
         result.pushKV("secondsUntilExpiry", timeUntilExpiry);
     }
-    if (!swapInfo.spendTxid.IsNull()) {
-        result.pushKV("spendTxid", swapInfo.spendTxid.GetHex());
-        CTransaction spendTx;
-        uint256 spendBlockHash;
-        if (GetTransaction(swapInfo.spendTxid, spendTx, Params().GetConsensus(), spendBlockHash, true)) {
-            if (!spendBlockHash.IsNull()) {
-                result.pushKV("spendConfirmed", true);
-                auto it = mapBlockIndex.find(spendBlockHash);
-                if (it != mapBlockIndex.end() && it->second) {
-                    result.pushKV("spendBlockHeight", it->second->nHeight);
-                    result.pushKV("spendBlockTime", (int64_t)it->second->GetBlockTime());
-                    result.pushKV("spendBlockTimeFormatted",
-                                  DateTimeStrFormat("%Y-%m-%d %H:%M:%S UTC", it->second->GetBlockTime()));
-                    result.pushKV("spendStatus", "confirmed");
-                }
-            } else {
-                result.pushKV("spendConfirmed", false);
-                result.pushKV("spendStatus", "pending in mempool");
-            }
+    if (res.status == SWAPCHAIN_CLAIMED || res.status == SWAPCHAIN_REFUNDED) {
+        result.pushKV("spendTxid", res.spendTxid.GetHex());
+        result.pushKV("spendConfirmed", res.spendConfirmed);
+        if (res.spendConfirmed) {
+            result.pushKV("spendBlockHeight", res.spendHeight);
+            result.pushKV("spendStatus", "confirmed");
+        } else {
+            result.pushKV("spendStatus", "pending in mempool");
         }
+        if (res.status == SWAPCHAIN_CLAIMED && !res.secret.empty()) {
+            result.pushKV("revealedSecret", HexStr(res.secret.begin(), res.secret.end()));
+        }
+    } else if (res.status == SWAPCHAIN_UNKNOWN) {
+        result.pushKV("note",
+            "Contract output is spent but the spending transaction could not "
+            "be located. On a pruned node without -txindex, historical "
+            "third-party claims/refunds are not resolvable.");
     }
     result.pushKV("isExpired", hasExpired);
     result.pushKV("requiresAction", requiresAction);

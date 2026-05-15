@@ -1088,6 +1088,22 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         return InitError(err.value());
     }
 
+    // Atomic swaps derive swap status from chain data on demand. The common
+    // case (we are a swap party) resolves from our own wallet with no index.
+    // Resolving a *historical, third-party* claim/refund -- e.g. auditing a
+    // swap we only `participateswap`-registered -- needs to locate an
+    // arbitrary spending tx by outpoint, which requires -txindex on a pruned
+    // node. Warn but do not block: blocking would force a full reindex just
+    // to use the local-party path that needs no index at all.
+    if (fExperimentalAtomicSwaps && !GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
+        InitWarning(_(
+            "-atomicswap is enabled without -txindex. Local swaps (where this "
+            "wallet is the initiator or participant) work fully, but resolving "
+            "the status of a historical third-party claim/refund may report "
+            "'unknown'. Enable -txindex if you need to audit swaps this wallet "
+            "is not a party to."));
+    }
+
     // if using block pruning, then disable txindex
     if (GetArg("-prune", 0)) {
         if (GetBoolArg("-txindex", DEFAULT_TXINDEX))

@@ -153,7 +153,18 @@ public:
     // Parsed HTLC parameters
     AtomicSwapContract contract;
 
-    // Lifecycle metadata
+    // Lifecycle metadata.
+    //
+    // NOTE: `status`, `completedTime`, `spendTxid`, `secret`, `secretKnown`
+    // are CACHE HINTS, not authority. The true status of a swap is derived
+    // on demand from chain data by ResolveSwapStatus() in rpc/atomicswap.cpp
+    // (contract UTXO spent? claim or refund? secret in the spending
+    // scriptSig?). These stored fields are written opportunistically by
+    // claimswap/refundswap/participateswap so a UI has something to show
+    // without a chain lookup, but they can be stale after a reorg, an
+    // out-of-band spend by the counterparty, or a wallet restored from an
+    // old backup. Never branch on `status` for correctness -- call
+    // ResolveSwapStatus().
     AtomicSwapRole role;
     AtomicSwapStatus status;
     int64_t initiatedTime;
