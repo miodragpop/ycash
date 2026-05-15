@@ -92,6 +92,8 @@ std::atomic_bool fReindex(false);
 bool fTxIndex = false;
 bool fSkipScanPreFork = DEFAULT_SKIP_SCAN_PRE_FORK;
 int64_t nForceBirthday = 0;
+bool fIgnoreSpam = DEFAULT_IGNORE_SPAM;
+int nSpamOutputsLimit = DEFAULT_SPAM_OUTPUTS_LIMIT;
 bool fAddressIndex = false;     // insightexplorer || lightwalletd
 bool fSpentIndex = false;       // insightexplorer
 bool fTimestampIndex = false;   // insightexplorer

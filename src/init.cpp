@@ -460,7 +460,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-regtestchainsupplycheckpoint", "Enable a hardcoded chain supply checkpoint at the regtest cache tip height, to test the checkpoint fallback for legacy block index data (regtest-only)");
         strUsage += HelpMessageOpt("-regtestenablezip209", "Enable ZIP 209 turnstile enforcement on regtest without zeroing shielded pool balances (regtest-only)");
     }
-    std::string debugCategories = "addrman, bench, coindb, db, deletetx, http, libevent, lock, mempool, mempoolrej, net, partitioncheck, pow, proxy, prune, "
+    std::string debugCategories = "addrman, antispam, bench, coindb, db, deletetx, http, libevent, lock, mempool, mempoolrej, net, partitioncheck, pow, proxy, prune, "
                              "rand, receiveunsafe, reindex, rpc, selectcoins, tor, valuepool, zmq, zrpc, zrpcunsafe (implies zrpc)"; // Don't translate these
     strUsage += HelpMessageOpt("-debug=<category>", strprintf(_("Output debugging information (default: %u, supplying <category> is optional)"), 0) + ". " +
         _("If <category> is not supplied or if <category> = 1, output all debugging information.") + " " + _("<category> can be:") + " " + debugCategories + ". " +
@@ -1695,6 +1695,17 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     }
     if (nForceBirthday) {
         LogPrintf("The wallet will use an alternative birthday timestamp %d during rescan, as asked by -forcebirthday option!\n", nForceBirthday);
+    }
+
+    fIgnoreSpam = GetBoolArg("-ignorespam", DEFAULT_IGNORE_SPAM);
+    LogPrintf("Antispam filter is %s\n", fIgnoreSpam ? "enabled" : "disabled");
+
+    nSpamOutputsLimit = GetArg("-spamoutputslimit", DEFAULT_SPAM_OUTPUTS_LIMIT);
+    if (nSpamOutputsLimit < 3) {
+        nSpamOutputsLimit = 3;
+    }
+    if (fIgnoreSpam) {
+        LogPrintf("Transactions with >= %d shielded outputs would be considered spam\n", nSpamOutputsLimit);
     }
 
     fs::create_directories(GetDataDir() / "blocks");

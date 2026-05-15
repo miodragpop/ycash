@@ -4247,6 +4247,39 @@ void WalletBatchScanner::AddTransaction(
     const uint256 &blockTag,
     const int nHeight)
 {
+    // -ignorespam: opt-in, deliberately blunt wallet-intake shield against
+    // shielded-output spam. If a tx has at least -spamoutputslimit shielded
+    // outputs (Sapling outputs + Orchard actions), drop it here -- BEFORE any
+    // trial decryption -- so the per-output Sprout/Sapling decryption cost of
+    // a spam transaction is never paid. This is the only location where the
+    // skip actually avoids that cost: the Rust batch scanner trial-decrypts
+    // upstream of AddToWalletIfInvolvingMe, so a later reject there would be
+    // cosmetic.
+    //
+    // The reject is unconditional by design. We cannot cheaply tell whether
+    // the tx involves us without the decryption we are trying to avoid, and
+    // IsFromMe needs cs_wallet, which is not held on the validation path that
+    // feeds this scanner. An operator expecting a large shielded send/receive
+    // must disable -ignorespam (and rescan) -- the option is a last-resort
+    // blunt instrument, complementary to the per-Sapling-output mempool fee
+    // floor. Ported (architecture-adapted) from ycash-official 43cd747b1 +
+    // 2e9857989 + a88a9d4a2.
+    //
+    // An (empty) decryptedNotes entry is still inserted for a dropped tx:
+    // the rescan/notify path calls AddToWalletIfInvolvingMe for every tx and
+    // requires a matching entry. Empty -> nothing of ours -> not recorded.
+    if (fIgnoreSpam) {
+        size_t nShieldedOutputs =
+            tx.GetSaplingOutputsCount() + tx.GetOrchardBundle().GetNumActions();
+        if (nShieldedOutputs >= (size_t)nSpamOutputsLimit) {
+            LogPrint("antispam",
+                "Antispam filter discarded tx %s with %d shielded outputs at height %d (before trial decryption)\n",
+                tx.GetHash().ToString(), nShieldedOutputs, nHeight);
+            decryptedNotes.insert(std::make_pair(tx.GetHash(), WalletDecryptedNotes()));
+            return;
+        }
+    }
+
     // Decrypt Sprout outputs immediately.
     decryptedNotes.insert(
         std::make_pair(tx.GetHash(), pwallet->TryDecryptShieldedOutputs(tx)));
@@ -7345,6 +7378,8 @@ std::string CWallet::GetWalletHelpString(bool showDebug)
     strUsage += HelpMessageOpt("-salvagewallet", _("Attempt to recover private keys from a corrupt wallet on startup (implies -rescan)"));
     strUsage += HelpMessageOpt("-skipscanprefork", strprintf(_("Skip blocks mined before the Ycash fork height when scanning for wallet transactions (default: %u)"), DEFAULT_SKIP_SCAN_PRE_FORK));
     strUsage += HelpMessageOpt("-forcebirthday=<n>", strprintf(_("Override the wallet birthday with the given Unix timestamp when scanning for wallet transactions; clamped to the genesis block time (default: %u, meaning use the wallet's own birthday)"), 0));
+    strUsage += HelpMessageOpt("-ignorespam", strprintf(_("Blunt anti-spam shield: drop any transaction with at least -spamoutputslimit shielded outputs before the wallet trial-decrypts it. Unconditional (a large shielded send/receive will be missed until this is disabled and the wallet rescanned). Complementary to the per-Sapling-output mempool fee floor (default: %u)"), DEFAULT_IGNORE_SPAM));
+    strUsage += HelpMessageOpt("-spamoutputslimit=<n>", strprintf(_("Shielded-output count (Sapling outputs + Orchard actions) at or above which a transaction is treated as spam when -ignorespam is set; minimum 3 (default: %u)"), DEFAULT_SPAM_OUTPUTS_LIMIT));
     strUsage += HelpMessageOpt("-sendchangeback", strprintf(_("Return transparent change to the address of the largest-value input being spent, instead of a newly generated address, when no coin-control change address is set (default: %u)"), DEFAULT_SEND_CHANGE_BACK));
     strUsage += HelpMessageOpt("-spendzeroconfchange", strprintf(_("Spend unconfirmed change when sending transactions (default: %u)"), DEFAULT_SPEND_ZEROCONF_CHANGE));
     strUsage += HelpMessageOpt("-txexpirydelta", strprintf(_("Set the number of blocks after which a transaction that has not been mined will become invalid (min: %u, default: %u (pre-Blossom) or %u (post-Blossom))"), TX_EXPIRING_SOON_THRESHOLD + 1, DEFAULT_PRE_BLOSSOM_TX_EXPIRY_DELTA, DEFAULT_POST_BLOSSOM_TX_EXPIRY_DELTA));

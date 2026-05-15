@@ -97,6 +97,10 @@ static const unsigned int DEFAULT_PRE_BLOSSOM_TX_EXPIRY_DELTA = 20;
 static const unsigned int DEFAULT_POST_BLOSSOM_TX_EXPIRY_DELTA = DEFAULT_PRE_BLOSSOM_TX_EXPIRY_DELTA * Consensus::BLOSSOM_POW_TARGET_SPACING_RATIO;
 /** Default for -skipscanprefork */
 static const bool DEFAULT_SKIP_SCAN_PRE_FORK = false;
+/** Default for -ignorespam */
+static const bool DEFAULT_IGNORE_SPAM = false;
+/** Default for -spamoutputslimit */
+static const int DEFAULT_SPAM_OUTPUTS_LIMIT = 50;
 /** The number of blocks within expiry height when a tx is considered to be expiring soon */
 static constexpr uint32_t TX_EXPIRING_SOON_THRESHOLD = 3;
 /** The maximum size of a blk?????.dat file (since 0.8) */
@@ -200,6 +204,8 @@ extern int nScriptCheckThreads;
 extern bool fTxIndex;
 extern bool fSkipScanPreFork;
 extern int64_t nForceBirthday;
+extern bool fIgnoreSpam;
+extern int nSpamOutputsLimit;
 
 // The following flags enable specific indices (DB tables), but are not exposed as
 // separate command-line options; instead they are enabled by experimental feature "-insightexplorer"
