@@ -11,6 +11,8 @@
 #include "checkpoints.h"
 #include "consensus/validation.h"
 #include "experimental_features.h"
+#include "fs.h"
+#include "init.h"
 #include "key_io.h"
 #include "main.h"
 #include "metrics.h"
@@ -24,8 +26,11 @@
 
 #include <univalue.h>
 
+#include <mutex>
 #include <optional>
 #include <regex>
+
+#include <boost/thread.hpp>
 
 using namespace std;
 
@@ -1004,6 +1009,280 @@ UniValue verifychain(const UniValue& params, bool fHelp)
     return CVerifyDB().VerifyDB(Params(), pcoinsTip, nCheckLevel, nCheckDepth);
 }
 
+// ---------------------------------------------------------------------------
+// exportchain / getexportchainstatus
+//
+// Dumps the active chain (genesis..tip) to a bootstrap.dat-format file
+// (per block: MessageStart magic + serialized size + serialized block),
+// suitable for seeding new nodes via -loadblock.
+//
+// Ported from ycash-official 2e1b9c074 (2021), substantially reworked:
+//   * Asynchronous: a detached worker thread does the dump; the RPC returns
+//     immediately. Progress is polled via getexportchainstatus.
+//   * cs_main is held per CHUNK (1000 blocks), not for the whole chain, so
+//     the node keeps processing blocks/RPCs between chunks.
+//   * Reorg-safe: the target tip hash is snapshotted at start; before each
+//     chunk we re-check that snapshot is still on the active chain. If a
+//     reorg moved it off, the export ABORTS with a clear status rather than
+//     splicing two histories into one corrupt bootstrap.
+//   * Bug fixes vs. the 2021 original: the tip block is now included (the
+//     original's loop terminated one block early); a ReadBlockFromDisk
+//     failure aborts cleanly instead of spinning cs_main forever; errors
+//     are reported via status, never `return error()` into a UniValue.
+//   * Honors node shutdown: the worker checks ShutdownRequested() each
+//     chunk and stops cleanly so shutdown never hangs on it.
+// ---------------------------------------------------------------------------
+
+static const int EXPORTCHAIN_CHUNK = 1000;
+
+struct ExportChainState {
+    enum Phase { IDLE, RUNNING, DONE, FAILED };
+    std::mutex mtx;
+    Phase phase = IDLE;
+    int heightDone = 0;
+    int heightTarget = 0;
+    std::string filename;
+    std::string message;
+    int64_t startTime = 0;
+};
+
+static ExportChainState g_exportChainState;
+
+static void ExportChainWorker(fs::path path, std::string filenameForStatus)
+{
+    RenameThread("ycash-exportchain");
+
+    auto fail = [&](const std::string& msg) {
+        std::lock_guard<std::mutex> lk(g_exportChainState.mtx);
+        g_exportChainState.phase = ExportChainState::FAILED;
+        g_exportChainState.message = msg;
+        LogPrintf("exportchain: FAILED: %s\n", msg);
+    };
+
+    FILE* file = fsbridge::fopen(path, "wb+");
+    if (!file) {
+        fail(strprintf("could not create %s", path.string()));
+        return;
+    }
+    CAutoFile fileout(file, SER_DISK, CLIENT_VERSION);
+
+    const Consensus::Params& consensus = Params().GetConsensus();
+    const auto messageStart = Params().MessageStart();
+
+    // Snapshot the chain we are committing to export.
+    uint256 snapshotTipHash;
+    int snapshotTipHeight;
+    {
+        LOCK(cs_main);
+        CBlockIndex* tip = chainActive.Tip();
+        if (tip == nullptr) {
+            fail("no active chain tip");
+            return;
+        }
+        snapshotTipHash = tip->GetBlockHash();
+        snapshotTipHeight = tip->nHeight;
+    }
+
+    {
+        std::lock_guard<std::mutex> lk(g_exportChainState.mtx);
+        g_exportChainState.heightTarget = snapshotTipHeight;
+    }
+
+    int nextHeight = 0; // genesis-inclusive
+    while (nextHeight <= snapshotTipHeight) {
+        if (ShutdownRequested()) {
+            fail("aborted: node shutting down");
+            return;
+        }
+
+        int chunkEnd = std::min(nextHeight + EXPORTCHAIN_CHUNK - 1, snapshotTipHeight);
+
+        {
+            LOCK(cs_main);
+
+            // Reorg guard: the snapshotted tip must still be on the active
+            // chain. If it isn't, our export target was reorged away.
+            auto tipIt = mapBlockIndex.find(snapshotTipHash);
+            if (tipIt == mapBlockIndex.end() ||
+                !chainActive.Contains(tipIt->second)) {
+                fail(strprintf(
+                    "aborted: chain reorged (snapshot tip %s at height %d no "
+                    "longer on the active chain) after exporting %d blocks",
+                    snapshotTipHash.GetHex(), snapshotTipHeight, nextHeight));
+                return;
+            }
+
+            for (int h = nextHeight; h <= chunkEnd; ++h) {
+                CBlockIndex* pindex = chainActive[h];
+                if (pindex == nullptr) {
+                    fail(strprintf("aborted: no block index at height %d", h));
+                    return;
+                }
+                CBlock block;
+                if (!ReadBlockFromDisk(block, pindex, consensus)) {
+                    fail(strprintf(
+                        "aborted: ReadBlockFromDisk failed at height %d (%s) "
+                        "-- a pruned node cannot export the full chain",
+                        h, pindex->GetBlockHash().GetHex()));
+                    return;
+                }
+                unsigned int nSize = GetSerializeSize(fileout, block);
+                fileout << FLATDATA(messageStart) << nSize;
+                fileout << block;
+            }
+        } // cs_main released between chunks
+
+        nextHeight = chunkEnd + 1;
+
+        {
+            std::lock_guard<std::mutex> lk(g_exportChainState.mtx);
+            g_exportChainState.heightDone = chunkEnd;
+        }
+        if (chunkEnd % 50000 < EXPORTCHAIN_CHUNK) {
+            LogPrintf("exportchain: %d/%d blocks written\n", chunkEnd, snapshotTipHeight);
+        }
+    }
+
+    FileCommit(fileout.Get());
+    fileout.fclose();
+
+    {
+        std::lock_guard<std::mutex> lk(g_exportChainState.mtx);
+        g_exportChainState.phase = ExportChainState::DONE;
+        g_exportChainState.heightDone = snapshotTipHeight;
+        g_exportChainState.message = strprintf("%s created (%d blocks, genesis..%d)",
+                                               path.string(), snapshotTipHeight + 1,
+                                               snapshotTipHeight);
+    }
+    LogPrintf("exportchain: finished, %d blocks written to %s\n",
+              snapshotTipHeight + 1, path.string());
+}
+
+UniValue exportchain(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() > 1)
+        throw runtime_error(
+            "exportchain ( \"filename\" )\n"
+            "\nExports the active chain (genesis..tip) to a bootstrap.dat-format\n"
+            "file usable with -loadblock to seed new nodes.\n"
+            "\nThis runs ASYNCHRONOUSLY: the call returns immediately and a\n"
+            "background thread performs the dump. Poll getexportchainstatus for\n"
+            "progress. cs_main is held only per 1000-block chunk, so the node\n"
+            "keeps serving while the export runs. If the chain reorgs such that\n"
+            "the tip snapshotted at start leaves the active chain, the export\n"
+            "aborts (status FAILED) rather than producing a corrupt bootstrap.\n"
+            "\nArguments:\n"
+            "1. \"filename\"  (string, optional, default=bootstrap.dat) Output file,\n"
+            "                relative to the current working directory.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"started\": true,\n"
+            "  \"filename\": \"...\",\n"
+            "  \"target_height\": n\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("exportchain", "")
+            + HelpExampleCli("exportchain", "\"mybootstrap.dat\"")
+            + HelpExampleRpc("exportchain", "\"mybootstrap.dat\"")
+        );
+
+    std::string filename = "bootstrap.dat";
+    if (params.size() == 1) {
+        filename = params[0].get_str();
+    }
+
+    int targetHeight;
+    {
+        std::lock_guard<std::mutex> lk(g_exportChainState.mtx);
+        if (g_exportChainState.phase == ExportChainState::RUNNING) {
+            throw JSONRPCError(RPC_INVALID_REQUEST,
+                "An export is already running. Call getexportchainstatus to monitor it.");
+        }
+        // (re)initialise state for the new run
+        g_exportChainState.phase = ExportChainState::RUNNING;
+        g_exportChainState.heightDone = 0;
+        g_exportChainState.heightTarget = 0;
+        g_exportChainState.filename = filename;
+        g_exportChainState.message = "starting";
+        g_exportChainState.startTime = GetTime();
+    }
+
+    {
+        LOCK(cs_main);
+        CBlockIndex* tip = chainActive.Tip();
+        targetHeight = tip ? tip->nHeight : -1;
+    }
+    if (targetHeight < 0) {
+        std::lock_guard<std::mutex> lk(g_exportChainState.mtx);
+        g_exportChainState.phase = ExportChainState::FAILED;
+        g_exportChainState.message = "no active chain tip";
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "No active chain tip");
+    }
+
+    fs::path path = fs::current_path() / filename;
+    // Detached, free-running worker (same pattern as init.cpp's runCommand
+    // threads). Shutdown safety comes from the per-chunk ShutdownRequested()
+    // check, not from joining.
+    boost::thread t(boost::bind(&ExportChainWorker, path, filename));
+    t.detach();
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("started", true);
+    ret.pushKV("filename", filename);
+    ret.pushKV("target_height", targetHeight);
+    return ret;
+}
+
+UniValue getexportchainstatus(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+            "getexportchainstatus\n"
+            "\nReturns the status of the most recent (or in-progress) exportchain.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"state\": \"idle|running|done|failed\",\n"
+            "  \"filename\": \"...\",\n"
+            "  \"height_done\": n,\n"
+            "  \"height_target\": n,\n"
+            "  \"percent\": x.x,\n"
+            "  \"elapsed_seconds\": n,\n"
+            "  \"message\": \"...\"\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getexportchainstatus", "")
+            + HelpExampleRpc("getexportchainstatus", "")
+        );
+
+    std::lock_guard<std::mutex> lk(g_exportChainState.mtx);
+
+    std::string state;
+    switch (g_exportChainState.phase) {
+        case ExportChainState::IDLE:    state = "idle"; break;
+        case ExportChainState::RUNNING: state = "running"; break;
+        case ExportChainState::DONE:    state = "done"; break;
+        case ExportChainState::FAILED:  state = "failed"; break;
+    }
+
+    double percent = 0.0;
+    if (g_exportChainState.heightTarget > 0) {
+        percent = 100.0 * (double)g_exportChainState.heightDone /
+                  (double)g_exportChainState.heightTarget;
+    }
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("state", state);
+    ret.pushKV("filename", g_exportChainState.filename);
+    ret.pushKV("height_done", g_exportChainState.heightDone);
+    ret.pushKV("height_target", g_exportChainState.heightTarget);
+    ret.pushKV("percent", percent);
+    ret.pushKV("elapsed_seconds",
+               g_exportChainState.startTime > 0
+                   ? (GetTime() - g_exportChainState.startTime) : 0);
+    ret.pushKV("message", g_exportChainState.message);
+    return ret;
+}
+
 /** Implementation of IsSuperMajority with better feedback */
 static UniValue SoftForkMajorityDesc(int minVersion, CBlockIndex* pindex, int nRequired, const Consensus::Params& consensusParams)
 {
@@ -1676,6 +1955,8 @@ static const CRPCCommand commands[] =
     { "blockchain",         "gettxout",               &gettxout,               true  },
     { "blockchain",         "gettxoutsetinfo",        &gettxoutsetinfo,        true  },
     { "blockchain",         "verifychain",            &verifychain,            true  },
+    { "blockchain",         "exportchain",            &exportchain,            true  },
+    { "blockchain",         "getexportchainstatus",   &getexportchainstatus,   true  },
 
     // insightexplorer
     { "blockchain",         "getblockdeltas",         &getblockdeltas,         false },
