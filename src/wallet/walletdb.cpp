@@ -73,6 +73,19 @@ bool CWalletDB::EraseTx(uint256 hash)
     return Erase(std::make_pair(std::string("tx"), hash));
 }
 
+bool CWalletDB::WriteExTx(uint256 hash)
+{
+    nWalletDBUpdateCounter++;
+    // The tombstone payload is empty -- the key itself carries the wtxid.
+    return Write(std::make_pair(std::string("extx"), hash), std::string());
+}
+
+bool CWalletDB::EraseExTx(uint256 hash)
+{
+    nWalletDBUpdateCounter++;
+    return Erase(std::make_pair(std::string("extx"), hash));
+}
+
 bool CWalletDB::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata& keyMeta)
 {
     nWalletDBUpdateCounter++;
@@ -425,6 +438,16 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 wss.fAnyUnordered = true;
 
             pwallet->LoadWalletTx(wtx);
+        }
+        else if (strType == "extx")
+        {
+            // Tombstone left by DeleteWalletTransactions: the wtx was
+            // purged from this wallet on a prior run. Re-populate the
+            // in-memory tombstone set so that a rescan does not re-add
+            // the same wtxes.
+            uint256 hash;
+            ssKey >> hash;
+            pwallet->AddToEx(hash, /*fFromLoadWallet=*/true);
         }
         else if (strType == "watchs")
         {

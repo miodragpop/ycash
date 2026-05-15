@@ -87,7 +87,25 @@ bool CDBEnv::Open(const fs::path& pathIn)
         nEnvFlags |= DB_PRIVATE;
 
     dbenv->set_lg_dir(pathLogDir.string().c_str());
-    dbenv->set_cachesize(0, 0x100000, 1); // 1 MiB should be enough for just the wallet
+
+    // BerkeleyDB cache size. The upstream hard-coded 1 MiB is fine for tiny
+    // wallets but throttles every page access on pool-sized ones. Operators
+    // can size this via `-bdbcache=<MB>` (1..1024); default 16 MiB matches
+    // ycash-official.
+    u_int32_t bdb_cache_size = GetArg("-bdbcache", DEFAULT_BDB_CACHE_SIZE);
+    if (bdb_cache_size < 1 || bdb_cache_size > 1024) {
+        LogPrintf("-bdbcache %u out of allowed range (1..1024) MiB, using default %u MiB\n",
+                  bdb_cache_size, DEFAULT_BDB_CACHE_SIZE);
+        bdb_cache_size = DEFAULT_BDB_CACHE_SIZE;
+    }
+    u_int32_t gbytes = bdb_cache_size / 1024;
+    u_int32_t bytes = (bdb_cache_size - (gbytes * 1024)) * 0x100000;
+    dbenv->set_cachesize(gbytes, bytes, 1);
+    // Read back what BDB actually configured (it may round up to an internal
+    // minimum) so the log line is honest.
+    dbenv->get_cachesize(&gbytes, &bytes, NULL);
+    LogPrintf("BerkeleyDB cache = %u MiB\n", gbytes * 1024 + bytes / 0x100000);
+
     dbenv->set_lg_bsize(0x10000);
     dbenv->set_lg_max(1048576);
     dbenv->set_lk_max_locks(40000);
@@ -416,6 +434,48 @@ bool CDB::Rewrite(const string& strFile, const char* pszSkip)
         MilliSleep(100);
     }
     return false;
+}
+
+bool CDB::PageCompact()
+{
+    if (!pdb) {
+        LogPrintf("CDB::PageCompact: skipped, no open db handle for %s\n", strFile);
+        return false;
+    }
+    if (fReadOnly) {
+        LogPrintf("CDB::PageCompact: skipped, db handle for %s is read-only\n", strFile);
+        return false;
+    }
+
+    int64_t nStart = GetTimeMillis();
+
+    // Tuning matches the YCASH_WR build:
+    //   compact_fillpercent = 80   -- target 80% page fill rather than 100%,
+    //                                 trading some on-disk density for shorter
+    //                                 pauses and lower fragmentation on the
+    //                                 next batch of writes.
+    //   compact_pages = DB_MAX_PAGES -- bound the per-call work so a very
+    //                                 fragmented file doesn't lock the wallet
+    //                                 for an unbounded time; subsequent calls
+    //                                 continue where this one left off.
+    //   compact_timeout = 0        -- BDB default lock timeout.
+    DB_COMPACT dbcompact;
+    dbcompact.compact_fillpercent = 80;
+    dbcompact.compact_pages = DB_MAX_PAGES;
+    dbcompact.compact_timeout = 0;
+
+    // start = stop = end = NULL: act on the entire database.
+    // DB_FREE_SPACE: return empty pages to the free list AND truncate the
+    // file end when possible. Without it, BDB would re-pack pages but leave
+    // the on-disk file size unchanged.
+    int ret = pdb->compact(NULL, NULL, NULL, &dbcompact, DB_FREE_SPACE, NULL);
+    if (ret != 0) {
+        LogPrintf("CDB::PageCompact: compact() returned %d for %s\n", ret, strFile);
+        return false;
+    }
+    LogPrintf("CDB::PageCompact: compacted %s in %d ms\n",
+              strFile, GetTimeMillis() - nStart);
+    return true;
 }
 
 

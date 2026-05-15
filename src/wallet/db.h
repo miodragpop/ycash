@@ -24,6 +24,12 @@
 
 static const unsigned int DEFAULT_WALLET_DBLOGSIZE = 100;
 static const bool DEFAULT_WALLET_PRIVDB = true;
+//! Default Berkeley DB environment cache size, in megabytes. Configurable
+//! via `-bdbcache=<MB>`. The upstream default of 1 MiB is far too small
+//! for any wallet larger than a few thousand records -- hot pages get
+//! evicted constantly and even simple RPC calls thrash the page cache.
+//! 16 MiB matches ycash-official and is comfortable for pool-sized wallets.
+static const unsigned int DEFAULT_BDB_CACHE_SIZE = 16;
 
 class CDBEnv
 {
@@ -308,6 +314,23 @@ public:
     }
 
     bool static Rewrite(const std::string& strFile, const char* pszSkip = NULL);
+
+    /**
+     * In-place BDB page compaction. Asks Berkeley DB to reorganize the
+     * BTree, return empty pages to the free list, and (with DB_FREE_SPACE)
+     * truncate the file end. Unlike Rewrite() this does not require
+     * closing the database or coordinating with mapFileUseCount -- it
+     * runs against the already-open `pdb` handle and BDB internally
+     * serializes against concurrent ops. The trade-off is a brief pause
+     * proportional to the wallet size, not a downtime.
+     *
+     * Used by DeleteWalletTransactions after enough wtxes have been
+     * purged that the freed space is worth reclaiming.
+     *
+     * Returns true on success. Failures are logged and treated as
+     * non-fatal -- the file just stays large until the next attempt.
+     */
+    bool PageCompact();
 };
 
 #endif // BITCOIN_WALLET_DB_H

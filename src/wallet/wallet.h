@@ -60,6 +60,16 @@ extern unsigned int nAnchorConfirmations;
 // This can be overridden with the -orchardactionlimit config option
 extern unsigned int nOrchardActionLimit;
 
+// Periodic purge of fully-spent + deeply-confirmed wallet transactions.
+// Ported from YCASH_WR (the ycash-official build used by mining pools whose
+// mapWallet would otherwise grow by one coinbase wtx per mined block forever).
+// All flags default to off; opt in via -deletetx=1.
+extern bool fTxDeleteEnabled;
+extern bool fTxConflictDeleteEnabled;
+extern int nDeleteInterval;
+extern unsigned int nDeleteTransactionsAfterNBlocks;
+extern unsigned int nKeepLastNTransactions;
+
 static const unsigned int DEFAULT_KEYPOOL_SIZE = 100;
 //! -paytxfee default
 static const CAmount DEFAULT_TRANSACTION_FEE = 0;
@@ -81,6 +91,22 @@ static const unsigned int DEFAULT_ANCHOR_CONFIRMATIONS = 3;
 static const unsigned int DEFAULT_NOTE_CONFIRMATIONS = 10;
 //! -orchardactionlimit default
 static const unsigned int DEFAULT_ORCHARD_ACTION_LIMIT = 50;
+
+//! -deletetxinterval default: run the purge every N blocks once enabled.
+static const int DEFAULT_TX_DELETE_INTERVAL = 2000;
+//! -keeptxfornblocks default: a fully-spent wtx must be at least this deep
+//! before it becomes eligible for purge.
+static const unsigned int DEFAULT_TX_RETENTION_BLOCKS = 10000;
+//! -keeptxnum default: always retain at least this many newest wtxes.
+static const unsigned int DEFAULT_TX_RETENTION_LASTTX = 200;
+//! Maximum number of wtxes to erase per DeleteWalletTransactions() pass.
+//! Keeps the lock-holding time bounded during catch-up after a long downtime.
+static const int MAX_DELETE_TX_SIZE = 50000;
+//! Cumulative number of deleted wtxes after which we trigger an in-place
+//! BDB page compaction. The wtxes themselves are erased from mapWallet and
+//! the walletdb record immediately, but the BDB file does not shrink until
+//! pages are freed and (optionally) the file is truncated.
+static const unsigned int COMPACT_THRESHOLD = 100;
 
 extern const char * DEFAULT_WALLET_DAT;
 
@@ -1242,6 +1268,12 @@ private:
     int64_t nLastResend;
     int64_t nLastSetChain;
     int nSetChainUpdates;
+    // Cumulative deletions since the last BDB compaction. When this exceeds
+    // COMPACT_THRESHOLD, DeleteWalletTransactions schedules an in-place
+    // pdb->compact() call to free BDB pages and (where supported) truncate
+    // the file -- so wallet.dat actually shrinks on long-running nodes
+    // without requiring a restart.
+    unsigned int nDeletedTxes;
     bool fBroadcastTransactions;
 
     /**
@@ -1274,6 +1306,15 @@ private:
     void AddToSproutSpends(const uint256& nullifier, const uint256& wtxid);
     void AddToSaplingSpends(const uint256& nullifier, const uint256& wtxid);
     void AddToSpends(const uint256& wtxid);
+
+    // Counterparts to the AddTo*Spends family, used by DeleteTransactions to
+    // tear down the spend-index entries for a wtx being purged. Erasing the
+    // wtx record from mapWallet is not enough on its own -- spend-detection
+    // and conflict-detection both rely on these multimaps remaining in sync.
+    void RemoveFromTransparentSpends(const uint256& wtxid);
+    void RemoveFromSproutSpends(const uint256& wtxid);
+    void RemoveFromSaplingSpends(const uint256& wtxid);
+    void RemoveFromSpends(const uint256& wtxid);
 
 public:
     /*
@@ -1471,6 +1512,7 @@ public:
         nLastResend = 0;
         nLastSetChain = 0;
         nSetChainUpdates = 0;
+        nDeletedTxes = 0;
         nTimeFirstKey = 0;
         fBroadcastTransactions = false;
         nWitnessCacheSize = 0;
@@ -1531,6 +1573,13 @@ public:
     std::map<libzcash::nullifier_t, SaplingOutPoint> mapSaplingNullifiersToNotes;
 
     std::map<uint256, CWalletTx> mapWallet;
+
+    // Tombstone set: wtxids that were purged by DeleteWalletTransactions.
+    // Persisted as "extx" walletdb records so that a rescan does not re-add
+    // the same transactions on the next start. Only meaningful when
+    // -deletetx is enabled, but the load handler runs unconditionally.
+    std::set<uint256> setExWallet;
+    void AddToEx(const uint256& wtxid, bool fFromLoadWallet);
 
     std::map<uint256, std::vector<RecipientMapping>> sendRecipients;
 
@@ -1664,6 +1713,12 @@ public:
     bool IsSproutSpent(const uint256& nullifier, const std::optional<int>& asOfHeight) const;
     bool IsSaplingSpent(const uint256& nullifier, const std::optional<int>& asOfHeight) const;
     bool IsOrchardSpent(const OrchardOutPoint& outpoint, const std::optional<int>& asOfHeight) const;
+
+    // Depth-returning siblings used by the deletetx purge to decide whether
+    // a spend is old enough to forget. Returns 0 if not spent in the wallet.
+    unsigned int GetSpendDepth(const uint256& hash, unsigned int n) const;
+    unsigned int GetSproutSpendDepth(const uint256& nullifier) const;
+    unsigned int GetSaplingSpendDepth(const uint256& nullifier) const;
 
     bool IsLockedCoin(uint256 hash, unsigned int n) const;
     void LockCoin(COutPoint& output);
@@ -1920,6 +1975,13 @@ public:
             bool fUpdate
             );
     void EraseFromWallet(const uint256 &hash);
+
+    // deletetx machinery (gated by -deletetx; see wallet.cpp for details).
+    void ReorderWalletTransactions(std::map<std::pair<int,int>, const uint256>& mapSorted, int64_t& maxOrderPos);
+    void UpdateWalletTransactionOrder(const std::map<std::pair<int,int>, const uint256>& mapSorted, bool resetOrder);
+    unsigned int DeleteTransactions(const std::vector<uint256>& removeTxs, const std::vector<uint256>& removeExpiredTxs);
+    void DeleteWalletTransactions(const CBlockIndex* pindex);
+
     void WitnessNoteCommitment(
          std::vector<uint256> commitments,
          std::vector<std::optional<SproutWitness>>& witnesses,

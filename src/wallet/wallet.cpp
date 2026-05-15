@@ -53,6 +53,12 @@ bool fPayAtLeastCustomFee = true;
 unsigned int nAnchorConfirmations = DEFAULT_ANCHOR_CONFIRMATIONS;
 unsigned int nOrchardActionLimit = DEFAULT_ORCHARD_ACTION_LIMIT;
 
+bool fTxDeleteEnabled = false;
+bool fTxConflictDeleteEnabled = true;
+int nDeleteInterval = DEFAULT_TX_DELETE_INTERVAL;
+unsigned int nDeleteTransactionsAfterNBlocks = DEFAULT_TX_RETENTION_BLOCKS;
+unsigned int nKeepLastNTransactions = DEFAULT_TX_RETENTION_LASTTX;
+
 const char * DEFAULT_WALLET_DAT = "wallet.dat";
 
 std::set<ReceiverType> CWallet::DefaultReceiverTypes(int nHeight) {
@@ -1443,6 +1449,14 @@ void CWallet::ChainTip(const CBlockIndex *pindex,
         if (pblock->GetBlockTime() > GetTime() - std::min(nMaxTipAge, hibernationOld))
         {
             RunSaplingMigration(pindex->nHeight);
+            // deletetx: every nDeleteInterval blocks, purge fully-spent +
+            // deeply-confirmed wtxes. Same hibernation guard as the Sapling
+            // migration -- we don't want to thrash the wallet during catch-up.
+            if (fTxDeleteEnabled &&
+                nDeleteInterval > 0 &&
+                pindex->nHeight % nDeleteInterval == 0) {
+                DeleteWalletTransactions(pindex);
+            }
         }
     } else {
         DecrementNoteWitnesses(consensus, pindex);
@@ -2566,6 +2580,469 @@ void CWallet::AddToSpends(const uint256& wtxid)
 
     // for Orchard, the effects of this operation are performed by
     // AddNotesIfInvolvingMe and LoadCaches
+}
+
+// ---------------------------------------------------------------------------
+// Spend-index teardown + spend-depth queries used by the deletetx purge.
+//
+// The Remove* family is the counterpart to AddTo*Spends: it walks each spend
+// multimap and erases every entry whose value (the spending wtxid) matches.
+// Linear in map size per call, but only invoked from DeleteTransactions
+// which is itself bounded by MAX_DELETE_TX_SIZE per pass.
+//
+// The GetXxxSpendDepth family is a depth-returning sibling of IsXxxSpent
+// used to decide whether a spend is old enough that the spending wtx (and
+// the spent note) can be forgotten.
+// ---------------------------------------------------------------------------
+
+void CWallet::RemoveFromTransparentSpends(const uint256& wtxid)
+{
+    AssertLockHeld(cs_wallet);
+    auto it = mapTxSpends.cbegin();
+    while (it != mapTxSpends.cend()) {
+        if (it->second == wtxid) {
+            it = mapTxSpends.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void CWallet::RemoveFromSproutSpends(const uint256& wtxid)
+{
+    AssertLockHeld(cs_wallet);
+    auto it = mapTxSproutNullifiers.cbegin();
+    while (it != mapTxSproutNullifiers.cend()) {
+        if (it->second == wtxid) {
+            it = mapTxSproutNullifiers.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void CWallet::RemoveFromSaplingSpends(const uint256& wtxid)
+{
+    AssertLockHeld(cs_wallet);
+    auto it = mapTxSaplingNullifiers.cbegin();
+    while (it != mapTxSaplingNullifiers.cend()) {
+        if (it->second == wtxid) {
+            it = mapTxSaplingNullifiers.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void CWallet::RemoveFromSpends(const uint256& wtxid)
+{
+    RemoveFromTransparentSpends(wtxid);
+    RemoveFromSproutSpends(wtxid);
+    RemoveFromSaplingSpends(wtxid);
+}
+
+unsigned int CWallet::GetSpendDepth(const uint256& hash, unsigned int n) const
+{
+    AssertLockHeld(cs_main);
+    AssertLockHeld(cs_wallet);
+    const COutPoint outpoint(hash, n);
+    auto range = mapTxSpends.equal_range(outpoint);
+    for (auto it = range.first; it != range.second; ++it) {
+        const auto mit = mapWallet.find(it->second);
+        if (mit != mapWallet.end()) {
+            const int depth = mit->second.GetDepthInMainChain(std::nullopt);
+            if (depth >= 0) return depth;
+        }
+    }
+    return 0;
+}
+
+unsigned int CWallet::GetSproutSpendDepth(const uint256& nullifier) const
+{
+    AssertLockHeld(cs_main);
+    AssertLockHeld(cs_wallet);
+    auto range = mapTxSproutNullifiers.equal_range(nullifier);
+    for (auto it = range.first; it != range.second; ++it) {
+        const auto mit = mapWallet.find(it->second);
+        if (mit != mapWallet.end()) {
+            const int depth = mit->second.GetDepthInMainChain(std::nullopt);
+            if (depth >= 0) return depth;
+        }
+    }
+    return 0;
+}
+
+unsigned int CWallet::GetSaplingSpendDepth(const uint256& nullifier) const
+{
+    AssertLockHeld(cs_main);
+    AssertLockHeld(cs_wallet);
+    auto range = mapTxSaplingNullifiers.equal_range(nullifier);
+    for (auto it = range.first; it != range.second; ++it) {
+        const auto mit = mapWallet.find(it->second);
+        if (mit != mapWallet.end()) {
+            const int depth = mit->second.GetDepthInMainChain(std::nullopt);
+            if (depth >= 0) return depth;
+        }
+    }
+    return 0;
+}
+
+void CWallet::AddToEx(const uint256& wtxid, bool fFromLoadWallet)
+{
+    setExWallet.emplace(wtxid);
+    if (!fFromLoadWallet && fFileBacked) {
+        CWalletDB walletdb(strWalletFile, "r+", false);
+        walletdb.WriteExTx(wtxid);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// deletetx: periodic purge of fully-spent + deeply-confirmed wallet
+// transactions.
+//
+// Ported from the YCASH_WR build family. Primary audience is mining pools,
+// whose wallets accumulate one coinbase wtx per mined block; without this,
+// mapWallet grows monotonically forever and wallet.dat with it.
+//
+// Conservative Orchard handling: any wtx with non-empty orchardTxMeta is
+// skipped. The Orchard wallet is Rust-side and does not yet have a
+// remove-by-txid binding. Pool workflows (coinbase + transparent payouts)
+// don't touch Orchard, so this is not a real constraint today; revisit if
+// NU5 activates and pools start handling Orchard funds.
+//
+// Schema note: a purge writes "extx" tombstone records into walletdb so a
+// rescan does not re-add the same wtxes. The tombstones are
+// forward-compatible (older builds skip unknown record types) but not
+// backward-compatible -- a downgrade would lose the tombstones and the
+// wallet would bloat back to its pre-purge size on rescan.
+// ---------------------------------------------------------------------------
+
+void CWallet::ReorderWalletTransactions(
+        std::map<std::pair<int,int>, const uint256>& mapSorted,
+        int64_t& maxOrderPos)
+{
+    AssertLockHeld(cs_main);
+    AssertLockHeld(cs_wallet);
+
+    int maxSortNumber = chainActive.Tip()->nHeight + 1;
+    for (const auto& [wtxid, wtx] : mapWallet) {
+        maxOrderPos = std::max(maxOrderPos, wtx.nOrderPos);
+        int confirms = wtx.GetDepthInMainChain(std::nullopt);
+        if (confirms > 0) {
+            int wtxHeight = mapBlockIndex[wtx.hashBlock]->nHeight;
+            mapSorted.emplace(std::make_pair(std::make_pair(wtxHeight, wtx.nIndex), wtxid));
+        } else {
+            // Unconfirmed wtxes get pushed past all confirmed ones; their
+            // relative order is preserved by the maxSortNumber counter.
+            mapSorted.emplace(std::make_pair(std::make_pair(maxSortNumber, 0), wtxid));
+            ++maxSortNumber;
+        }
+    }
+}
+
+void CWallet::UpdateWalletTransactionOrder(
+        const std::map<std::pair<int,int>, const uint256>& mapSorted,
+        bool resetOrder)
+{
+    AssertLockHeld(cs_main);
+    AssertLockHeld(cs_wallet);
+
+    int64_t previousPosition = 0;
+    std::map<const uint256, const int64_t> mapUpdatedPos;
+    for (const auto& [key, wtxid] : mapSorted) {
+        auto itmw = mapWallet.find(wtxid);
+        assert(itmw != mapWallet.end());
+        const CWalletTx& wtx = itmw->second;
+        if (wtx.nOrderPos <= previousPosition || resetOrder) {
+            ++previousPosition;
+            mapUpdatedPos.emplace(wtxid, previousPosition);
+        } else {
+            previousPosition = wtx.nOrderPos;
+        }
+    }
+
+    CWalletDB walletdb(strWalletFile, "r+", false);
+    for (const auto& [wtxid, orderpos] : mapUpdatedPos) {
+        LogPrint("deletetx", "Reorder Tx - Updating position to %d for tx %s\n",
+                 orderpos, wtxid.ToString());
+        auto itmw = mapWallet.find(wtxid);
+        assert(itmw != mapWallet.end());
+        itmw->second.nOrderPos = orderpos;
+        walletdb.WriteTx(itmw->second);
+    }
+    nOrderPosNext = previousPosition + 1;
+    CWalletDB(strWalletFile).WriteOrderPosNext(nOrderPosNext);
+    LogPrint("deletetx", "Reorder Tx - %d txes reordered, next position %d\n",
+             (int)mapUpdatedPos.size(), nOrderPosNext);
+}
+
+unsigned int CWallet::DeleteTransactions(
+        const std::vector<uint256>& removeTxs,
+        const std::vector<uint256>& removeExpiredTxs)
+{
+    AssertLockHeld(cs_wallet);
+
+    if (removeTxs.empty() && removeExpiredTxs.empty()) {
+        return 0;
+    }
+
+    unsigned int nRemoved = 0;
+    CWalletDB walletdb(strWalletFile, "r+", false);
+
+    // Expired / conflicted / orphaned: not in main chain, so we erase them
+    // entirely. No tombstone is written (a future rescan won't see them
+    // again anyway -- they were never in the chain), but the spend-index
+    // entries must be torn down to free the bookkeeping memory.
+    for (const uint256& txid : removeExpiredTxs) {
+        auto itmw = mapWallet.find(txid);
+        if (itmw == mapWallet.end()) continue;
+        const bool fRemoveFromSpends = !itmw->second.IsCoinBase();
+        if (mapWallet.erase(txid)) {
+            if (fRemoveFromSpends) {
+                RemoveFromSpends(txid);
+            }
+            if (walletdb.EraseTx(txid)) {
+                ++nRemoved;
+                LogPrint("deletetx", "Deleted expired/conflicted wtx %s\n", txid.ToString());
+            } else {
+                LogPrintf("DeleteTransactions: failed to erase expired wtx %s from walletdb\n",
+                          txid.ToString());
+            }
+        }
+    }
+
+    // Fully spent + deeply confirmed: erase and tombstone. The tombstone
+    // prevents a later rescan from re-discovering and re-adding the wtx,
+    // which would silently undo the purge.
+    for (const uint256& txid : removeTxs) {
+        if (mapWallet.erase(txid)) {
+            AddToEx(txid, /*fFromLoadWallet=*/false);
+            if (walletdb.EraseTx(txid)) {
+                ++nRemoved;
+                LogPrint("deletetx", "Deleted spent wtx %s\n", txid.ToString());
+            } else {
+                LogPrintf("DeleteTransactions: failed to erase spent wtx %s from walletdb\n",
+                          txid.ToString());
+            }
+        }
+    }
+
+    return nRemoved;
+}
+
+void CWallet::DeleteWalletTransactions(const CBlockIndex* pindex)
+{
+    if (!pindex || !fTxDeleteEnabled) {
+        return;
+    }
+
+    LOCK2(cs_main, cs_wallet);
+
+    // Refuse to operate on a wallet that is still small enough to be the
+    // last-N retention window itself.
+    if (mapWallet.size() <= nKeepLastNTransactions) {
+        return;
+    }
+
+    int64_t nTime1 = GetTimeMicros();
+    LogPrint("deletetx", "DeleteWalletTransactions() enter at height %d\n", pindex->nHeight);
+
+    const int nDeleteAfter = (int)nDeleteTransactionsAfterNBlocks;
+
+    // Sort wallet by (blockHeight, txIndex) so the retention window means
+    // "newest by chain order" rather than "newest by wallet insertion order".
+    std::map<std::pair<int,int>, const uint256> mapSorted;
+    int64_t maxOrderPos = 0;
+    ReorderWalletTransactions(mapSorted, maxOrderPos);
+
+    // If nOrderPos values have drifted far beyond the wtx count (e.g. after
+    // many purge cycles), reset them. Otherwise just patch where needed.
+    UpdateWalletTransactionOrder(mapSorted, maxOrderPos > int64_t(mapSorted.size()) * 10);
+
+    std::vector<uint256> removeTxs;
+    std::vector<uint256> removeExpiredTxs;
+    int txConflictCount = 0;
+    int txUnConfirmed = 0;
+    int txCount = 0;
+
+    for (const auto& [key, wtxid] : mapSorted) {
+        auto itmw = mapWallet.find(wtxid);
+        assert(itmw != mapWallet.end());
+        const CWalletTx* pwtx = &(itmw->second);
+        ++txCount;
+
+        const int wtxDepth = pwtx->GetDepthInMainChain(std::nullopt);
+        if (wtxDepth == 0) {
+            ++txUnConfirmed;
+        }
+
+        // Conservative Orchard guard: any wtx the wallet has Orchard
+        // bookkeeping for is left alone. Pool wtxes (coinbases + transparent
+        // payouts) never trip this; only Orchard-using wallets do.
+        if (!pwtx->orchardTxMeta.empty()) {
+            continue;
+        }
+
+        // Newer than the retention window: keep.
+        if (wtxDepth < nDeleteAfter && wtxDepth >= 0) {
+            continue;
+        }
+
+        bool deleteTx = true;
+
+        if (wtxDepth == -1) {
+            // Not in main chain -- conflicted, expired, or orphaned.
+            if (!fTxConflictDeleteEnabled) {
+                continue;
+            }
+            if (IsExpiredTx(*pwtx, pindex->nHeight)) {
+                removeExpiredTxs.push_back(wtxid);
+                ++txConflictCount;
+            } else if (pwtx->IsCoinBase()) {
+                auto mi_orphan = mapBlockIndex.find(pwtx->hashBlock);
+                if (mi_orphan != mapBlockIndex.end()) {
+                    const CBlockIndex* pindex_orphan = mi_orphan->second;
+                    if (pindex->nHeight > pindex_orphan->nHeight + COINBASE_MATURITY) {
+                        removeExpiredTxs.push_back(wtxid);
+                        ++txConflictCount;
+                    }
+                } else {
+                    // Block index gone entirely -- safe to drop.
+                    removeExpiredTxs.push_back(wtxid);
+                    ++txConflictCount;
+                }
+            } else if (pwtx->nExpiryHeight == 0) {
+                // "Ghost" tx: not coinbase, not in chain, no expiry. Drop.
+                removeExpiredTxs.push_back(wtxid);
+                ++txConflictCount;
+            }
+            continue;
+        }
+
+        // Confirmed and old enough: now do the spent-ness checks.
+
+        // Sapling: any of our notes still unspent (or spent too recently)?
+        for (const auto& [op, nd] : pwtx->mapSaplingNoteData) {
+            if (!nd.nullifier ||
+                GetSaplingSpendDepth(nd.nullifier.value()) <= nDeleteTransactionsAfterNBlocks) {
+                deleteTx = false;
+                break;
+            }
+        }
+        if (!deleteTx) continue;
+
+        // Sapling: do we still have parents in the wallet?
+        for (const auto& spend : pwtx->GetSaplingSpends()) {
+            const libzcash::nullifier_t nullifier = spend.nullifier();
+            if (IsSaplingNullifierFromMe(nullifier)) {
+                auto it = mapSaplingNullifiersToNotes.find(nullifier);
+                if (it == mapSaplingNullifiersToNotes.end()) continue;
+                const uint256& parentHash = it->second.hash;
+                if (parentHash != wtxid && GetWalletTx(parentHash) != nullptr) {
+                    if (std::find(removeTxs.begin(), removeTxs.end(), parentHash) == removeTxs.end()) {
+                        deleteTx = false;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!deleteTx) continue;
+
+        // Sprout: spent recently?
+        for (const auto& [op, nd] : pwtx->mapSproutNoteData) {
+            if (!nd.nullifier ||
+                GetSproutSpendDepth(nd.nullifier.value()) <= nDeleteTransactionsAfterNBlocks) {
+                deleteTx = false;
+                break;
+            }
+        }
+        if (!deleteTx) continue;
+
+        // Sprout: still have parents?
+        for (const auto& jsdesc : pwtx->vJoinSplit) {
+            for (const uint256& nullifier : jsdesc.nullifiers) {
+                if (IsSproutNullifierFromMe(nullifier)) {
+                    auto it = mapSproutNullifiersToNotes.find(nullifier);
+                    if (it == mapSproutNullifiersToNotes.end()) continue;
+                    const uint256& parentHash = it->second.hash;
+                    if (parentHash != wtxid && GetWalletTx(parentHash) != nullptr) {
+                        if (std::find(removeTxs.begin(), removeTxs.end(), parentHash) == removeTxs.end()) {
+                            deleteTx = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!deleteTx) break;
+        }
+        if (!deleteTx) continue;
+
+        // Transparent: any of our outputs still unspent (or spent too recently)?
+        for (unsigned int i = 0; i < pwtx->vout.size(); ++i) {
+            if (IsMine(pwtx->vout[i])) {
+                if (GetSpendDepth(wtxid, i) <= nDeleteTransactionsAfterNBlocks) {
+                    deleteTx = false;
+                    break;
+                }
+            }
+        }
+        if (!deleteTx) continue;
+
+        // Transparent: still have parents?
+        for (const CTxIn& txin : pwtx->vin) {
+            const uint256& parentHash = txin.prevout.hash;
+            if (parentHash != wtxid && GetWalletTx(parentHash) != nullptr) {
+                if (std::find(removeTxs.begin(), removeTxs.end(), parentHash) == removeTxs.end()) {
+                    deleteTx = false;
+                    break;
+                }
+            }
+        }
+        if (!deleteTx) continue;
+
+        // Honour the "always keep last N" floor. We're walking in chain-order,
+        // so the position of this wtx from the end of mapSorted is the count
+        // of newer wtxes plus the conflicted/unconfirmed offsets that don't
+        // count toward retention.
+        if (mapSorted.size() - txCount <
+            nKeepLastNTransactions + txConflictCount + txUnConfirmed) {
+            continue;
+        }
+
+        if (removeTxs.size() < (size_t)MAX_DELETE_TX_SIZE) {
+            removeTxs.push_back(wtxid);
+        }
+        if (removeTxs.size() == (size_t)MAX_DELETE_TX_SIZE) {
+            break;
+        }
+    }
+
+    const size_t nExpired = removeExpiredTxs.size();
+    const size_t nSpent = removeTxs.size();
+    const unsigned int nRemoved = DeleteTransactions(removeTxs, removeExpiredTxs);
+    if (nRemoved > 0) {
+        LogPrintf("DeleteWalletTransactions: marked %zu expired + %zu spent, removed %u; "
+                  "mapWallet size now %zu\n",
+                  nExpired, nSpent, nRemoved, mapWallet.size());
+    }
+
+    // Online BDB compaction: once enough wtxes have been freed, ask BDB to
+    // return empty pages to the free list and (with DB_FREE_SPACE) truncate
+    // the file end. This is what keeps wallet.dat actually shrinking on a
+    // long-running pool node without requiring a restart.
+    nDeletedTxes += nRemoved;
+    if (fFileBacked && nDeletedTxes >= COMPACT_THRESHOLD) {
+        CWalletDB walletdb(strWalletFile, "r+", false);
+        if (walletdb.PageCompact()) {
+            LogPrintf("DeleteWalletTransactions: wallet.dat compacted after %u purges\n",
+                      nDeletedTxes);
+        }
+        nDeletedTxes = 0;
+    }
+
+    const int64_t nTime2 = GetTimeMicros();
+    LogPrint("deletetx", "DeleteWalletTransactions() leave after %.2f ms\n",
+             (nTime2 - nTime1) * 0.001);
 }
 
 void CWallet::ClearNoteWitnessCache()
@@ -6664,6 +7141,7 @@ std::string CWallet::GetWalletHelpString(bool showDebug)
         strUsage += HelpMessageOpt("-dblogsize=<n>", strprintf("Flush wallet database activity from memory to disk log every <n> megabytes (default: %u)", DEFAULT_WALLET_DBLOGSIZE));
         strUsage += HelpMessageOpt("-flushwallet", strprintf("Run a thread to flush wallet periodically (default: %u)", DEFAULT_FLUSHWALLET));
         strUsage += HelpMessageOpt("-privdb", strprintf("Sets the DB_PRIVATE flag in the wallet db environment (default: %u)", DEFAULT_WALLET_PRIVDB));
+        strUsage += HelpMessageOpt("-bdbcache=<n>", strprintf("Set BerkeleyDB cache size in megabytes for the wallet environment (allowed range 1..1024, default: %u). Larger values reduce page eviction on big wallets and shorten the pause introduced by online deletetx compaction.", DEFAULT_BDB_CACHE_SIZE));
     }
 
     return strUsage;
@@ -6940,6 +7418,36 @@ bool CWallet::ParameterInteraction(const CChainParams& params)
             return UIError(strprintf(_("Invalid value for -orchardactionlimit='%u' (must be least 1)"), limit));
         }
         nOrchardActionLimit = limit;
+    }
+
+    // deletetx: see wallet.cpp DeleteWalletTransactions for what these gate.
+    fTxDeleteEnabled = GetBoolArg("-deletetx", false);
+    fTxConflictDeleteEnabled = GetBoolArg("-deletetxconflict", true);
+    if (mapArgs.count("-deletetxinterval")) {
+        int64_t interval = atoi64(mapArgs["-deletetxinterval"]);
+        if (interval < 1) {
+            return UIError(strprintf(_("Invalid value for -deletetxinterval='%d' (must be at least 1)"), interval));
+        }
+        nDeleteInterval = (int)interval;
+    }
+    if (mapArgs.count("-keeptxfornblocks")) {
+        int64_t after = atoi64(mapArgs["-keeptxfornblocks"]);
+        if (after < 0) {
+            return UIError(strprintf(_("Invalid value for -keeptxfornblocks='%d' (must be non-negative)"), after));
+        }
+        nDeleteTransactionsAfterNBlocks = (unsigned int)after;
+    }
+    if (mapArgs.count("-keeptxnum")) {
+        int64_t keep = atoi64(mapArgs["-keeptxnum"]);
+        if (keep < 0) {
+            return UIError(strprintf(_("Invalid value for -keeptxnum='%d' (must be non-negative)"), keep));
+        }
+        nKeepLastNTransactions = (unsigned int)keep;
+    }
+    if (fTxDeleteEnabled) {
+        LogPrintf("deletetx: enabled (interval=%d, keepfornblocks=%u, keepnum=%u, conflictdelete=%s)\n",
+                  nDeleteInterval, nDeleteTransactionsAfterNBlocks,
+                  nKeepLastNTransactions, fTxConflictDeleteEnabled ? "on" : "off");
     }
 
     return true;

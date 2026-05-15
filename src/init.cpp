@@ -347,6 +347,11 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-debuglogfile=<file>", strprintf(_("Specify location of debug log file. Relative paths will be prefixed by a net-specific datadir location. (default: %s)"), DEFAULT_DEBUGLOGFILE));
     strUsage += HelpMessageOpt("-exportdir=<dir>", _("Specify directory to be used when exporting data"));
     strUsage += HelpMessageOpt("-autoexportafterimport", _("After every successful importprivkey / z_importkey / importwallet, automatically write a fresh z_exportwallet-format snapshot into -exportdir (filename: autoexport-<utc-timestamp>-<method>.dat). Requires -exportdir to be set; otherwise the option is silently a no-op. Default: 0 (off)."));
+    strUsage += HelpMessageOpt("-deletetx", _("Periodically purge fully-spent + deeply-confirmed wallet transactions to keep mapWallet and wallet.dat from growing without bound on long-running nodes (mining pools especially). Default: 0 (off). When enabled, BDB pages are also returned to the free list and the file is truncated, so wallet.dat actually shrinks online. Warning: schema is not backward-compatible -- downgrading to a pre-deletetx build will lose the purge tombstones and bloat the wallet back on rescan."));
+    strUsage += HelpMessageOpt("-deletetxinterval=<n>", strprintf(_("Run the wallet purge every <n> blocks (default: %d). No effect unless -deletetx is set."), DEFAULT_TX_DELETE_INTERVAL));
+    strUsage += HelpMessageOpt("-keeptxfornblocks=<n>", strprintf(_("Minimum confirmation depth before a fully-spent wallet transaction is eligible for purge (default: %u). No effect unless -deletetx is set."), DEFAULT_TX_RETENTION_BLOCKS));
+    strUsage += HelpMessageOpt("-keeptxnum=<n>", strprintf(_("Always retain at least <n> most-recent wallet transactions regardless of spent state (default: %u). No effect unless -deletetx is set."), DEFAULT_TX_RETENTION_LASTTX));
+    strUsage += HelpMessageOpt("-deletetxconflict", strprintf(_("When -deletetx is set, also purge conflicted / orphaned / expired wallet transactions (default: %d)."), 1));
     strUsage += HelpMessageOpt("-ibdskiptxverification", strprintf(_("Skip transaction verification during initial block download up to the last checkpoint height. Incompatible with flags that disable checkpoints. (default = %u)"), DEFAULT_IBD_SKIP_TX_VERIFICATION));
     strUsage += HelpMessageOpt("-reindex-one-phase", strprintf(_("Connect each block to the active chain immediately after accepting it during reindex, instead of accepting all blocks first and then activating the best chain at the end. May improve throughput on slower disks by amortizing chainstate writes. (default = %u)"), DEFAULT_REINDEX_ONE_PHASE));
     strUsage += HelpMessageOpt("-loadblock=<file>", _("Imports blocks from external blk000??.dat file on startup"));
@@ -455,7 +460,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-regtestchainsupplycheckpoint", "Enable a hardcoded chain supply checkpoint at the regtest cache tip height, to test the checkpoint fallback for legacy block index data (regtest-only)");
         strUsage += HelpMessageOpt("-regtestenablezip209", "Enable ZIP 209 turnstile enforcement on regtest without zeroing shielded pool balances (regtest-only)");
     }
-    std::string debugCategories = "addrman, bench, coindb, db, http, libevent, lock, mempool, mempoolrej, net, partitioncheck, pow, proxy, prune, "
+    std::string debugCategories = "addrman, bench, coindb, db, deletetx, http, libevent, lock, mempool, mempoolrej, net, partitioncheck, pow, proxy, prune, "
                              "rand, receiveunsafe, reindex, rpc, selectcoins, tor, valuepool, zmq, zrpc, zrpcunsafe (implies zrpc)"; // Don't translate these
     strUsage += HelpMessageOpt("-debug=<category>", strprintf(_("Output debugging information (default: %u, supplying <category> is optional)"), 0) + ". " +
         _("If <category> is not supplied or if <category> = 1, output all debugging information.") + " " + _("<category> can be:") + " " + debugCategories + ". " +
