@@ -4,6 +4,7 @@
 
 #include "wallet/wallet_tx_builder.h"
 
+#include "policy/policy.h"
 #include "script/sign.h"
 #include "util/moneystr.h"
 #include "zip317.h"
@@ -84,15 +85,40 @@ CalcZIP317Fee(
         saplingInputCount = inputs.value().saplingNoteEntries.size();
         orchardInputCount = inputs.value().orchardNoteMetadata.size();
     }
+    size_t paddedSaplingOutputCount = PadCount(saplingOutputCount);
+
     size_t logicalActionCount = CalculateLogicalActionCount(
             vin,
             vout,
             std::max(sproutInputCount, sproutOutputCount),
             saplingInputCount,
-            PadCount(saplingOutputCount),
+            paddedSaplingOutputCount,
             PadCount(std::max(orchardInputCount, orchardOutputCount)));
 
-    return CalculateConventionalFee(logicalActionCount);
+    CAmount zip317Fee = CalculateConventionalFee(logicalActionCount);
+
+    // Ycash per-Sapling-output anti-spam floor. ZIP 317 is not the only fee
+    // policy on Ycash: AcceptToMemoryPool independently enforces
+    // PerSaplingOutputFees() (see policy/policy.cpp), and a purely ZIP-317
+    // conventional fee can fall below it for outputs beyond the exempt grace
+    // band -- which would make the node reject its own default-fee
+    // transaction. Raise the default fee to at least that floor so a
+    // no-explicit-fee z_sendmany is always relayable, whichever policy is
+    // the binding one. This mirrors the grace-band formula in
+    // PerSaplingOutputFees(); the padded Sapling output count is what will
+    // actually appear in the built transaction. An explicit user-supplied
+    // fee is intentionally NOT clamped here (CalcZIP317Fee is only consulted
+    // when no fee was specified) -- matching ycash-official a09f9d4d6, which
+    // adjusted only the default.
+    CAmount saplingOutputsFloor = 0;
+    if (paddedSaplingOutputCount > 0) {
+        saplingOutputsFloor =
+            (paddedSaplingOutputCount > DEFAULT_EXEMPT_SAPLING_OUTPUTS)
+                ? (CAmount)(paddedSaplingOutputCount - DEFAULT_EXEMPT_SAPLING_OUTPUTS) * DEFAULT_PER_SAPLING_OUTPUT_FEE
+                : DEFAULT_PER_SAPLING_OUTPUT_FEE;
+    }
+
+    return std::max(zip317Fee, saplingOutputsFloor);
 }
 
 static tl::expected<ResolvedPayment, AddressResolutionError>
