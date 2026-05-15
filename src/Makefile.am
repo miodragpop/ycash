@@ -292,6 +292,7 @@ BITCOIN_CORE_H = \
   rpc/server.h \
   rpc/register.h \
   scheduler.h \
+  script/atomicswap.h \
   script/sigcache.h \
   script/sign.h \
   script/standard.h \
@@ -571,6 +572,7 @@ libbitcoin_common_a_SOURCES = \
   proof_verifier.cpp \
   protocol.cpp \
   scheduler.cpp \
+  script/atomicswap.cpp \
   script/sign.cpp \
   script/standard.cpp \
   transaction_builder.cpp \

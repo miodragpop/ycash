@@ -23,6 +23,7 @@
 static const bool DEFAULT_FLUSHWALLET = true;
 
 struct CBlockLocator;
+class CAtomicSwapInfo;
 class CKeyPool;
 class CMasterKey;
 class CScript;
@@ -416,6 +417,11 @@ public:
     // Tombstone log of wtxids purged by DeleteWalletTransactions.
     bool WriteExTx(uint256 hash);
     bool EraseExTx(uint256 hash);
+
+    // Atomic-swap records, keyed by swap-id ("<contractTxid>:<vout>").
+    bool WriteAtomicSwap(const std::string& swapId, const CAtomicSwapInfo& swapInfo);
+    bool ReadAtomicSwap(const std::string& swapId, CAtomicSwapInfo& swapInfo);
+    bool EraseAtomicSwap(const std::string& swapId);
 
     bool WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata &keyMeta);
     bool WriteCryptedKey(const CPubKey& vchPubKey, const std::vector<unsigned char>& vchCryptedSecret, const CKeyMetadata &keyMeta);

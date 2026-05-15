@@ -2697,6 +2697,83 @@ void CWallet::AddToEx(const uint256& wtxid, bool fFromLoadWallet)
 }
 
 // ---------------------------------------------------------------------------
+// Atomic-swap wallet methods.
+//
+// All operate on mapAtomicSwaps keyed by swap-id ("<contractTxid>:<vout>").
+// Adds/updates also write the "atomicswap" walletdb record; Load* is the
+// memory-only flavour used by the walletdb load handler at startup.
+// ---------------------------------------------------------------------------
+
+bool CWallet::AddAtomicSwap(const CAtomicSwapInfo& swapInfo)
+{
+    LOCK(cs_wallet);
+    const std::string swapId = swapInfo.GetSwapId();
+    mapAtomicSwaps[swapId] = swapInfo;
+    if (!fFileBacked) {
+        return true;
+    }
+    CWalletDB walletdb(strWalletFile);
+    return walletdb.WriteAtomicSwap(swapId, swapInfo);
+}
+
+bool CWallet::UpdateAtomicSwap(const CAtomicSwapInfo& swapInfo)
+{
+    LOCK(cs_wallet);
+    const std::string swapId = swapInfo.GetSwapId();
+    if (mapAtomicSwaps.find(swapId) == mapAtomicSwaps.end()) {
+        return false;
+    }
+    mapAtomicSwaps[swapId] = swapInfo;
+    if (!fFileBacked) {
+        return true;
+    }
+    CWalletDB walletdb(strWalletFile);
+    return walletdb.WriteAtomicSwap(swapId, swapInfo);
+}
+
+bool CWallet::LoadAtomicSwap(const CAtomicSwapInfo& swapInfo)
+{
+    // Called from CWalletDB::ReadKeyValue under cs_wallet (held by LoadWallet);
+    // do not re-lock here.
+    AssertLockHeld(cs_wallet);
+    mapAtomicSwaps[swapInfo.GetSwapId()] = swapInfo;
+    return true;
+}
+
+bool CWallet::GetAtomicSwap(const std::string& swapId, CAtomicSwapInfo& swapInfo) const
+{
+    LOCK(cs_wallet);
+    auto it = mapAtomicSwaps.find(swapId);
+    if (it == mapAtomicSwaps.end()) {
+        return false;
+    }
+    swapInfo = it->second;
+    return true;
+}
+
+std::vector<CAtomicSwapInfo> CWallet::ListAtomicSwaps() const
+{
+    LOCK(cs_wallet);
+    std::vector<CAtomicSwapInfo> swaps;
+    swaps.reserve(mapAtomicSwaps.size());
+    for (const auto& [swapId, info] : mapAtomicSwaps) {
+        swaps.push_back(info);
+    }
+    return swaps;
+}
+
+bool CWallet::EraseAtomicSwap(const std::string& swapId)
+{
+    LOCK(cs_wallet);
+    mapAtomicSwaps.erase(swapId);
+    if (!fFileBacked) {
+        return true;
+    }
+    CWalletDB walletdb(strWalletFile);
+    return walletdb.EraseAtomicSwap(swapId);
+}
+
+// ---------------------------------------------------------------------------
 // deletetx: periodic purge of fully-spent + deeply-confirmed wallet
 // transactions.
 //

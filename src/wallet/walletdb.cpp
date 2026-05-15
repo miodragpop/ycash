@@ -86,6 +86,23 @@ bool CWalletDB::EraseExTx(uint256 hash)
     return Erase(std::make_pair(std::string("extx"), hash));
 }
 
+bool CWalletDB::WriteAtomicSwap(const std::string& swapId, const CAtomicSwapInfo& swapInfo)
+{
+    nWalletDBUpdateCounter++;
+    return Write(std::make_pair(std::string("atomicswap"), swapId), swapInfo);
+}
+
+bool CWalletDB::ReadAtomicSwap(const std::string& swapId, CAtomicSwapInfo& swapInfo)
+{
+    return Read(std::make_pair(std::string("atomicswap"), swapId), swapInfo);
+}
+
+bool CWalletDB::EraseAtomicSwap(const std::string& swapId)
+{
+    nWalletDBUpdateCounter++;
+    return Erase(std::make_pair(std::string("atomicswap"), swapId));
+}
+
 bool CWalletDB::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata& keyMeta)
 {
     nWalletDBUpdateCounter++;
@@ -448,6 +465,17 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             uint256 hash;
             ssKey >> hash;
             pwallet->AddToEx(hash, /*fFromLoadWallet=*/true);
+        }
+        else if (strType == "atomicswap")
+        {
+            std::string swapId;
+            ssKey >> swapId;
+            CAtomicSwapInfo swapInfo;
+            ssValue >> swapInfo;
+            if (!pwallet->LoadAtomicSwap(swapInfo)) {
+                strErr = "Error reading wallet database: LoadAtomicSwap failed";
+                return false;
+            }
         }
         else if (strType == "watchs")
         {
