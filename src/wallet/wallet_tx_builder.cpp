@@ -314,6 +314,31 @@ WalletTxBuilder::GetChangeAddress(
 
     auto changeAddressForTransparentSelector = [&](const std::set<ReceiverType>& receiverTypes)
         -> tl::expected<ChangeAddress, AddressResolutionError> {
+        // -sendchangeback: return transparent change to the address of the
+        // largest-value input being spent rather than generating a new one,
+        // so an operator finds change on an address it already uses. This is
+        // the modern (WalletTxBuilder) counterpart of the same option in
+        // CWallet::CreateTransaction; ported from ycash-official 31bacc765.
+        if (GetBoolArg("-sendchangeback", DEFAULT_SEND_CHANGE_BACK)) {
+            CAmount nMaxValue = 0;
+            std::optional<RecipientAddress> changeBack;
+            for (const COutput& utxo : spendable.utxos) {
+                if (utxo.destination.has_value() && utxo.Value() > nMaxValue) {
+                    if (auto keyId = std::get_if<CKeyID>(&utxo.destination.value())) {
+                        changeBack = *keyId;
+                        nMaxValue = utxo.Value();
+                    } else if (auto scriptId = std::get_if<CScriptID>(&utxo.destination.value())) {
+                        changeBack = *scriptId;
+                        nMaxValue = utxo.Value();
+                    }
+                }
+            }
+            if (changeBack.has_value()) {
+                return {changeBack.value()};
+            }
+            // Fall through to a generated address if no transparent input
+            // destination could be extracted.
+        }
         auto addr = wallet.GenerateChangeAddressForAccount(
                 sendFromAccount,
                 getAllowedChangePools(receiverTypes));

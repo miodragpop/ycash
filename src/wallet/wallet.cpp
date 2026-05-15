@@ -6325,25 +6325,60 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                     // coin control: send change to custom address
                     if (coinControl && !std::get_if<CNoDestination>(&coinControl->destChange))
+                    {
                         scriptChange = GetScriptForDestination(coinControl->destChange);
-
-                    // no coin control: send change to newly generated address
+                    }
                     else
                     {
-                        // Note: We use a new key here to keep it from being obvious which side is the change.
-                        //  The drawback is that by not reusing a previous key, the change may be lost if a
-                        //  backup is restored, if the backup doesn't have the new private key for the change.
-                        //  If we reused the old key, it would be possible to add code to look for and
-                        //  rediscover unknown transactions that were written with keys of ours to recover
-                        //  post-backup change.
+                        // no coin control
+                        // -sendchangeback: return change to the address of the
+                        // largest-value input being spent, so an operator finds
+                        // change on an address it already uses rather than on a
+                        // freshly generated one. Ported from ycash-official
+                        // 31bacc765.
+                        CTxDestination changeAddr = CNoDestination();
+                        if (GetBoolArg("-sendchangeback", DEFAULT_SEND_CHANGE_BACK))
+                        {
+                            CAmount nMaxOutValue = 0;
+                            for (const std::pair<const CWalletTx*, unsigned int>& pcoin : setCoins)
+                            {
+                                if (pcoin.first->vout[pcoin.second].nValue > nMaxOutValue)
+                                {
+                                    CTxDestination dest;
+                                    if (ExtractDestination(pcoin.first->vout[pcoin.second].scriptPubKey, dest))
+                                    {
+                                        changeAddr = dest;
+                                        nMaxOutValue = pcoin.first->vout[pcoin.second].nValue;
+                                    }
+                                }
+                            }
 
-                        // Reserve a new key pair from key pool
-                        CPubKey vchPubKey;
-                        bool ret;
-                        ret = reservekey.GetReservedKey(vchPubKey);
-                        assert(ret); // should never fail, as we just unlocked
+                            if (!std::get_if<CNoDestination>(&changeAddr))
+                            {
+                                scriptChange = GetScriptForDestination(changeAddr);
+                            }
+                        }
 
-                        scriptChange = GetScriptForDestination(vchPubKey.GetID());
+                        // no coin control and either -sendchangeback off or no
+                        // input destination could be extracted: send change to
+                        // a newly generated address.
+                        if (std::get_if<CNoDestination>(&changeAddr))
+                        {
+                            // Note: We use a new key here to keep it from being obvious which side is the change.
+                            //  The drawback is that by not reusing a previous key, the change may be lost if a
+                            //  backup is restored, if the backup doesn't have the new private key for the change.
+                            //  If we reused the old key, it would be possible to add code to look for and
+                            //  rediscover unknown transactions that were written with keys of ours to recover
+                            //  post-backup change.
+
+                            // Reserve a new key pair from key pool
+                            CPubKey vchPubKey;
+                            bool ret;
+                            ret = reservekey.GetReservedKey(vchPubKey);
+                            assert(ret); // should never fail, as we just unlocked
+
+                            scriptChange = GetScriptForDestination(vchPubKey.GetID());
+                        }
                     }
 
                     CTxOut newTxOut(nChange, scriptChange);
@@ -7256,6 +7291,7 @@ std::string CWallet::GetWalletHelpString(bool showDebug)
                                                             CURRENCY_UNIT));
     strUsage += HelpMessageOpt("-rescan", _("Rescan the block chain for missing wallet transactions on startup"));
     strUsage += HelpMessageOpt("-salvagewallet", _("Attempt to recover private keys from a corrupt wallet on startup (implies -rescan)"));
+    strUsage += HelpMessageOpt("-sendchangeback", strprintf(_("Return transparent change to the address of the largest-value input being spent, instead of a newly generated address, when no coin-control change address is set (default: %u)"), DEFAULT_SEND_CHANGE_BACK));
     strUsage += HelpMessageOpt("-spendzeroconfchange", strprintf(_("Spend unconfirmed change when sending transactions (default: %u)"), DEFAULT_SPEND_ZEROCONF_CHANGE));
     strUsage += HelpMessageOpt("-txexpirydelta", strprintf(_("Set the number of blocks after which a transaction that has not been mined will become invalid (min: %u, default: %u (pre-Blossom) or %u (post-Blossom))"), TX_EXPIRING_SOON_THRESHOLD + 1, DEFAULT_PRE_BLOSSOM_TX_EXPIRY_DELTA, DEFAULT_POST_BLOSSOM_TX_EXPIRY_DELTA));
     strUsage += HelpMessageOpt("-upgradewallet", _("Upgrade wallet to latest format on startup"));

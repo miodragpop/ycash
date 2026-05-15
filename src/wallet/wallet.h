@@ -78,6 +78,10 @@ static const CAmount DEFAULT_TRANSACTION_FEE = 0;
 static const CAmount MIN_CHANGE = CENT;
 //! Default for -spendzeroconfchange
 static const bool DEFAULT_SPEND_ZEROCONF_CHANGE = true;
+//! Default for -sendchangeback: when true, transparent change is returned to
+//! the address of the largest-value input being spent instead of a freshly
+//! generated address. Ported from ycash-official 31bacc765.
+static const bool DEFAULT_SEND_CHANGE_BACK = false;
 static const bool DEFAULT_WALLETBROADCAST = true;
 //! Size of witness cache
 //  Should be large enough that we can expect not to reorg beyond our cache
