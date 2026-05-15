@@ -650,6 +650,13 @@ bool CInsightExplorerDB::ReadAddressIndex(
         pcursor->Seek(make_pair(DB_ADDRESSINDEX, CAddressIndexIteratorKey(type, addressHash)));
     }
 
+    // Reduce reallocation churn while the cursor scan appends; this is called
+    // once per queried address and a hot address can have many rows. The
+    // per-row interruption_point() is intentionally retained so a long scan
+    // can still be cancelled on shutdown. Adapted from ycash-official
+    // 7d5a17e66 (only the allocation wins are taken).
+    addressIndex.reserve(addressIndex.size() + 1000);
+
     while (pcursor->Valid()) {
         boost::this_thread::interruption_point();
         std::pair<char,CAddressIndexKey> key;
@@ -660,7 +667,7 @@ bool CInsightExplorerDB::ReadAddressIndex(
         CAmount nValue;
         if (!pcursor->GetValue(nValue))
             return error("failed to get address index value");
-        addressIndex.push_back(make_pair(key.second, nValue));
+        addressIndex.emplace_back(key.second, nValue);
         pcursor->Next();
     }
     return true;

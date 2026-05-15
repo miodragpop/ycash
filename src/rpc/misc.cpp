@@ -971,10 +971,29 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
 
     UniValue deltas(UniValue::VARR);
     deltas.reserve(addressIndex.size());
+
+    // Optimization for the common case (a single queried address): the
+    // address index is grouped by (type, hashBytes), so cache the decoded
+    // address string and only re-run the base58 encoding when the key's
+    // (type, hashBytes) actually changes. Adapted from ycash-official
+    // 7d5a17e66, using an explicit have-cache flag rather than that
+    // commit's implicit type==0 sentinel.
+    bool haveCached = false;
+    int cachedType = 0;
+    uint160 cachedHashBytes;
+    std::string cachedAddress;
+
     for (const auto& it : addressIndex) {
         std::string address;
-        if (!getAddressFromIndex(it.first.type, it.first.hashBytes, address)) {
+        if (haveCached && it.first.type == cachedType && it.first.hashBytes == cachedHashBytes) {
+            address = cachedAddress;
+        } else if (!getAddressFromIndex(it.first.type, it.first.hashBytes, address)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unknown address type");
+        } else {
+            cachedType = it.first.type;
+            cachedHashBytes = it.first.hashBytes;
+            cachedAddress = address;
+            haveCached = true;
         }
 
         UniValue delta(UniValue::VOBJ);
