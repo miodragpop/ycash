@@ -1366,6 +1366,7 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
             "  \"chainwork\": \"xxxx\"     (string) total amount of work in active chain, in hexadecimal\n"
             "  \"size_on_disk\": xxxxxx,       (numeric) the estimated size of the block and undo files on disk\n"
             "  \"commitments\": xxxxxx,    (numeric) the current number of note commitments in the commitment tree\n"
+            "  \"transactions\": xxxxxx,    (numeric) the total number of transactions in the active chain up to and including the tip\n"
             "  \"chainSupply\": {          (object) information about the total supply\n"
             "      \"monitored\": xx,           (boolean) true if the total supply is being monitored\n"
             "      \"chainValue\": xxxxxx,      (numeric, optional) total chain supply after this block, in " + CURRENCY_UNIT + "\n"
@@ -1434,6 +1435,7 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
     obj.pushKV("commitments",           static_cast<uint64_t>(tree.size()));
 
     CBlockIndex* tip = chainActive.Tip();
+    obj.pushKV("transactions",          static_cast<uint64_t>(tip->nChainTx));
     obj.pushKV("chainSupply", ValuePoolDesc(std::nullopt, tip->nChainTotalSupply, std::nullopt));
     UniValue valuePools(UniValue::VARR);
     valuePools.push_back(ValuePoolDesc("transparent", tip->nChainTransparentValue, std::nullopt));
