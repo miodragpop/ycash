@@ -448,7 +448,7 @@ int printMiningStatus(bool mining)
         lines++;
     } else if (Params().NetworkIDString() != "main") {
         std::cout << _("You are currently not mining.") << std::endl;
-        std::cout << _("To enable mining, add 'gen=1' to your zcash.conf and restart.") << std::endl;
+        std::cout << _("To enable mining, add 'gen=1' to your ycash.conf and restart.") << std::endl;
         lines += 2;
     }
     std::cout << std::endl;
@@ -502,8 +502,35 @@ int printMetrics(size_t cols, bool mining)
                         chainActive.Contains(mapBlockIndex[hash])) {
                     int height = mapBlockIndex[hash]->nHeight;
                     CAmount subsidy = consensusParams.GetBlockSubsidy(height);
-                    if ((height > 0) && (height <= consensusParams.GetLastFoundersRewardBlockHeight(height))) {
-                        subsidy -= subsidy/5;
+                    // Subtract the founders' reward / Ycash Development Fund
+                    // exactly as the miner does in
+                    // CreateNewBlock::SetFoundersRewardAndGetMinerValue
+                    // (miner.cpp), so the displayed mining reward matches the
+                    // actual coinbase miner value in every era:
+                    //  - pre-Ycash-fork, founders era: 20% to the Zcash
+                    //    founders multisig;
+                    //  - post-fork, before the YDF mandate ends: 5% to the YDF;
+                    //  - after the mandate: optional, -ydf=<n>% (default
+                    //    DEFAULT_YDF_FEE_PERCENTAGE), 0 disables it.
+                    // Ported/adapted from ycash-official d157c16d5; better-ycash
+                    // previously subtracted no YDF post-fork at all, overstating
+                    // the reward by the entire YDF cut.
+                    if (height > 0) {
+                        if (!consensusParams.NetworkUpgradeActive(height, Consensus::UPGRADE_YCASH)) {
+                            if (height <= consensusParams.GetLastFoundersRewardBlockHeight(height)) {
+                                subsidy -= subsidy / 5;
+                            }
+                        } else {
+                            CAmount vFoundersReward = 0;
+                            if (height < Params().GetYdfMandateEndHeight()) {
+                                vFoundersReward = subsidy / 20;
+                            } else {
+                                unsigned int nYdfFeePercentage =
+                                    GetArg("-ydf", DEFAULT_YDF_FEE_PERCENTAGE);
+                                vFoundersReward = subsidy * nYdfFeePercentage / 100;
+                            }
+                            subsidy -= vFoundersReward;
+                        }
                     }
                     if (std::max(0, COINBASE_MATURITY - (tipHeight - height)) > 0) {
                         immature += subsidy;
@@ -627,7 +654,7 @@ void ThreadShowMetricsScreen()
         std::cout << std::endl;
 
         // Thank you text
-        std::cout << strprintf(_("Thank you for running a %s zcashd %s node!"), WhichNetwork(), FormatFullVersion()) << std::endl;
+        std::cout << strprintf(_("Thank you for running a %s ycashd %s node!"), WhichNetwork(), FormatFullVersion()) << std::endl;
         std::cout << _("You're helping to strengthen the network and contributing to a social good :)") << std::endl;
 
         // Privacy notice text
@@ -686,7 +713,7 @@ void ThreadShowMetricsScreen()
             // Explain how to exit
             std::cout << "[";
 #ifdef WIN32
-            std::cout << _("'zcash-cli.exe stop' to exit");
+            std::cout << _("'ycash-cli.exe stop' to exit");
 #else
             std::cout << _("Press Ctrl+C to exit");
 #endif
