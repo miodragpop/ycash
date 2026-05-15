@@ -21,6 +21,7 @@
 #endif
 
 #include <stdint.h>
+#include <unordered_set>
 #include <variant>
 
 #include <boost/assign/list_of.hpp>
@@ -1038,6 +1039,7 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
             "{\n"
             "  \"balance\"  (string) The current balance in " + MINOR_CURRENCY_UNIT + "\n"
             "  \"received\"  (string) The total number of " + MINOR_CURRENCY_UNIT + " received (including change)\n"
+            "  \"txcount\"  (numeric) The number of distinct transactions touching the given address(es)\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("getaddressbalance", "'{\"addresses\": [\"smDw2LWkeuJ1NGBDDZvdNbzY8A9D1mkkDZm\"]}'")
@@ -1057,15 +1059,25 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
 
     CAmount balance = 0;
     CAmount received = 0;
+    // Count distinct transactions touching the queried address(es). The
+    // address index yields one row per output/input, and a single tx that
+    // pays several of the queried addresses appears once per address, so a
+    // set (not an adjacent-difference scan) is required for a correct count.
+    // Uses the codebase's standard SaltedTxidHasher rather than injecting a
+    // global std::hash<uint256> as ycash-official c823b7ca2 did.
+    std::unordered_set<uint256, SaltedTxidHasher> txids;
+    txids.reserve(addressIndex.size() / 2);
     for (const auto& it : addressIndex) {
         if (it.second > 0) {
             received += it.second;
         }
         balance += it.second;
+        txids.insert(it.first.txhash);
     }
     UniValue result(UniValue::VOBJ);
     result.pushKV("balance", balance);
     result.pushKV("received", received);
+    result.pushKV("txcount", (uint64_t)txids.size());
     return result;
 }
 
