@@ -673,6 +673,33 @@ bool CInsightExplorerDB::ReadAddressIndex(
     return true;
 }
 
+bool CInsightExplorerDB::ReadAddressFirstLastHeight(
+        uint160 addressHash, int type, int &firstHeight, int &lastHeight)
+{
+    boost::scoped_ptr<CDBIterator> pcursor(NewIterator());
+    pcursor->Seek(make_pair(DB_ADDRESSINDEX, CAddressIndexIteratorKey(type, addressHash)));
+
+    bool found = false;
+    std::pair<char, CAddressIndexKey> key;
+    while (pcursor->Valid()) {
+        boost::this_thread::interruption_point();
+        if (!(pcursor->GetKey(key) && key.first == DB_ADDRESSINDEX && key.second.hashBytes == addressHash))
+            break;
+        // The address index is ordered by (type, hashBytes, blockHeight,
+        // ...), so the first matching row carries the earliest height and
+        // the last carries the latest. Only the heights are read; the
+        // values are never deserialized, which makes this far cheaper than
+        // a full ReadAddressIndex scan.
+        if (!found) {
+            firstHeight = key.second.blockHeight;
+            found = true;
+        }
+        lastHeight = key.second.blockHeight;
+        pcursor->Next();
+    }
+    return found;
+}
+
 bool CInsightExplorerDB::ReadSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value) const {
     return Read(make_pair(DB_SPENTINDEX, key), value);
 }
