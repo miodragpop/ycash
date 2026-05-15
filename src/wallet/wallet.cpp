@@ -32,6 +32,7 @@
 #include "zcash/Note.hpp"
 #include "zip317.h"
 #include "crypter.h"
+#include "wallet/asyncrpcoperation_saplingconsolidation.h"
 #include "wallet/asyncrpcoperation_saplingmigration.h"
 
 #include <algorithm>
@@ -1449,6 +1450,7 @@ void CWallet::ChainTip(const CBlockIndex *pindex,
         if (pblock->GetBlockTime() > GetTime() - std::min(nMaxTipAge, hibernationOld))
         {
             RunSaplingMigration(pindex->nHeight);
+            RunSaplingConsolidation(pindex->nHeight);
             // deletetx: every nDeleteInterval blocks, purge fully-spent +
             // deeply-confirmed wtxes. Same hibernation guard as the Sapling
             // migration -- we don't want to thrash the wallet during catch-up.
@@ -1523,6 +1525,56 @@ void CWallet::RunSaplingMigration(int blockHeight) {
 void CWallet::AddPendingSaplingMigrationTx(const CTransaction& tx) {
     LOCK(cs_wallet);
     pendingSaplingMigrationTxs.push_back(tx);
+}
+
+void CWallet::RunSaplingConsolidation(int blockHeight) {
+    if (!Params().GetConsensus().NetworkUpgradeActive(blockHeight, Consensus::UPGRADE_SAPLING)) {
+        return;
+    }
+    // need cs_wallet to call CommitTransaction()
+    LOCK2(cs_main, cs_wallet);
+    if (!fSaplingConsolidationEnabled) {
+        return;
+    }
+    // Phase-offset from RunSaplingMigration (95/99) so the two async
+    // operations never contend on the AsyncRPCQueue: build the batch at
+    // height N where N%100==45, commit it at N%100==49. The build is
+    // started a few blocks early so its duration does not leak via the
+    // height at which the txs appear, mirroring the migration rationale.
+    if (blockHeight % 100 == 45) {
+        std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
+        std::shared_ptr<AsyncRPCOperation> lastOperation = q->getOperationForId(saplingConsolidationOperationId);
+        if (lastOperation != nullptr) {
+            lastOperation->cancel();
+        }
+        pendingSaplingConsolidationTxs.clear();
+        auto targetHeight = blockHeight + 5;
+        auto anchorBlockIndex = chainActive[blockHeight - 5];
+        assert(anchorBlockIndex != nullptr);
+        auto saplingAnchor = anchorBlockIndex->hashFinalSaplingRoot;
+        std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_saplingconsolidation(targetHeight, saplingAnchor));
+        saplingConsolidationOperationId = operation->getId();
+        q->addOperation(operation);
+    } else if (blockHeight % 100 == 49) {
+        std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
+        std::shared_ptr<AsyncRPCOperation> lastOperation = q->getOperationForId(saplingConsolidationOperationId);
+        if (lastOperation != nullptr) {
+            lastOperation->cancel();
+        }
+        for (const CTransaction& transaction : pendingSaplingConsolidationTxs) {
+            CWalletTx wtx(this, transaction);
+            CValidationState state;
+            if (!CommitTransaction(wtx, std::nullopt, state)) {
+                LogPrintf("Error: The Sapling consolidation transaction was rejected! Reason given: %s", state.GetRejectReason());
+            }
+        }
+        pendingSaplingConsolidationTxs.clear();
+    }
+}
+
+void CWallet::AddPendingSaplingConsolidationTx(const CTransaction& tx) {
+    LOCK(cs_wallet);
+    pendingSaplingConsolidationTxs.push_back(tx);
 }
 
 void CWallet::SetBestChain(const CBlockLocator& loc)
@@ -7192,6 +7244,9 @@ std::string CWallet::GetWalletHelpString(bool showDebug)
     std::string strUsage = HelpMessageGroup(_("Wallet options:"));
     strUsage += HelpMessageOpt("-disablewallet", _("Do not load the wallet and disable wallet RPC calls"));
     strUsage += HelpMessageOpt("-keypool=<n>", strprintf(_("Set key pool size to <n> (default: %u)"), DEFAULT_KEYPOOL_SIZE));
+    strUsage += HelpMessageOpt("-consolidation", _("Enable Sapling note consolidation: periodically sweep many small Sapling notes of an address back into fewer notes of the same address (default: false)"));
+    strUsage += HelpMessageOpt("-consolidatesaplingaddress=<zaddr>", _("Only consolidate the given Sapling address. Can be specified multiple times to allow-list several addresses. If unset, all Sapling addresses in the wallet are consolidated"));
+    strUsage += HelpMessageOpt("-consolidationtxfee=<amt>", strprintf(_("Fee in %s to use for each consolidation transaction. If unset, the per-Sapling-output anti-spam floor (%d) is used so the transaction is not rejected by this node's own mempool"), MINOR_CURRENCY_UNIT, DEFAULT_PER_SAPLING_OUTPUT_FEE));
     strUsage += HelpMessageOpt("-migration", _("Enable the Sprout to Sapling migration"));
     strUsage += HelpMessageOpt("-migrationdestaddress=<zaddr>", _("Set the Sapling migration address"));
     strUsage += HelpMessageOpt("-orchardactionlimit=<n>", strprintf(_("Set the maximum number of Orchard actions permitted in a transaction (default %u)"), DEFAULT_ORCHARD_ACTION_LIMIT));
@@ -7305,6 +7360,27 @@ bool CWallet::InitLoadWallet(const CChainParams& params, bool clearWitnessCaches
 
     // Set sapling migration status
     walletInstance->fSaplingMigrationEnabled = GetBoolArg("-migration", false);
+
+    // Set sapling consolidation status
+    walletInstance->fSaplingConsolidationEnabled = GetBoolArg("-consolidation", false);
+    fConsolidationMapUsed = mapArgs.count("-consolidatesaplingaddress") > 0;
+    if (mapArgs.count("-consolidationtxfee")) {
+        CAmount nConsolidationFee = 0;
+        if (!ParseMoney(mapArgs["-consolidationtxfee"], nConsolidationFee)) {
+            return UIError(AmountErrMsg("consolidationtxfee", mapArgs["-consolidationtxfee"]));
+        }
+        // A consolidation tx has one Sapling output, which is within the
+        // anti-spam grace range, so its mempool floor is exactly
+        // DEFAULT_PER_SAPLING_OUTPUT_FEE. Clamp an explicit lower value up
+        // to the floor (with a warning) rather than silently building txs
+        // this node's own mempool would reject.
+        if (nConsolidationFee < DEFAULT_PER_SAPLING_OUTPUT_FEE) {
+            UIWarning(strprintf(_("-consolidationtxfee=%s is below the per-Sapling-output anti-spam floor; using %s instead"),
+                FormatMoney(nConsolidationFee), FormatMoney(DEFAULT_PER_SAPLING_OUTPUT_FEE)));
+            nConsolidationFee = DEFAULT_PER_SAPLING_OUTPUT_FEE;
+        }
+        fConsolidationTxFee = nConsolidationFee;
+    }
 
     if (fFirstRun)
     {

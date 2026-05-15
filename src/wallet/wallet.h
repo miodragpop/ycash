@@ -1506,6 +1506,9 @@ private:
     std::vector<CTransaction> pendingSaplingMigrationTxs;
     AsyncRPCOperationId saplingMigrationOperationId;
 
+    std::vector<CTransaction> pendingSaplingConsolidationTxs;
+    AsyncRPCOperationId saplingConsolidationOperationId;
+
     void AddToTransparentSpends(const COutPoint& outpoint, const uint256& wtxid);
     void AddToSproutSpends(const uint256& nullifier, const uint256& wtxid);
     void AddToSaplingSpends(const uint256& nullifier, const uint256& wtxid);
@@ -1528,6 +1531,7 @@ public:
      */
     int64_t nWitnessCacheSize;
     bool fSaplingMigrationEnabled = false;
+    bool fSaplingConsolidationEnabled = false;
 
     void ClearNoteWitnessCache();
 
@@ -2353,6 +2357,8 @@ public:
         std::optional<MerkleFrontiers> added);
     void RunSaplingMigration(int blockHeight);
     void AddPendingSaplingMigrationTx(const CTransaction& tx);
+    void RunSaplingConsolidation(int blockHeight);
+    void AddPendingSaplingConsolidationTx(const CTransaction& tx);
     /** Saves witness caches and best block locator to disk. */
     void SetBestChain(const CBlockLocator& loc);
     /**
