@@ -1684,6 +1684,19 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     fReindex = GetBoolArg("-reindex", false);
     bool fReindexChainState = GetBoolArg("-reindex-chainstate", false);
 
+    fSkipScanPreFork = GetBoolArg("-skipscanprefork", DEFAULT_SKIP_SCAN_PRE_FORK);
+    if (fSkipScanPreFork) {
+        LogPrintf("The wallet will skip pre-fork blocks during rescan, as asked by -skipscanprefork option!\n");
+    }
+
+    nForceBirthday = GetArg("-forcebirthday", 0);
+    if (nForceBirthday && nForceBirthday < Params().GenesisBlock().GetBlockTime()) {
+        nForceBirthday = Params().GenesisBlock().GetBlockTime();
+    }
+    if (nForceBirthday) {
+        LogPrintf("The wallet will use an alternative birthday timestamp %d during rescan, as asked by -forcebirthday option!\n", nForceBirthday);
+    }
+
     fs::create_directories(GetDataDir() / "blocks");
 
     // cache size calculations

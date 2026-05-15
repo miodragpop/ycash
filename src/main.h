@@ -95,6 +95,8 @@ static const unsigned int DEFAULT_DESCENDANT_SIZE_LIMIT = 5000;
 /** Default for -txexpirydelta, in number of blocks */
 static const unsigned int DEFAULT_PRE_BLOSSOM_TX_EXPIRY_DELTA = 20;
 static const unsigned int DEFAULT_POST_BLOSSOM_TX_EXPIRY_DELTA = DEFAULT_PRE_BLOSSOM_TX_EXPIRY_DELTA * Consensus::BLOSSOM_POW_TARGET_SPACING_RATIO;
+/** Default for -skipscanprefork */
+static const bool DEFAULT_SKIP_SCAN_PRE_FORK = false;
 /** The number of blocks within expiry height when a tx is considered to be expiring soon */
 static constexpr uint32_t TX_EXPIRING_SOON_THRESHOLD = 3;
 /** The maximum size of a blk?????.dat file (since 0.8) */
@@ -196,6 +198,8 @@ extern std::atomic_bool fImporting;
 extern std::atomic_bool fReindex;
 extern int nScriptCheckThreads;
 extern bool fTxIndex;
+extern bool fSkipScanPreFork;
+extern int64_t nForceBirthday;
 
 // The following flags enable specific indices (DB tables), but are not exposed as
 // separate command-line options; instead they are enabled by experimental feature "-insightexplorer"

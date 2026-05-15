@@ -4264,6 +4264,16 @@ void WalletBatchScanner::SyncTransaction(
     const CBlock *pblock,
     const int nHeight)
 {
+    // -skipscanprefork: ignore transactions in blocks mined before the Ycash
+    // fork height. Ported from ycash-official bba25af08. Lets operators with
+    // post-fork-only wallets avoid scanning the inherited Zcash prefix.
+    if (fSkipScanPreFork) {
+        auto ycashHeight = Params().GetConsensus().GetActivationHeight(Consensus::UPGRADE_YCASH);
+        if (ycashHeight.has_value() && nHeight < ycashHeight.value()) {
+            return; // Skip txes from pre-fork blocks
+        }
+    }
+
     LOCK(pwallet->cs_wallet);
 
     if (!AddToWalletIfInvolvingMe(Params().GetConsensus(), tx, pblock, nHeight, true)) {
@@ -5298,14 +5308,42 @@ std::optional<int> CWallet::ScanForWalletTransactions(
     {
         LOCK2(cs_main, cs_wallet);
 
+        // -forcebirthday: let an operator override the wallet birthday
+        // (nTimeFirstKey) with an explicit Unix timestamp, so a rescan can
+        // skip ahead to a known-relevant point instead of starting from the
+        // oldest key. Ported from ycash-official d1f0455aa.
+        int64_t nWalletBirthday = nTimeFirstKey;
+        if (nForceBirthday) {
+            nWalletBirthday = nForceBirthday;
+            LogPrintf("ScanForWalletTransactions(): Alternative wallet birthday %d forced instead of %d\n",
+                      nWalletBirthday, nTimeFirstKey);
+        }
+
         // There is no need to read and scan blocks that were created before
         // our wallet birthday (as adjusted for block time variability).
         // If there is an Orchard wallet checkpoint, the rewind point must not
         // be advanced past the last Orchard wallet checkpoint height.
         auto optOrchardCheckpointHeight = orchardWallet.GetLastCheckpointHeight();
-        while (chainActive.Next(pindex) != NULL && nTimeFirstKey && pindex->GetBlockTime() < nTimeFirstKey - TIMESTAMP_WINDOW &&
+        while (chainActive.Next(pindex) != NULL && nWalletBirthday && pindex->GetBlockTime() < nWalletBirthday - TIMESTAMP_WINDOW &&
                (!optOrchardCheckpointHeight.has_value() || pindex->nHeight < optOrchardCheckpointHeight.value())) {
             pindex = chainActive.Next(pindex);
+        }
+
+        // -skipscanprefork: additionally skip blocks mined before the Ycash
+        // fork height. The Orchard-checkpoint bound is preserved here too: the
+        // rewind point must never advance past the last Orchard checkpoint.
+        // (In practice the Ycash fork height is far below NU5, so this guard is
+        // never the binding constraint, but it is kept so the invariant holds
+        // regardless of activation heights.) Ported from ycash-official
+        // bba25af08.
+        if (fSkipScanPreFork) {
+            auto ycashHeight = consensus.GetActivationHeight(Consensus::UPGRADE_YCASH);
+            if (ycashHeight.has_value()) {
+                while (chainActive.Next(pindex) != NULL && pindex->nHeight < ycashHeight.value() &&
+                       (!optOrchardCheckpointHeight.has_value() || pindex->nHeight < optOrchardCheckpointHeight.value())) {
+                    pindex = chainActive.Next(pindex);
+                }
+            }
         }
 
         // Attempt to rewind the orchard wallet to the rescan point if the wallet has any
@@ -5349,6 +5387,10 @@ std::optional<int> CWallet::ScanForWalletTransactions(
             performOrchardWalletUpdates = true;
         }
 
+        if (pindex) {
+            LogPrintf("ScanForWalletTransactions(): Actual scanning started at height %d\n", pindex->nHeight);
+        }
+
         // Create a rescan-specific batch scanner for the wallet.
         auto batchScanner = WalletBatchScanner(this);
 
@@ -5380,6 +5422,16 @@ std::optional<int> CWallet::ScanForWalletTransactions(
                 if (batchScanner.AddToWalletIfInvolvingMe(consensus, tx, &block, pindex->nHeight, fUpdate)) {
                     myTxHashes.push_back(tx.GetHash());
                     myTransactionsFound++;
+                    // -forcebirthday companion diagnostic: on the first wallet
+                    // tx seen during an explicit -rescan, report the height and
+                    // block time so the operator knows the appropriate
+                    // -forcebirthday value for future rescans. Ported from
+                    // ycash-official d1f0455aa, re-anchored from the old
+                    // YCASH_WR ret++ point to the modern found-tx path.
+                    if (myTransactionsFound == 1 && GetBoolArg("-rescan", false)) {
+                        LogPrintf("ScanForWalletTransactions(): The first significant wtx appeared at height %d. Appropriate \"wallet birthday\" would be %d\n",
+                                  pindex->nHeight, pindex->GetBlockTime());
+                    }
                 }
             }
 
@@ -7291,6 +7343,8 @@ std::string CWallet::GetWalletHelpString(bool showDebug)
                                                             CURRENCY_UNIT));
     strUsage += HelpMessageOpt("-rescan", _("Rescan the block chain for missing wallet transactions on startup"));
     strUsage += HelpMessageOpt("-salvagewallet", _("Attempt to recover private keys from a corrupt wallet on startup (implies -rescan)"));
+    strUsage += HelpMessageOpt("-skipscanprefork", strprintf(_("Skip blocks mined before the Ycash fork height when scanning for wallet transactions (default: %u)"), DEFAULT_SKIP_SCAN_PRE_FORK));
+    strUsage += HelpMessageOpt("-forcebirthday=<n>", strprintf(_("Override the wallet birthday with the given Unix timestamp when scanning for wallet transactions; clamped to the genesis block time (default: %u, meaning use the wallet's own birthday)"), 0));
     strUsage += HelpMessageOpt("-sendchangeback", strprintf(_("Return transparent change to the address of the largest-value input being spent, instead of a newly generated address, when no coin-control change address is set (default: %u)"), DEFAULT_SEND_CHANGE_BACK));
     strUsage += HelpMessageOpt("-spendzeroconfchange", strprintf(_("Spend unconfirmed change when sending transactions (default: %u)"), DEFAULT_SPEND_ZEROCONF_CHANGE));
     strUsage += HelpMessageOpt("-txexpirydelta", strprintf(_("Set the number of blocks after which a transaction that has not been mined will become invalid (min: %u, default: %u (pre-Blossom) or %u (post-Blossom))"), TX_EXPIRING_SOON_THRESHOLD + 1, DEFAULT_PRE_BLOSSOM_TX_EXPIRY_DELTA, DEFAULT_POST_BLOSSOM_TX_EXPIRY_DELTA));

@@ -90,6 +90,8 @@ int nScriptCheckThreads = 0;
 std::atomic_bool fImporting(false);
 std::atomic_bool fReindex(false);
 bool fTxIndex = false;
+bool fSkipScanPreFork = DEFAULT_SKIP_SCAN_PRE_FORK;
+int64_t nForceBirthday = 0;
 bool fAddressIndex = false;     // insightexplorer || lightwalletd
 bool fSpentIndex = false;       // insightexplorer
 bool fTimestampIndex = false;   // insightexplorer
