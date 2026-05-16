@@ -37,11 +37,12 @@ using namespace std;
 // Function declaration for function implemented in wallet/rpcwallet.cpp
 bool EnsureWalletIsAvailable(bool avoidException);
 
-// All atomic-swap RPCs are gated behind `-experimentalfeatures -atomicswap`.
-// This sentinel is invoked at the top of every entry point and throws if the
-// experimental flag was not enabled at startup.
-static void EnsureAtomicSwapsEnabled()
+// Gate for the -experimentalfeatures -atomicswap RPCs. Must be a no-op when
+// fHelp is set: `help` invokes every RPC with fHelp=true and a throw here
+// would abort the whole help command.
+static void EnsureAtomicSwapsEnabled(bool fHelp)
 {
+    if (fHelp) return;
     if (!fExperimentalAtomicSwaps) {
         throw JSONRPCError(RPC_METHOD_NOT_FOUND,
                            "Atomic swaps are an experimental feature. "
@@ -214,7 +215,7 @@ static std::string SwapChainStatusString(SwapChainStatus s)
 
 UniValue initiateswap(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled();
+    EnsureAtomicSwapsEnabled(fHelp);
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
@@ -392,7 +393,7 @@ UniValue initiateswap(const UniValue& params, bool fHelp)
 
 UniValue initiateswapfromhash(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled();
+    EnsureAtomicSwapsEnabled(fHelp);
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
@@ -519,7 +520,7 @@ UniValue initiateswapfromhash(const UniValue& params, bool fHelp)
 
 UniValue auditswap(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled();
+    EnsureAtomicSwapsEnabled(fHelp);
     if (fHelp || params.size() != 3)
         throw runtime_error(
             "auditswap \"contract\" \"contracttxid\" vout\n"
@@ -584,7 +585,7 @@ UniValue auditswap(const UniValue& params, bool fHelp)
 
 UniValue claimswap(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled();
+    EnsureAtomicSwapsEnabled(fHelp);
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
@@ -741,7 +742,7 @@ UniValue claimswap(const UniValue& params, bool fHelp)
 
 UniValue refundswap(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled();
+    EnsureAtomicSwapsEnabled(fHelp);
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
@@ -881,7 +882,7 @@ UniValue refundswap(const UniValue& params, bool fHelp)
 
 UniValue participateswap(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled();
+    EnsureAtomicSwapsEnabled(fHelp);
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
@@ -960,7 +961,7 @@ UniValue participateswap(const UniValue& params, bool fHelp)
 
 UniValue getswapsecret(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled();
+    EnsureAtomicSwapsEnabled(fHelp);
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
@@ -1012,7 +1013,7 @@ UniValue getswapsecret(const UniValue& params, bool fHelp)
 
 UniValue deleteswap(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled();
+    EnsureAtomicSwapsEnabled(fHelp);
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
@@ -1062,7 +1063,7 @@ static std::string HumanReadableDuration(int64_t seconds)
 
 UniValue listatomicswaps(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled();
+    EnsureAtomicSwapsEnabled(fHelp);
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
@@ -1180,7 +1181,7 @@ UniValue listatomicswaps(const UniValue& params, bool fHelp)
 
 UniValue monitorswap(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled();
+    EnsureAtomicSwapsEnabled(fHelp);
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
