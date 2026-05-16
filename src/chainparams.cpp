@@ -255,23 +255,24 @@ public:
             ( 410100, uint256S("0x0000000002c565958f783a24a4ac17cde898ff525e75ed9baf66861b0b9fcada"))
             ( 497000, uint256S("0x0000000000abd333f0acca6ffdf78a167699686d6a7d25c33fca5f295061ffff"))
             ( 525000, uint256S("0x0000000001a36c500378be8862d9bf1bea8f1616da6e155971b608139cc7e39b"))
-            ( 650000, uint256S("0x0000000000a0a3fbbd739fb4fcbbfefff44efffc2064ca69a59d5284a2da26e2"))
-            ( 800000, uint256S("0x00000000013f1f4e5634e896ebdbe63dec115547c1480de0d83c64426f913c27"))
-            (1000000, uint256S("0x000000000062eff9ae053020017bfef24e521a2704c5ec9ead2a4608ac70fc7a"))
-            (1200000, uint256S("0x0000000000347d5011108fdcf667c93e622e8635c94e586556898e41db18d192"))
-            (1400000, uint256S("0x0000000001155ecec0ad3924d47ad476c0a5ed7527b8776f53cbda1a780b9f76"))
-            (1600000, uint256S("0x0000000000aae69fb228f90e77f34c24b7920667eaca726c3a3939536f03dcfc"))
-            (1860000, uint256S("0x000000000043a968c78af5fb8133e00e6fe340051c19dd969e53ab62bf3dc22a"))
-            (2000000, uint256S("0x00000000010accaf2f87934765dc2e0bf4823a2b1ae2c1395b334acfce52ad68"))
-            (2200000, uint256S("0x0000000001a0139c4c4d0e8f68cc562227c6003f4b1b640a3d921aeb8c3d2e3d"))
-            (2400000, uint256S("0x0000000000294d1c8d87a1b6566d302aa983691bc3cab0583a245389bbb9d285"))
-            (2600000, uint256S("0x0000000000b5ad92fcec0069d590f674d05ec7d96b1ff727863ea390950c4e49"))
-            (2800000, uint256S("0x00000000011a226fb25d778d65b055605a82da016989b7788e0ce83c4f8d64f7"))
-            (3000000, uint256S("0x0000000000573729e4db33678233e5dc0cc721c9c09977c64dcaa3f6344de8e9")),
-            1752983473,     // * UNIX timestamp of last checkpoint block
-            15537904,       // * total number of transactions between genesis and last checkpoint
-            5967            // * estimated number of transactions per day after checkpoint
-                            //   (total number of tx * 48 * 24) / checkpoint block height
+            // Pre-fork checkpoints above are shared Zcash/Ycash history.
+            // Post-Ycash-fork (activation height 570000) the chains diverge;
+            // the entries below are Ycash's, taken from ycash-official. The
+            // previous post-525000 entries here were stale upstream Zcash
+            // checkpoints whose block hashes never match the Ycash chain,
+            // which made ContextualCheckBlockHeader reject the real Ycash
+            // block at the first post-fork checkpoint height.
+            // NOTE: ycash-official's newest mainnet checkpoint is 2250000
+            // (~2024-10). Add a fresh higher checkpoint from a fully
+            // validated Ycash chain before release.
+            ( 572760, uint256S("0x00000008db657f58222e38e354c18ccbb6c74cf525ef4f3a95f0f8a324a3166d"))
+            ( 980000, uint256S("0x00000510ccc6bae2ddb38b9313ffb9686397f6cd0dee243462baeaf8911d0791"))
+            (1035353, uint256S("0x00000543378a75f173914390c672838c9fbd9dc86ae647ffae18ed6b626edb30"))
+            (1575000, uint256S("0x000002b856230b06caa3412058e6490fab256cee9d9d9fb68eae59b4ebd94471"))
+            (2250000, uint256S("0x000003f98b7497fdcd8a6b6d10a93a887c5d47127e24a9dc3a40cb65754d21e7")),
+            1730387360,     // * UNIX timestamp of last checkpoint block
+            7824969,        // * total number of transactions between genesis and last checkpoint
+            1700            // * estimated number of transactions per day after checkpoint
         };
 
         // Hardcoded fallback value for the Sprout shielded value pool balance
@@ -536,10 +537,12 @@ public:
         checkpointData = (CCheckpointData) {
             boost::assign::map_list_of
             (0, consensus.hashGenesisBlock)
-            (38000, uint256S("0x001e9a2d2e2892b88e9998cf7b079b41d59dd085423a921fe8386cecc42287b8")),
-            1486897419,  // * UNIX timestamp of last checkpoint block
-            47163,       // * total number of transactions between genesis and last checkpoint
-            715          //   total number of tx / (checkpoint block height / (24 * 24))
+            (38000, uint256S("0x001e9a2d2e2892b88e9998cf7b079b41d59dd085423a921fe8386cecc42287b8"))
+            // Post-Ycash-fork testnet checkpoint, from ycash-official.
+            (650000, uint256S("0x005dd2092f75382581468e870b51233a8950bf9c396689c513e5a80f00c14609")),
+            1633853210,  // * UNIX timestamp of last checkpoint block
+            862651,      // * total number of transactions between genesis and last checkpoint
+            765          //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
         // Hardcoded fallback value for the Sprout shielded value pool balance
