@@ -48,7 +48,7 @@ static const CRPCConvertTable rpcCvtTable =
     { "getbestblockhash",            {{}, {}} },
     { "getdifficulty",               {{}, {}} },
     { "getrawmempool",               {{}, {o}} },
-    { "getblockdeltas",              {{o}, {}} },
+    { "getblockdeltas",              {{s}, {}} },
     { "getblockhashes",              {{o, o}, {o}} },
     { "getblockhash",                {{o}, {}} },
     { "getblockheader",              {{s}, {o}} },
