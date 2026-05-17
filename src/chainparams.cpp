@@ -357,6 +357,19 @@ public:
             "s1QKjMQDeF9FLVo2sL8m11VC4ZA18s61s2K", "s1gV8D561ZpmaZVxG176cQM1bMFMnHLvujE", "s1caQmLCYVDZegcMoBckHD2RXjBh7ikpj2j", "s1Y63AsWsJTk5t5nSZfaFcFWmtfnFUUAu2V",
             "s1Y2U4GsfZdP9LAbC97GAmSdihBX5FU9gQn", "s1bPYWZMXzyN2ML2vswDiCckmas775QFs2Q", "s1erG25RcWYCiBPbT7khTU4ULhzm8jJZ7pv", "s1kYEiPdFZ3oV389q2MmSYY932qPF1ygVtx",
         };
+
+        // Chain-supply checkpoint. Without this, ChainSupplyCheckpointHeight()
+        // defaults to 0 and CheckRecomputedPoolDeltas re-reads every block
+        // from disk on every startup (~22 min on mainnet). Values are the
+        // authoritative on-chain pool totals at the checkpoint height, taken
+        // from a fully-synced node (getblock <height>).
+        nChainSupplyCheckpointHeight = 2800000;
+        nChainSupplyCheckpointTotalSupply = 1656148924247473;
+        nChainSupplyCheckpointTransparentValue = 1053104265390951;
+        nChainSupplyCheckpointSproutValue = 17788212956386;
+        nChainSupplyCheckpointSaplingValue = 585256445900136;
+        nChainSupplyCheckpointOrchardValue = 0;
+        hashChainSupplyCheckpointBlock = uint256S("000003170414909d5104f4a71708eca4e5b545d231c412c2d3e0e3f33874facb");
     }
 };
 static CMainParams mainParams;
