@@ -21,7 +21,7 @@ std::optional<std::string> InitExperimentalMode()
     fExperimentalPaymentDisclosure = GetBoolArg("-paymentdisclosure", false);
     fExperimentalInsightExplorer = GetBoolArg("-insightexplorer", false);
     fExperimentalLightWalletd  = GetBoolArg("-lightwalletd", false);
-    fExperimentalAtomicSwaps = GetBoolArg("-atomicswap", false);
+    fExperimentalAtomicSwaps = GetBoolArg("-atomicswaps", false);
 
     // Fail if user has set experimental options without the global flag
     if (!fExperimentalMode) {
@@ -56,7 +56,7 @@ std::vector<std::string> GetExperimentalFeatures()
     if (fExperimentalLightWalletd)
         experimentalfeatures.push_back("lightwalletd");
     if (fExperimentalAtomicSwaps)
-        experimentalfeatures.push_back("atomicswap");
+        experimentalfeatures.push_back("atomicswaps");
 
     return experimentalfeatures;
 }

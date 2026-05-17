@@ -125,7 +125,7 @@ extern const char * DEFAULT_WALLET_DAT;
 //
 // Persisted as walletdb "atomicswap" records keyed by swap-id
 // ("<contractTxid>:<contractVout>"). Gated by -experimentalfeatures
-// -atomicswap; see experimental_features.cpp.
+// -atomicswaps; see experimental_features.cpp.
 // ---------------------------------------------------------------------------
 
 enum AtomicSwapStatus {
@@ -1795,7 +1795,7 @@ public:
 
     // Atomic-swap records, keyed by swap-id ("<contractTxid>:<contractVout>").
     // Persisted as walletdb "atomicswap" records. Only populated when the
-    // operator runs with -experimentalfeatures -atomicswap; the load handler
+    // operator runs with -experimentalfeatures -atomicswaps; the load handler
     // runs unconditionally so a downgrade-then-re-upgrade preserves state.
     std::map<std::string, CAtomicSwapInfo> mapAtomicSwaps;
 

@@ -466,7 +466,7 @@ std::string HelpMessage(HelpMessageMode mode)
         _("If <category> is not supplied or if <category> = 1, output all debugging information.") + " " + _("<category> can be:") + " " + debugCategories + ". " +
         _("For multiple specific categories use -debug=<category> multiple times."));
     strUsage += HelpMessageOpt("-experimentalfeatures", _("Enable use of experimental features"));
-    strUsage += HelpMessageOpt("-atomicswap", _("Enable atomic-swap (HTLC) RPCs: initiateswap, participateswap, claimswap, refundswap, auditswap, monitorswap, listatomicswaps, getswapsecret, deleteswap, initiateswapfromhash. Requires -experimentalfeatures. Swap records are persisted in wallet.dat."));
+    strUsage += HelpMessageOpt("-atomicswaps", _("Enable atomic-swap (HTLC) RPCs: initiateswap, participateswap, claimswap, refundswap, auditswap, monitorswap, listatomicswaps, getswapsecret, deleteswap, initiateswapfromhash. Requires -experimentalfeatures. Swap records are persisted in wallet.dat."));
     if (showDebug)
         strUsage += HelpMessageOpt("-nodebug", "Turn off debugging messages, same as -debug=0");
     strUsage += HelpMessageOpt("-help-debug", _("Show all debugging options (usage: --help -help-debug)"));
@@ -1097,7 +1097,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // to use the local-party path that needs no index at all.
     if (fExperimentalAtomicSwaps && !GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
         InitWarning(_(
-            "-atomicswap is enabled without -txindex. Local swaps (where this "
+            "-atomicswaps is enabled without -txindex. Local swaps (where this "
             "wallet is the initiator or participant) work fully, but resolving "
             "the status of a historical third-party claim/refund may report "
             "'unknown'. Enable -txindex if you need to audit swaps this wallet "

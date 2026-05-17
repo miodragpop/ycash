@@ -37,7 +37,7 @@ using namespace std;
 // Function declaration for function implemented in wallet/rpcwallet.cpp
 bool EnsureWalletIsAvailable(bool avoidException);
 
-// Gate for the -experimentalfeatures -atomicswap RPCs. Must be a no-op when
+// Gate for the -experimentalfeatures -atomicswaps RPCs. Must be a no-op when
 // fHelp is set: `help` invokes every RPC with fHelp=true and a throw here
 // would abort the whole help command.
 static void EnsureAtomicSwapsEnabled(bool fHelp)
@@ -45,8 +45,9 @@ static void EnsureAtomicSwapsEnabled(bool fHelp)
     if (fHelp) return;
     if (!fExperimentalAtomicSwaps) {
         throw JSONRPCError(RPC_METHOD_NOT_FOUND,
-                           "Atomic swaps are an experimental feature. "
-                           "Start ycashd with `-experimentalfeatures -atomicswap` to enable.");
+                           "Atomic swaps are an experimental feature. Start ycashd with "
+                           "`-experimentalfeatures -atomicswaps` and the wallet enabled "
+                           "(do not use -disablewallet) to enable.");
     }
 }
 
@@ -215,10 +216,6 @@ static std::string SwapChainStatusString(SwapChainStatus s)
 
 UniValue initiateswap(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled(fHelp);
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
     if (fHelp || params.size() < 4 || params.size() > 5)
         throw runtime_error(
             "initiateswap \"fundingaddress\" \"recipientaddress\" amount locktime ( \"secret\" )\n"
@@ -245,6 +242,10 @@ UniValue initiateswap(const UniValue& params, bool fHelp)
             + HelpExampleCli("initiateswap", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\" \"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\" 1.0 1500000")
             + HelpExampleRpc("initiateswap", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\", \"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\", 1.0, 1500000")
         );
+
+    EnsureAtomicSwapsEnabled(fHelp);
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
     KeyIO keyIO(Params());
@@ -393,10 +394,6 @@ UniValue initiateswap(const UniValue& params, bool fHelp)
 
 UniValue initiateswapfromhash(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled(fHelp);
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
     if (fHelp || params.size() != 5)
         throw runtime_error(
             "initiateswapfromhash \"fundingaddress\" \"recipientaddress\" amount locktime \"secrethash\"\n"
@@ -410,6 +407,10 @@ UniValue initiateswapfromhash(const UniValue& params, bool fHelp)
             "\nExamples:\n"
             + HelpExampleCli("initiateswapfromhash", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\" \"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\" 1.0 1500000 \"a1b2c3...\"")
         );
+
+    EnsureAtomicSwapsEnabled(fHelp);
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
     KeyIO keyIO(Params());
@@ -585,10 +586,6 @@ UniValue auditswap(const UniValue& params, bool fHelp)
 
 UniValue claimswap(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled(fHelp);
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
     if (fHelp || params.size() < 4 || params.size() > 5)
         throw runtime_error(
             "claimswap \"contract\" \"contracttxid\" vout \"secret\" ( \"recipientaddress\" )\n"
@@ -600,6 +597,10 @@ UniValue claimswap(const UniValue& params, bool fHelp)
             "4. \"secret\"              (string, required) The 32-byte secret in hex\n"
             "5. \"recipientaddress\"    (string, optional) The address to receive claimed funds (defaults to the contract's recipient)\n"
         );
+
+    EnsureAtomicSwapsEnabled(fHelp);
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -742,10 +743,6 @@ UniValue claimswap(const UniValue& params, bool fHelp)
 
 UniValue refundswap(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled(fHelp);
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
     if (fHelp || params.size() < 3 || params.size() > 4)
         throw runtime_error(
             "refundswap \"contract\" \"contracttxid\" vout ( \"refundaddress\" )\n"
@@ -756,6 +753,10 @@ UniValue refundswap(const UniValue& params, bool fHelp)
             "3. vout               (numeric, required) The contract output index\n"
             "4. \"refundaddress\"    (string, optional) Address to send refunded funds to (default: the contract's initiator)\n"
         );
+
+    EnsureAtomicSwapsEnabled(fHelp);
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -882,10 +883,6 @@ UniValue refundswap(const UniValue& params, bool fHelp)
 
 UniValue participateswap(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled(fHelp);
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
     if (fHelp || params.size() < 4 || params.size() > 5)
         throw runtime_error(
             "participateswap \"contract\" \"contracttxid\" vout \"counterpartyaddress\" ( \"label\" )\n"
@@ -898,6 +895,10 @@ UniValue participateswap(const UniValue& params, bool fHelp)
             "4. \"counterpartyaddress\"   (string, required) Counterparty (typically the initiator) -- recorded as metadata\n"
             "5. \"label\"                 (string, optional) User-defined label\n"
         );
+
+    EnsureAtomicSwapsEnabled(fHelp);
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -961,10 +962,6 @@ UniValue participateswap(const UniValue& params, bool fHelp)
 
 UniValue getswapsecret(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled(fHelp);
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "getswapsecret \"swapid\"\n"
@@ -973,6 +970,10 @@ UniValue getswapsecret(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"swapid\"  (string, required) \"<contractTxid>:<vout>\"\n"
         );
+
+    EnsureAtomicSwapsEnabled(fHelp);
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
 
     LOCK(cs_main);
 
@@ -1013,10 +1014,6 @@ UniValue getswapsecret(const UniValue& params, bool fHelp)
 
 UniValue deleteswap(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled(fHelp);
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "deleteswap \"swapid\"\n"
@@ -1025,6 +1022,10 @@ UniValue deleteswap(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"swapid\"  (string, required) \"<contractTxid>:<vout>\"\n"
         );
+
+    EnsureAtomicSwapsEnabled(fHelp);
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
     std::string swapId = params[0].get_str();
@@ -1063,10 +1064,6 @@ static std::string HumanReadableDuration(int64_t seconds)
 
 UniValue listatomicswaps(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled(fHelp);
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
     if (fHelp || params.size() > 1)
         throw runtime_error(
             "listatomicswaps ( \"status\" )\n"
@@ -1074,6 +1071,10 @@ UniValue listatomicswaps(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"status\"  (string, optional) One of: initiated, participated, claimed, refunded, expired, abandoned\n"
         );
+
+    EnsureAtomicSwapsEnabled(fHelp);
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
 
     LOCK(cs_main);
 
@@ -1181,10 +1182,6 @@ UniValue listatomicswaps(const UniValue& params, bool fHelp)
 
 UniValue monitorswap(const UniValue& params, bool fHelp)
 {
-    EnsureAtomicSwapsEnabled(fHelp);
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "monitorswap \"swapid\"\n"
@@ -1193,6 +1190,10 @@ UniValue monitorswap(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"swapid\"  (string, required) \"<contractTxid>:<vout>\"\n"
         );
+
+    EnsureAtomicSwapsEnabled(fHelp);
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
 
     LOCK(cs_main);
 

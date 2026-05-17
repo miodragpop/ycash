@@ -20,7 +20,7 @@ void RegisterMiscRPCCommands(CRPCTable &tableRPC);
 void RegisterMiningRPCCommands(CRPCTable &tableRPC);
 /** Register raw transaction RPC commands */
 void RegisterRawTransactionRPCCommands(CRPCTable &tableRPC);
-/** Register atomic swap RPC commands (gated by -experimentalfeatures -atomicswap) */
+/** Register atomic swap RPC commands (gated by -experimentalfeatures -atomicswaps) */
 void RegisterAtomicSwapRPCCommands(CRPCTable &tableRPC);
 
 static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
