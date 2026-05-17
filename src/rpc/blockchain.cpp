@@ -1037,7 +1037,10 @@ UniValue verifychain(const UniValue& params, bool fHelp)
 //     chunk and stops cleanly so shutdown never hangs on it.
 // ---------------------------------------------------------------------------
 
-static const int EXPORTCHAIN_CHUNK = 1000;
+static const int EXPORTCHAIN_CHUNK = 500;
+// Pause with cs_main released between chunks so the node can process
+// incoming blocks/RPC instead of the worker immediately re-acquiring.
+static const int64_t EXPORTCHAIN_CHUNK_PAUSE_MS = 100;
 
 struct ExportChainState {
     enum Phase { IDLE, RUNNING, DONE, FAILED };
@@ -1083,8 +1086,16 @@ static void ExportChainWorker(fs::path path, std::string filenameForStatus)
             fail("no active chain tip");
             return;
         }
-        snapshotTipHash = tip->GetBlockHash();
-        snapshotTipHeight = tip->nHeight;
+        // Target MAX_REORG_LENGTH blocks below the real tip so the exported
+        // range is below any plausible reorg by construction (a bootstrap
+        // short by that margin is fine for seeding; new nodes fetch the
+        // remainder from the network).
+        CBlockIndex* target = tip;
+        for (unsigned int i = 0; i < MAX_REORG_LENGTH && target->pprev != nullptr; ++i) {
+            target = target->pprev;
+        }
+        snapshotTipHash = target->GetBlockHash();
+        snapshotTipHeight = target->nHeight;
     }
 
     {
@@ -1137,6 +1148,13 @@ static void ExportChainWorker(fs::path path, std::string filenameForStatus)
         } // cs_main released between chunks
 
         nextHeight = chunkEnd + 1;
+
+        // With cs_main released, pause so the node can process incoming
+        // blocks/RPC before the next chunk re-acquires it. Skip after the
+        // final chunk.
+        if (nextHeight <= snapshotTipHeight) {
+            MilliSleep(EXPORTCHAIN_CHUNK_PAUSE_MS);
+        }
 
         {
             std::lock_guard<std::mutex> lk(g_exportChainState.mtx);
