@@ -10,13 +10,15 @@
  * network protocol versioning
  */
 
-static const int PROTOCOL_VERSION = 170140;
+static const int PROTOCOL_VERSION = 270140;
 
 //! initial proto version, to be increased after version/verack negotiation
 static const int INIT_PROTO_VERSION = 209;
 
-//! disconnect from peers older than this proto version
-static const int MIN_PEER_PROTO_VERSION = 170002;
+//! disconnect from peers older than this proto version.
+//! 270013 = Ycash v4.4.4, the oldest protocol legitimately on the
+//! Ycash network; agreed as the floor across ycashd and Yolk/Zebra.
+static const int MIN_PEER_PROTO_VERSION = 270013;
 
 //! nTime field added to CAddress, starting with this version.
 //! This can't be removed because it affects the encoding of the
@@ -31,9 +33,14 @@ static const int NO_BLOOM_VERSION = 170004;
 
 //! Changes to CInv parsing, starting with this version:
 //! - MSG_WTX type defined, which contains two 32-byte hashes.
-static const int CINV_WTX_VERSION = 170014;
+//! In the better-ycash lineage wtx inventory is introduced by this
+//! build (no prior Ycash release spoke MSG_WTX), so this equals
+//! PROTOCOL_VERSION.
+static const int CINV_WTX_VERSION = 270140;
 
-//! disconnect from testnet peers older than this proto version
-static const int MIN_TESTNET_PEER_PROTO_VERSION = 170040;
+//! disconnect from testnet peers older than this proto version.
+//! Same Ycash v4.4.4 floor (270013) as mainnet, aligned with
+//! Yolk/Zebra.
+static const int MIN_TESTNET_PEER_PROTO_VERSION = 270013;
 
 #endif // BITCOIN_VERSION_H
