@@ -202,9 +202,8 @@ public:
         // founders reward is paid to the YDF addresses in vFoundersRewardAddress
         // until nYdfMandateEndHeight and is optional thereafter.
 
-        // The best chain should have at least this much work.
-        // From block 3308324, 2026-04-15.
-        consensus.nMinimumChainWork = uint256S("0x00000000000000000000000000000000000000000000000018bd77669ac52c2f");
+        // The best chain should have at least this much work. (ycash-official)
+        consensus.nMinimumChainWork = uint256S("0000000000000000000000000000000000000000000000000152d8660f9d781c");
 
         /**
          * The message start string should be awesome! ⓩ❤
