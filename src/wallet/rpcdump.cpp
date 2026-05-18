@@ -19,6 +19,8 @@
 #include "util/time.h"
 #include "wallet.h"
 
+#include <cerrno>
+#include <cstring>
 #include <fstream>
 #include <optional>
 #include <stdint.h>
@@ -381,8 +383,12 @@ UniValue importwallet_impl(const UniValue& params, bool fImportZKeys)
 
     ifstream file;
     file.open(params[0].get_str().c_str(), std::ios::in | std::ios::ate);
-    if (!file.is_open())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open wallet dump file");
+    if (!file.is_open()) {
+        int err = errno;
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+            strprintf("Cannot open wallet dump file %s: %s",
+                      params[0].get_str(), std::strerror(err)));
+    }
 
     int64_t nTimeBegin = chainActive.Tip()->GetBlockTime();
 
@@ -550,8 +556,12 @@ static void WriteWalletDumpToFile(const fs::path& exportfilepath)
 
     ofstream file;
     file.open(exportfilepath.string().c_str());
-    if (!file.is_open())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open wallet dump file");
+    if (!file.is_open()) {
+        int err = errno;
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+            strprintf("Cannot open wallet dump file %s: %s",
+                      exportfilepath.string(), std::strerror(err)));
+    }
 
     std::map<CKeyID, int64_t> mapKeyBirth;
     std::set<CKeyID> setKeyPool;
