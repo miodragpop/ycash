@@ -63,9 +63,14 @@ unsigned int nKeepLastNTransactions = DEFAULT_TX_RETENTION_LASTTX;
 const char * DEFAULT_WALLET_DAT = "wallet.dat";
 
 std::set<ReceiverType> CWallet::DefaultReceiverTypes(int nHeight) {
-    // For now, just ignore the height information because the default
-    // is always the same.
-    return {ReceiverType::P2PKH, ReceiverType::Sapling, ReceiverType::Orchard};
+    std::set<ReceiverType> rt = {ReceiverType::P2PKH, ReceiverType::Sapling};
+    // Orchard receivers are only valid once NU5 is active. On Ycash NU5 is
+    // NO_ACTIVATION_HEIGHT, so this is never added there -- avoiding UAs that
+    // advertise an unspendable Orchard receiver.
+    if (Params().GetConsensus().NetworkUpgradeActive(nHeight, Consensus::UPGRADE_NU5)) {
+        rt.insert(ReceiverType::Orchard);
+    }
+    return rt;
 }
 
 /** @defgroup mapWallet
