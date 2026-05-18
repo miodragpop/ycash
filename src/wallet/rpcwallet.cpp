@@ -1482,7 +1482,8 @@ UniValue listreceivedbyaccount(const UniValue& params, bool fHelp)
             "  {\n"
             "    \"account\":\"accountname\",  (string) the account name (always \"\")\n"
             "    \"amount\": x.xxx,           (numeric) total amount received\n"
-            "    \"confirmations\": n         (numeric) the confirmation tier requested via minconf\n"
+            "    \"amountZat\": xxxx          (numeric) the amount in " + MINOR_CURRENCY_UNIT + "\n"
+            "    \"confirmations\": n         (numeric) confirmations of the most recent contributing transaction\n"
             "  }\n"
             "]\n"
             "\nExamples:\n"
@@ -1495,15 +1496,40 @@ UniValue listreceivedbyaccount(const UniValue& params, bool fHelp)
     if (params.size() > 0 && !params[0].isNull()) {
         nMinDepth = params[0].get_int();
     }
-    CAmount nTotal = GetReceivedByWallet(nMinDepth);
 
-    UniValue entry(UniValue::VOBJ);
-    entry.pushKV("account", "");
-    entry.pushKV("amount", ValueFromAmount(nTotal));
-    entry.pushKV("confirmations", nMinDepth);
+    // Single-account ("") emulation, but with the same truthful aggregate
+    // ycash-official produces: total received plus the confirmation depth of
+    // the most recent contributing transaction. Mirrors the tally in
+    // ListReceived collapsed onto one bucket.
+    CAmount nTotal = 0;
+    int nConf = std::numeric_limits<int>::max();
+    for (const std::pair<uint256, CWalletTx>& pairWtx : pwalletMain->mapWallet) {
+        const CWalletTx& wtx = pairWtx.second;
+        if (wtx.IsCoinBase() || !CheckFinalTx(wtx))
+            continue;
+        int nDepth = wtx.GetDepthInMainChain(std::nullopt);
+        if (nDepth < nMinDepth)
+            continue;
+        for (const CTxOut& txout : wtx.vout) {
+            CTxDestination address;
+            if (!ExtractDestination(txout.scriptPubKey, address))
+                continue;
+            if (!(IsMine(*pwalletMain, address) & ISMINE_SPENDABLE))
+                continue;
+            nTotal += txout.nValue;
+            nConf = min(nConf, nDepth);
+        }
+    }
 
     UniValue ret(UniValue::VARR);
-    ret.push_back(entry);
+    if (nTotal > 0) {
+        UniValue entry(UniValue::VOBJ);
+        entry.pushKV("account", "");
+        entry.pushKV("amount", ValueFromAmount(nTotal));
+        entry.pushKV("amountZat", nTotal);
+        entry.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
+        ret.push_back(entry);
+    }
     return ret;
 }
 
