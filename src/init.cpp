@@ -496,6 +496,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-datacarrier", strprintf(_("Relay and mine data carrier transactions (default: %u)"), DEFAULT_ACCEPT_DATACARRIER));
     strUsage += HelpMessageOpt("-datacarriersize=<n>", strprintf(_("Maximum size of data in data carrier transactions we relay and mine (default: %u)"), MAX_OP_RETURN_RELAY));
     strUsage += HelpMessageOpt("-txunpaidactionlimit=<n>", strprintf(_("Transactions with more than this number of unpaid actions will not be accepted to the mempool or relayed (default: %u)"), DEFAULT_TX_UNPAID_ACTION_LIMIT));
+    strUsage += HelpMessageOpt("-feepolicy=<peroutput|zip317>", _("Wallet fee policy for transactions sent with no explicit fee: 'peroutput' = Ycash per-Sapling-output floor (default, matches ycash v4.5.0 nodes); 'zip317' = ZIP 317 conventional fee. Node-local wallet funding only; does not change relay or mempool-accept policy."));
 
     strUsage += HelpMessageGroup(_("Block creation options:"));
     strUsage += HelpMessageOpt("-blockmaxsize=<n>", strprintf(_("Set maximum block size in bytes (default: %d)"), DEFAULT_BLOCK_MAX_SIZE));
@@ -1265,6 +1266,17 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         return InitError(_("-txunpaidactionlimit cannot be configured with a negative value."));
     }
     nTxUnpaidActionLimit = (size_t) GetArg("-txunpaidactionlimit", (int64_t) DEFAULT_TX_UNPAID_ACTION_LIMIT);
+
+    {
+        std::string strFeePolicy = GetArg("-feepolicy", "peroutput");
+        if (strFeePolicy == "peroutput") {
+            nFeePolicy = FeePolicy::PerOutput;
+        } else if (strFeePolicy == "zip317") {
+            nFeePolicy = FeePolicy::ZIP317;
+        } else {
+            return InitError(strprintf(_("Unknown -feepolicy '%s' (expected 'peroutput' or 'zip317')."), strFeePolicy));
+        }
+    }
 
     // Option to startup with mocktime set (used for regression testing);
     // a mocktime of 0 (the default) selects the system clock.

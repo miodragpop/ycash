@@ -6654,9 +6654,25 @@ CAmount CWallet::GetMinimumFee(const CTransaction& tx, unsigned int nTxBytes)
 {
     // payTxFee is user-set "I want to pay this much"
     CAmount nFeeNeeded = payTxFee.GetFee(std::max((unsigned int)1000, nTxBytes));
-    // User didn't set: use conventional fee
-    if (nFeeNeeded == 0)
-        nFeeNeeded = tx.GetConventionalFee();
+    if (nFeeNeeded == 0) {
+        if (nFeePolicy == FeePolicy::ZIP317) {
+            // -feepolicy=zip317: ZIP 317 conventional fee.
+            nFeeNeeded = tx.GetConventionalFee();
+        } else {
+            // -feepolicy=peroutput (default): the Ycash v4.5.0 unset-fee
+            // fallback for legacy/transparent funding -- GetRequiredFee():
+            // max(minTxFee, minRelayTxFee). v4.5.0's smart-fee estimateFee()
+            // step is intentionally not reproduced; v4.5.0 itself falls
+            // through it to this floor whenever mempool data is thin (the
+            // common case), and this is the value it actually charges. The
+            // 1000 yoshi/kB rate is v4.5.0 DEFAULT_TRANSACTION_MINFEE
+            // inlined (its configurable -mintxfee is deliberately out of
+            // scope here). No ZIP 317 mixed in.
+            nFeeNeeded = std::max(
+                CFeeRate(1000).GetFee(nTxBytes),
+                ::minRelayTxFee.GetFeeForRelay(nTxBytes));
+        }
+    }
     return ConstrainFee(nFeeNeeded, nTxBytes);
 }
 

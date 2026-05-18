@@ -95,30 +95,30 @@ CalcZIP317Fee(
             paddedSaplingOutputCount,
             PadCount(std::max(orchardInputCount, orchardOutputCount)));
 
-    CAmount zip317Fee = CalculateConventionalFee(logicalActionCount);
-
-    // Ycash per-Sapling-output anti-spam floor. ZIP 317 is not the only fee
-    // policy on Ycash: AcceptToMemoryPool independently enforces
-    // PerSaplingOutputFees() (see policy/policy.cpp), and a purely ZIP-317
-    // conventional fee can fall below it for outputs beyond the exempt grace
-    // band -- which would make the node reject its own default-fee
-    // transaction. Raise the default fee to at least that floor so a
-    // no-explicit-fee z_sendmany is always relayable, whichever policy is
-    // the binding one. This mirrors the grace-band formula in
-    // PerSaplingOutputFees(); the padded Sapling output count is what will
-    // actually appear in the built transaction. An explicit user-supplied
-    // fee is intentionally NOT clamped here (CalcZIP317Fee is only consulted
-    // when no fee was specified) -- matching ycash-official a09f9d4d6, which
-    // adjusted only the default.
-    CAmount saplingOutputsFloor = 0;
-    if (paddedSaplingOutputCount > 0) {
-        saplingOutputsFloor =
-            (paddedSaplingOutputCount > DEFAULT_EXEMPT_SAPLING_OUTPUTS)
-                ? (CAmount)(paddedSaplingOutputCount - DEFAULT_EXEMPT_SAPLING_OUTPUTS) * DEFAULT_PER_SAPLING_OUTPUT_FEE
-                : DEFAULT_PER_SAPLING_OUTPUT_FEE;
+    // -feepolicy=zip317: plain ZIP 317 conventional fee at the configured
+    // MARGINAL_FEE. Not the default on Ycash; opt-in per node. Returned on
+    // its own -- the per-Sapling-output floor is not mixed in.
+    if (nFeePolicy == FeePolicy::ZIP317) {
+        return CalculateConventionalFee(logicalActionCount);
     }
 
-    return std::max(zip317Fee, saplingOutputsFloor);
+    // -feepolicy=peroutput (default): the Ycash v4.5.0 z_sendmany default-fee
+    // contract, verbatim:
+    //     nFee = max(DEFAULT_FEE, nSaplingOutputsFee)
+    //     nSaplingOutputsFee = (count > 50) ? (count-50)*1000 : 1000
+    // It is a FLAT 1000 yoshi for any transaction with <= 50 Sapling outputs
+    // -- including a transparent-only tx (count == 0): v4.5.0's else-branch
+    // returns DEFAULT_PER_SAPLING_OUTPUT_FEE, not 0, and DEFAULT_FEE alone is
+    // already 1000. Not per-kB and not per-input. The padded Sapling output
+    // count already folds in v4.5.0's "+1 for potential change". No ZIP 317
+    // mixed in. An explicit user-supplied fee is never clamped here
+    // (CalcZIP317Fee is consulted only when no fee was specified).
+    CAmount saplingOutputsFee =
+        (paddedSaplingOutputCount > DEFAULT_EXEMPT_SAPLING_OUTPUTS)
+            ? (CAmount)(paddedSaplingOutputCount - DEFAULT_EXEMPT_SAPLING_OUTPUTS) * DEFAULT_PER_SAPLING_OUTPUT_FEE
+            : DEFAULT_PER_SAPLING_OUTPUT_FEE;
+
+    return std::max((CAmount) DEFAULT_PER_SAPLING_OUTPUT_FEE, saplingOutputsFee);
 }
 
 static tl::expected<ResolvedPayment, AddressResolutionError>

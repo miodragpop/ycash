@@ -117,6 +117,7 @@ std::optional<unsigned int> expiryDeltaArg = std::nullopt;
 CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 CAmount maxTxFee = DEFAULT_TRANSACTION_MAXFEE;
 size_t nTxUnpaidActionLimit = DEFAULT_TX_UNPAID_ACTION_LIMIT;
+FeePolicy nFeePolicy = DEFAULT_FEE_POLICY;
 
 CTxMemPool mempool(::minRelayTxFee);
 

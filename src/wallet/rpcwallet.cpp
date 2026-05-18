@@ -5358,7 +5358,8 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
             "    }, ... ]\n"
             "3. minconf               (numeric, optional, default=" + strprintf("%u", DEFAULT_NOTE_CONFIRMATIONS) + ") Only use funds confirmed at least this many times.\n"
             "4. fee                   (numeric, optional, default=null) The fee amount in " + CURRENCY_UNIT + " to attach to this transaction. The default behavior\n"
-            "                         is to use a fee calculated according to ZIP 317.\n"
+            "                         is the fee for the active -feepolicy: the Ycash per-Sapling-output\n"
+            "                         fee (peroutput, the default), or ZIP 317 (zip317).\n"
             "5. privacyPolicy         (string, optional, default=\"LegacyCompat\") Policy for what information leakage is acceptable.\n"
             "                         One of the following strings:\n"
             "                               - \"FullPrivacy\": Only allow fully-shielded transactions (involving a single shielded value pool).\n"
@@ -5385,7 +5386,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
             + HelpExampleCli("z_sendmany", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\" '[{\"address\": \"ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq\", \"amount\": 5.0}]'")
             + HelpExampleCli("z_sendmany", "\"ANY_TADDR\" '[{\"address\": \"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\", \"amount\": 2.0}]'")
             + HelpExampleCli("z_sendmany", "\"ANY_TADDR\" '[{\"address\": \"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\", \"amount\": 2.0}]' 1 null 'AllowFullyTransparent'")
-            + HelpExampleCli("z_sendmany", "\"ANY_TADDR\" '[{\"address\": \"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\", \"amount\": 2.0}]' 1 5000")
+            + HelpExampleCli("z_sendmany", "\"ANY_TADDR\" '[{\"address\": \"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\", \"amount\": 2.0}]' 1 0.00001000")
             + HelpExampleRpc("z_sendmany", "\"s1kTb43xroRcuscGeiajocxn3PkRhZ9eRNw\", [{\"address\": \"ys1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlknghgfflq\", \"amount\": 5.0}]")
         );
 
@@ -5719,7 +5720,8 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
             "1. \"fromaddress\"         (string, required) The address is a taddr or \"*\" for all taddrs belonging to the wallet.\n"
             "2. \"toaddress\"           (string, required) The address is a zaddr.\n"
             "3. fee                   (numeric, optional, default=null) The fee amount in " + CURRENCY_UNIT + " to attach to this transaction. The default behavior\n"
-            "                         is to use a fee calculated according to ZIP 317.\n"
+            "                         is the fee for the active -feepolicy: the Ycash per-Sapling-output\n"
+            "                         fee (peroutput, the default), or ZIP 317 (zip317).\n"
             "4. limit                 (numeric, optional, default="
             + strprintf("%d", SHIELD_COINBASE_DEFAULT_LIMIT) + ") Limit on the maximum number of utxos to shield.  Set to 0 to use as many as will fit in the transaction.\n"
             "5. \"memo\"                (string, optional) Encoded as hex. This will be stored in the memo field of the new note.\n"
@@ -5908,7 +5910,8 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
             "    ]\n"
             "2. \"toaddress\"           (string, required) The taddr or zaddr to send the funds to.\n"
             "3. fee                   (numeric, optional, default=null) The fee amount in " + CURRENCY_UNIT + " to attach to this transaction. The default behavior\n"
-            "                         is to use a fee calculated according to ZIP 317.\n"
+            "                         is the fee for the active -feepolicy: the Ycash per-Sapling-output\n"
+            "                         fee (peroutput, the default), or ZIP 317 (zip317).\n"
             "4. transparent_limit     (numeric, optional, default="
             + strprintf("%d", MERGE_TO_ADDRESS_DEFAULT_TRANSPARENT_LIMIT) + ") Limit on the maximum number of UTXOs to merge.  Set to 0 to use as many as will fit in the transaction.\n"
             "5. shielded_limit        (numeric, optional, default="

@@ -13,7 +13,7 @@
 #include <vector>
 
 // Constants for fee calculation.
-static const CAmount MARGINAL_FEE = 5000;
+static const CAmount MARGINAL_FEE = 500;
 static const size_t GRACE_ACTIONS = 2;
 static const size_t P2PKH_STANDARD_INPUT_SIZE = 150;
 static const size_t P2PKH_STANDARD_OUTPUT_SIZE = 34;
@@ -40,6 +40,15 @@ static const int64_t WEIGHT_RATIO_CAP = 4;
 //     default change is sufficient; a UPGRADE_* activation height is not
 //     required (and would be overkill).
 static const size_t DEFAULT_BLOCK_UNPAID_ACTION_LIMIT = SIZE_MAX;
+
+// Wallet fee-funding policy (node-local; selects how a no-explicit-fee
+// transaction is funded). Not network policy: relay/accept stays the Ycash
+// per-Sapling-output floor regardless. `PerOutput` is the Ycash v4.5.0
+// contract; `ZIP317` is plain ZIP 317 at the MARGINAL_FEE above. The two are
+// kept distinct -- neither mode mixes the other's floor in.
+enum class FeePolicy { PerOutput, ZIP317 };
+static const FeePolicy DEFAULT_FEE_POLICY = FeePolicy::PerOutput;
+extern FeePolicy nFeePolicy;
 
 /// Limit on the number of unpaid actions a transaction can have to be accepted to the mempool.
 static const size_t DEFAULT_TX_UNPAID_ACTION_LIMIT = DEFAULT_BLOCK_UNPAID_ACTION_LIMIT;
