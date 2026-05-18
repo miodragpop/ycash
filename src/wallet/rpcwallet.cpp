@@ -1297,13 +1297,15 @@ UniValue getaccount(const UniValue& params, bool fHelp)
         throw runtime_error(
             "getaccount \"ycashaddress\"\n"
             + Deprecated(fEnableLegacyAccounts, "getaccount", "") +
-            "\nReturns the account associated with the given address. Ycash emulates a\n"
-            "single default account (\"\"), so this always returns \"\" for any address\n"
-            "the wallet recognizes.\n"
+            "\nReturns the label associated with the given address (legacy \"account\"\n"
+            "is just the address label). Returns the label if one is set, otherwise\n"
+            "an empty string. NOTE: \"\" does NOT mean the wallet owns the address --\n"
+            "a valid address the wallet does not own also returns \"\". Use\n"
+            "validateaddress / getaddressesbyaccount to check ownership.\n"
             "\nArguments:\n"
-            "1. \"ycashaddress\"  (string, required) The Ycash address for account lookup.\n"
+            "1. \"ycashaddress\"  (string, required) The Ycash address for label lookup.\n"
             "\nResult:\n"
-            "\"accountname\"        (string) the account name (always \"\").\n"
+            "\"accountname\"        (string) the address label, or \"\" if none.\n"
             "\nExamples:\n"
             + HelpExampleCli("getaccount", "\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\"")
             + HelpExampleRpc("getaccount", "\"s1bHiHvZu5x8yprHJbAYZtEYgfHKCdUTmkP\"")
@@ -1316,7 +1318,13 @@ UniValue getaccount(const UniValue& params, bool fHelp)
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Ycash address");
     }
-    return std::string("");
+
+    std::string strAccount;
+    std::map<CTxDestination, CAddressBookData>::iterator mi = pwalletMain->mapAddressBook.find(dest);
+    if (mi != pwalletMain->mapAddressBook.end() && !(*mi).second.name.empty()) {
+        strAccount = (*mi).second.name;
+    }
+    return strAccount;
 }
 
 UniValue getaccountaddress(const UniValue& params, bool fHelp)
