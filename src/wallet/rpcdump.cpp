@@ -609,6 +609,15 @@ static void WriteWalletDumpToFile(const fs::path& exportfilepath)
                 );
     }
 
+    if (pwalletMain->HasExternalImports()) {
+        file << "#\n";
+        file << "# WARNING: This wallet contains imported keys that are NOT derived\n";
+        file << "#   from the recovery phrase / HD seed above. Restoring from the\n";
+        file << "#   recovery phrase ALONE will NOT recover funds held at those\n";
+        file << "#   imported addresses. Keep this full dump file (or the imported\n";
+        file << "#   private keys) backed up separately.\n";
+    }
+
     file << "\n";
     for (auto it = vKeyBirth.begin(); it != vKeyBirth.end(); it++) {
         const CKeyID &keyid = it->second;
