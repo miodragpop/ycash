@@ -3696,6 +3696,22 @@ UniValue z_getnewaddress(const UniValue& params, bool fHelp)
     }
 }
 
+// Unified-address account RPCs are gated off until NU5 activates. On Ycash
+// NU5 is configured NO_ACTIVATION_HEIGHT, so UA accounts would mint
+// addresses with an unspendable Orchard receiver and Sapling keys derived
+// under the ZIP-32 account tree (not recoverable via z_exportkey/
+// z_importkey -- only via the mnemonic). Both are fund/backup footguns, so
+// the RPCs refuse rather than emit dangerous artifacts.
+static void EnsureUnifiedAccountsEnabled()
+{
+    if (!Params().GetConsensus().NetworkUpgradeActive(
+            chainActive.Height(), Consensus::UPGRADE_NU5)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+            "Unified-address accounts require the NU5 network upgrade, which "
+            "is not active on Ycash.");
+    }
+}
+
 UniValue z_getnewaccount(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -3717,6 +3733,8 @@ UniValue z_getnewaccount(const UniValue& params, bool fHelp)
             + HelpExampleCli("z_getnewaccount", "")
             + HelpExampleRpc("z_getnewaccount", "")
         );
+
+    EnsureUnifiedAccountsEnabled();
 
     LOCK(pwalletMain->cs_wallet);
 
@@ -3766,6 +3784,8 @@ UniValue z_getaddressforaccount(const UniValue& params, bool fHelp)
             + HelpExampleCli("z_getaddressforaccount", "4 '[\"p2pkh\",\"sapling\",\"orchard\"]' 1")
             + HelpExampleRpc("z_getaddressforaccount", "4")
         );
+
+    EnsureUnifiedAccountsEnabled();
 
     // cs_main is required for obtaining the current height, for
     // CWallet::DefaultReceiverTypes
@@ -3914,6 +3934,8 @@ UniValue z_listaccounts(const UniValue& params, bool fHelp)
             "\nExamples:\n"
             + HelpExampleCli("z_listaccounts", "")
         );
+
+    EnsureUnifiedAccountsEnabled();
 
     LOCK(pwalletMain->cs_wallet);
 
@@ -4633,6 +4655,8 @@ UniValue z_getbalanceforaccount(const UniValue& params, bool fHelp)
             "\nAs a JSON RPC call\n"
             + HelpExampleRpc("z_getbalanceforaccount", "4 5")
         );
+
+    EnsureUnifiedAccountsEnabled();
 
     int64_t accountInt = params[0].get_int64();
     if (accountInt < 0 || accountInt >= ZCASH_LEGACY_ACCOUNT) {
