@@ -5,6 +5,7 @@
 #include "primitives/transaction.h"
 #include "consensus/merkle.h"
 #include "consensus/validation.h"
+#include "policy/policy.h"
 #include "transaction_builder.h"
 #include "util/test.h"
 #include "gtest/utils.h"
@@ -32,9 +33,18 @@ CWalletTx FakeWalletTx() {
     return CWalletTx(nullptr, mtx);
 }
 
-/// Expects that the fee calculated during transaction construction matches the fee used by block
-/// construction. It allows the fee included in the transaction to be `MARGINAL_FEE` higher than the
-/// fee expected by block construction.
+/// Scoped override of the global wallet fee policy, restored on destruction.
+class WithFeePolicy
+{
+    FeePolicy saved;
+public:
+    explicit WithFeePolicy(FeePolicy p) : saved(nFeePolicy) { nFeePolicy = p; }
+    ~WithFeePolicy() { nFeePolicy = saved; }
+};
+
+/// Under `-feepolicy=zip317`, the fee the wallet funds must match the fee block
+/// construction expects (the ZIP 317 conventional fee), within one incremental
+/// `MARGINAL_FEE` tick. (Caller must have built `effects` under FeePolicy::ZIP317.)
 void ExpectConsistentFee(const TransactionStrategy& strategy, const TransactionEffects& effects)
 {
     auto buildResult = effects.ApproveAndBuild(
@@ -45,10 +55,26 @@ void ExpectConsistentFee(const TransactionStrategy& strategy, const TransactionE
     auto tx = buildResult.GetTxOrThrow();
 
     auto expectedFee = tx.GetConventionalFee();
-    // Allow one incremental fee tick of buffer above the conventional fee.
     EXPECT_TRUE(effects.GetFee() == expectedFee || effects.GetFee() == expectedFee + MARGINAL_FEE)
         << "effects.GetFee() = " << effects.GetFee() << std::endl
         << "tx.GetConventionalFee() = " << expectedFee;
+}
+
+/// Under `-feepolicy=peroutput` (the default since the fee-policy change), the
+/// wallet funds the Ycash per-Sapling-output floor, NOT the ZIP 317 conventional
+/// fee: max(DEFAULT_PER_SAPLING_OUTPUT_FEE, (padN>50)?(padN-50)*fee:fee), where
+/// padN is the padded Sapling output count. Mirrors CalcZIP317Fee's peroutput
+/// branch. (Caller must have built `effects` under FeePolicy::PerOutput.)
+void ExpectPerOutputFee(const TransactionEffects& effects, size_t paddedSaplingOutputCount)
+{
+    CAmount saplingOutputsFee =
+        (paddedSaplingOutputCount > DEFAULT_EXEMPT_SAPLING_OUTPUTS)
+            ? (CAmount)(paddedSaplingOutputCount - DEFAULT_EXEMPT_SAPLING_OUTPUTS) * DEFAULT_PER_SAPLING_OUTPUT_FEE
+            : DEFAULT_PER_SAPLING_OUTPUT_FEE;
+    CAmount expectedFee = std::max((CAmount) DEFAULT_PER_SAPLING_OUTPUT_FEE, saplingOutputsFee);
+    EXPECT_EQ(effects.GetFee(), expectedFee)
+        << "effects.GetFee() = " << effects.GetFee() << std::endl
+        << "expected per-output fee = " << expectedFee;
 }
 }
 
@@ -482,25 +508,36 @@ TEST(WalletRPCTests, ZIP317Fee)
                 inputs.utxos.emplace_back(&wtx, i, address, 100, true);
             }
 
-            auto effects = builder.PrepareTransaction(
-                    *pwalletMain,
-                    selector,
-                    inputs,
-                    zaddr,
-                    chainActive,
-                    strategy,
-                    std::nullopt,
-                    1)
-            .map_error([&](const auto& err) {
-                try {
-                    ThrowInputSelectionError(err, selector, strategy);
-                } catch (const UniValue& value) {
-                    FAIL() << value.write();
-                }
-            })
-            .value();
+            // The fee is fixed inside PrepareTransaction (CalcZIP317Fee), so the
+            // policy must be set around it, and effects rebuilt per policy.
+            auto prepare = [&]() {
+                return builder.PrepareTransaction(
+                        *pwalletMain,
+                        selector,
+                        inputs,
+                        zaddr,
+                        chainActive,
+                        strategy,
+                        std::nullopt,
+                        1)
+                .map_error([&](const auto& err) {
+                    try {
+                        ThrowInputSelectionError(err, selector, strategy);
+                    } catch (const UniValue& value) {
+                        FAIL() << value.write();
+                    }
+                })
+                .value();
+            };
 
-            ExpectConsistentFee(strategy, effects);
+            { // zip317: wallet-funded fee tracks the conventional fee
+                WithFeePolicy _(FeePolicy::ZIP317);
+                ExpectConsistentFee(strategy, prepare());
+            }
+            { // peroutput (default): one Sapling recipient -> PadCount(1)=2
+                WithFeePolicy _(FeePolicy::PerOutput);
+                ExpectPerOutputFee(prepare(), 2);
+            }
         }
 
         { // test transparent inputs to Payment vector
@@ -519,25 +556,34 @@ TEST(WalletRPCTests, ZIP317Fee)
                 inputs.utxos.emplace_back(&wtx, i, address, 100, true);
             }
 
-            auto effects = builder.PrepareTransaction(
-                    *pwalletMain,
-                    selector,
-                    inputs,
-                    payments,
-                    chainActive,
-                    strategy,
-                    std::nullopt,
-                    1)
-                .map_error([&](const auto& err) {
-                    try {
-                        ThrowInputSelectionError(err, selector, strategy);
-                    } catch (const UniValue& value) {
-                        FAIL() << value.write();
-                    }
-                })
-                .value();
+            auto prepare = [&]() {
+                return builder.PrepareTransaction(
+                        *pwalletMain,
+                        selector,
+                        inputs,
+                        payments,
+                        chainActive,
+                        strategy,
+                        std::nullopt,
+                        1)
+                    .map_error([&](const auto& err) {
+                        try {
+                            ThrowInputSelectionError(err, selector, strategy);
+                        } catch (const UniValue& value) {
+                            FAIL() << value.write();
+                        }
+                    })
+                    .value();
+            };
 
-            ExpectConsistentFee(strategy, effects);
+            { // zip317: wallet-funded fee tracks the conventional fee
+                WithFeePolicy _(FeePolicy::ZIP317);
+                ExpectConsistentFee(strategy, prepare());
+            }
+            { // peroutput (default): two Sapling payments -> PadCount(2)=2
+                WithFeePolicy _(FeePolicy::PerOutput);
+                ExpectPerOutputFee(prepare(), 2);
+            }
         }
 
         // Tear down
