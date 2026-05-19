@@ -14,6 +14,12 @@ define $(package)_set_vars
   $(package)_config_opts += --without-libgssapi_krb5 --without-pgm --without-norm --without-vmci
   $(package)_config_opts += --disable-libunwind --disable-radix-tree --without-gcov --disable-dependency-tracking
   $(package)_config_opts += --disable-drafts --enable-option-checking
+  # zeromq bakes -Werror into its own CXXFLAGS/CFLAGS; clang flags the
+  # link-only -stdlib=libc++ (from default_host_CXX) as unused on
+  # compile-only invocations, which then becomes fatal. zeromq's -Werror
+  # is its internal QA gate and irrelevant to us as a consumer, so disable
+  # it outright rather than chase individual spurious warnings.
+  $(package)_config_opts += --disable-Werror
   $(package)_config_opts_linux=--with-pic
   $(package)_config_opts_freebsd=--with-pic
   $(package)_cxxflags+=-std=c++17

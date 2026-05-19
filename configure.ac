@@ -1077,10 +1077,14 @@ else
        [AC_MSG_WARN([zmq.h not found, disabling zmq support])
         use_zmq=no
         AC_DEFINE([ENABLE_ZMQ],[0],[Define to 1 to enable ZMQ functions])])
-     AC_CHECK_LIB([zmq],[zmq_ctx_shutdown],ZMQ_LIBS=-lzmq,
+     dnl A statically-linked libzmq pulls in pthread (winpthreads on mingw).
+     dnl AC_CHECK_LIB does not consult libzmq.pc Libs.private, so link
+     dnl -lpthread explicitly in the probe and carry it in ZMQ_LIBS.
+     AC_CHECK_LIB([zmq],[zmq_ctx_shutdown],[ZMQ_LIBS="-lzmq -lpthread"],
        [AC_MSG_WARN([libzmq >= 4.0 not found, disabling zmq support])
         use_zmq=no
-        AC_DEFINE([ENABLE_ZMQ],[0],[Define to 1 to enable ZMQ functions])])
+        AC_DEFINE([ENABLE_ZMQ],[0],[Define to 1 to enable ZMQ functions])],
+       [-lpthread])
   else
     AC_DEFINE_UNQUOTED([ENABLE_ZMQ],[0],[Define to 1 to enable ZMQ functions])
   fi
