@@ -347,6 +347,8 @@ DESIRED_WARNING_CXXFLAGS="\
 #
 # Potential justifications:
 # • `-Wno-format-nonliteral`: Bitcoin i18n
+# • `-Wno-nrvo`: Added in Clang 19; pedantically flags every return that misses NRVO. Mixed
+#    `return T()` / `return named_var` functions trigger it; copies are typically trivial.
 # • `-Wno-old-style-cast`: do after `-W*-conversion` to avoid introducing more conversions
 # • `-Wno-padded`: is this worth the noise of rearranging fields & adding anonymous bitfields?
 # • `-Wno-shadow-field`: conflicts with our style of naming constructor arguments the same as fields
@@ -354,6 +356,9 @@ DESIRED_WARNING_CXXFLAGS="\
 #    same as fields
 # • `-Wno-string-conversion`: currently abused to `assert` on strings
 # • `-Wno-tautological-type-limit-compare`: I think isn’t portable because of numeric type sizing
+# • `-Wno-unique-object-duplication`: Added in Clang 18; flags Meyers singletons / `once_flag`
+#    in inline header functions as risky under shared-library duplication. ycashd is a binary,
+#    not a shared library, so this is a false positive for us.
 # • `-Wno-unsafe-buffer-usage`: Added in Clang 16, needs consideration
 DISABLED_WARNING_CXXFLAGS="\
   -Wno-c++20-compat -Wno-cast-align -Wno-cast-qual -Wno-comma -Wno-conditional-uninitialized \
@@ -366,7 +371,8 @@ DISABLED_WARNING_CXXFLAGS="\
   -Wno-implicit-fallthrough -Wno-implicit-int-conversion -Wno-implicit-int-float-conversion \
   -Wno-inconsistent-missing-destructor-override -Wno-logical-op-parentheses \
   -Wno-misleading-indentation -Wno-mismatched-tags -Wno-missing-noreturn -Wno-missing-prototypes \
-  -Wno-missing-variable-declarations -Wno-newline-eof -Wno-non-virtual-dtor -Wno-old-style-cast \
+  -Wno-missing-variable-declarations -Wno-newline-eof -Wno-non-virtual-dtor -Wno-nrvo \
+  -Wno-old-style-cast \
   -Wno-overloaded-virtual -Wno-padded -Wno-pedantic -Wno-range-loop-construct \
   -Wno-redundant-parens -Wno-reorder-ctor -Wno-reserved-id-macro -Wno-reserved-identifier \
   -Wno-return-type -Wno-shadow -Wno-shadow-field -Wno-shadow-field-in-constructor \
@@ -376,6 +382,7 @@ DISABLED_WARNING_CXXFLAGS="\
   -Wno-tautological-type-limit-compare -Wno-tautological-unsigned-enum-zero-compare \
   -Wno-tautological-unsigned-zero-compare -Wno-thread-safety-attributes \
   -Wno-thread-safety-negative -Wno-undef -Wno-undefined-func-template -Wno-uninitialized \
+  -Wno-unique-object-duplication \
   -Wno-unreachable-code -Wno-unreachable-code-break -Wno-unreachable-code-return \
   -Wno-unsafe-buffer-usage \
   -Wno-unused-but-set-variable -Wno-unused-exception-parameter -Wno-unused-function \
