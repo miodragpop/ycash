@@ -43,23 +43,28 @@ ifneq ($(canonical_host),$(build))
 $(package)_rust_target=$(call rust_target,$(package),$(canonical_host),$(host_os))
 $(package)_exact_file_name=rust-std-$($(package)_version)-$($(package)_rust_target).tar.gz
 $(package)_exact_sha256_hash=$($(package)_rust_std_sha256_hash_$($(package)_rust_target))
+# Pick the native rustc tarball for the build machine: prefer the arch-specific
+# entry (e.g. aarch64_darwin) over the os-only one so an arm64 build host gets a
+# native rustc instead of an x86_64 one running under Rosetta.
+$(package)_build_file_name=$(if $($(package)_file_name_$(build_arch)_$(build_os)),$($(package)_file_name_$(build_arch)_$(build_os)),$($(package)_file_name_$(build_os)))
+$(package)_build_sha256_hash=$(if $($(package)_sha256_hash_$(build_arch)_$(build_os)),$($(package)_sha256_hash_$(build_arch)_$(build_os)),$($(package)_sha256_hash_$(build_os)))
 $(package)_build_subdir=buildos
-$(package)_extra_sources=$($(package)_file_name_$(build_os))
+$(package)_extra_sources=$($(package)_build_file_name)
 
 define $(package)_fetch_cmds
 $(call fetch_file,$(package),$($(package)_download_path),$($(package)_download_file),$($(package)_file_name),$($(package)_sha256_hash)) && \
-$(call fetch_file,$(package),$($(package)_download_path),$($(package)_file_name_$(build_os)),$($(package)_file_name_$(build_os)),$($(package)_sha256_hash_$(build_os)))
+$(call fetch_file,$(package),$($(package)_download_path),$($(package)_build_file_name),$($(package)_build_file_name),$($(package)_build_sha256_hash))
 endef
 
 define $(package)_extract_cmds
   mkdir -p $($(package)_extract_dir) && \
   echo "$($(package)_sha256_hash)  $($(package)_source)" > $($(package)_extract_dir)/.$($(package)_file_name).hash && \
-  echo "$($(package)_sha256_hash_$(build_os))  $($(package)_source_dir)/$($(package)_file_name_$(build_os))" >> $($(package)_extract_dir)/.$($(package)_file_name).hash && \
+  echo "$($(package)_build_sha256_hash)  $($(package)_source_dir)/$($(package)_build_file_name)" >> $($(package)_extract_dir)/.$($(package)_file_name).hash && \
   $(build_SHA256SUM) -c $($(package)_extract_dir)/.$($(package)_file_name).hash && \
   mkdir $(canonical_host) && \
   tar --strip-components=1 -xf $($(package)_source) -C $(canonical_host) && \
   mkdir buildos && \
-  tar --strip-components=1 -xf $($(package)_source_dir)/$($(package)_file_name_$(build_os)) -C buildos
+  tar --strip-components=1 -xf $($(package)_source_dir)/$($(package)_build_file_name) -C buildos
 endef
 
 define $(package)_stage_cmds

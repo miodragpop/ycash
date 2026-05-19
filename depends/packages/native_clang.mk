@@ -48,12 +48,14 @@ ifeq ($(build_os),linux)
 $(package)_dependencies=native_libtinfo5
 endif
 
-# Ensure we have clang native to the builder, not the target host
+# Ensure we have clang native to the builder, not the target host. Prefer the
+# arch-specific entry (e.g. aarch64_darwin) over the os-only one so an arm64
+# build host gets a native clang instead of an x86_64 one under Rosetta.
 ifneq ($(canonical_host),$(build))
-$(package)_exact_download_path=$($(package)_download_path_$(build_os))
-$(package)_exact_download_file=$($(package)_download_file_$(build_os))
-$(package)_exact_file_name=$($(package)_file_name_$(build_os))
-$(package)_exact_sha256_hash=$($(package)_sha256_hash_$(build_os))
+$(package)_exact_download_path=$(if $($(package)_download_path_$(build_arch)_$(build_os)),$($(package)_download_path_$(build_arch)_$(build_os)),$($(package)_download_path_$(build_os)))
+$(package)_exact_download_file=$(if $($(package)_download_file_$(build_arch)_$(build_os)),$($(package)_download_file_$(build_arch)_$(build_os)),$($(package)_download_file_$(build_os)))
+$(package)_exact_file_name=$(if $($(package)_file_name_$(build_arch)_$(build_os)),$($(package)_file_name_$(build_arch)_$(build_os)),$($(package)_file_name_$(build_os)))
+$(package)_exact_sha256_hash=$(if $($(package)_sha256_hash_$(build_arch)_$(build_os)),$($(package)_sha256_hash_$(build_arch)_$(build_os)),$($(package)_sha256_hash_$(build_os)))
 endif
 
 define $(package)_stage_cmds
