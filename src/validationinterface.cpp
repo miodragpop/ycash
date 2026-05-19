@@ -23,7 +23,7 @@ using namespace boost::placeholders;
 
 static CMainSignals g_signals;
 
-static constexpr const char* METRIC_WALLET_SYNCED_HEIGHT = "zcashd.wallet.synced.block.height";
+static constexpr const char* METRIC_WALLET_SYNCED_HEIGHT = "ycashd.wallet.synced.block.height";
 
 CMainSignals& GetMainSignals()
 {

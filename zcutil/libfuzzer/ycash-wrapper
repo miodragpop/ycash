@@ -38,7 +38,7 @@ for arg do
     fi
     if [ "$arg" = "-o" ] # here an output file is being specified
     then
-        if [ "$1" = "zcashd" ] # here zcashd is the output file
+        if [ "$1" = "ycashd" ] # here ycashd is the output file
         then
             export FINAL_LINK=1 # we should use -fsanitize=fuzzer because that links libfuzzer
         fi
@@ -79,17 +79,17 @@ fi
 # Work out which compiler we were called as
 
 case $0 in
-*zcash-wrapper-clang)
+*ycash-wrapper-clang)
     COMPILER="clang"
     export DEFINES_FLAGS="${CFLAGS} -DZCASH_FUZZ=1 -DFUZZ_WITH_LIBFUZZER=1 -fPIC"
     export INSTRUMENT_FLAGS="${DEFINES_FLAGS} ${LLVM_SANITIZE}"
     ;;
-*zcash-wrapper-clang++)
+*ycash-wrapper-clang++)
     COMPILER="clang++"
     export DEFINES_FLAGS="${CXXFLAGS} -DZCASH_FUZZ=1 -DFUZZ_WITH_LIBFUZZER=1 -fPIC"
     export INSTRUMENT_FLAGS="${DEFINES_FLAGS} ${LLVM_SANITIZE}"
     ;;
-*zcash-wrapper)
+*ycash-wrapper)
     echo -n "Call this script instead of your regular compiler, and if the absolute "
     echo -n "path of the CWD the wrapper was called from matches a regex in the "
     echo -n "array 'dirs_to_instrument', it will instrument the resulting object. "

@@ -1,10 +1,10 @@
-# bash programmable completion for zcash-cli(1)
+# bash programmable completion for ycash-cli(1)
 # Copyright (c) 2012-2016 The Bitcoin Core developers
 # Copyright (c) 2016-2019 The Zcash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
-# call $zcash-cli for RPC
+# call $ycash-cli for RPC
 _zcash_rpc() {
     # determine already specified args necessary for RPC
     local rpcargs=()
@@ -31,8 +31,8 @@ _zcash_cli() {
     local cur prev words=() cword
     local zcash_cli
 
-    # save and use original argument to invoke zcash-cli for -help, help and RPC
-    # as zcash-cli might not be in $PATH
+    # save and use original argument to invoke ycash-cli for -help, help and RPC
+    # as ycash-cli might not be in $PATH
     zcash_cli="$1"
 
     COMPREPLY=()
@@ -150,7 +150,7 @@ _zcash_cli() {
             ;;
     esac
 } &&
-complete -F _zcash_cli zcash-cli
+complete -F _zcash_cli ycash-cli
 
 # Local variables:
 # mode: shell-script

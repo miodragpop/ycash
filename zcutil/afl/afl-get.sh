@@ -14,7 +14,7 @@ required_options_count=0
 function help {
     cat <<EOF
 Obtains and builds a copy of AFL from source.
-This script must be run from within the top level directory of a zcash clone.
+This script must be run from within the top level directory of a ycash clone.
 
 Usage:
     $0 --afl-install=AFL_INSTALL_DIR
@@ -74,7 +74,7 @@ mv afl-*/* .
 # Build AFL
 make
 
-echo "You can now build zcashd with AFL instrumentation as follows:"
-echo "$ make clean # if you've already built zcashd without AFL instrumentation"
+echo "You can now build ycashd with AFL instrumentation as follows:"
+echo "$ make clean # if you've already built ycashd without AFL instrumentation"
 echo "$ ./zcutil/afl/afl-build.sh -i $(pwd) -f FUZZ_CASE"
 echo $FUZZ_OPTIONS_STRING

@@ -3,7 +3,7 @@ version: "3.7"
 services:
   grafana:
     image: grafana/grafana
-    container_name: zcashd-grafana
+    container_name: ycashd-grafana
     depends_on:
       - prometheus
     environment:
@@ -24,11 +24,11 @@ services:
         source: ./grafana/dashboards
         target: /etc/grafana/dashboards
     networks:
-      - zcashd-metrics
+      - ycashd-metrics
 
   prometheus:
     image: prom/prometheus
-    container_name: zcashd-prometheus
+    container_name: ycashd-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -40,7 +40,7 @@ services:
         target: /etc/prometheus/prometheus.yml
         read_only: true
     networks:
-      - zcashd-metrics
+      - ycashd-metrics
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -49,4 +49,4 @@ volumes:
   prometheus-storage:
 
 networks:
-  zcashd-metrics:
+  ycashd-metrics:

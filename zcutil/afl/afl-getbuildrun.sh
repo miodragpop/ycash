@@ -16,8 +16,8 @@ export AFL_INSTALL_DIR
 
 function help {
     cat <<EOF
-Builds AFL and an instrumented zcashd, then begins fuzzing.
-This script must be run from within the top level directory of a zcash clone.
+Builds AFL and an instrumented ycashd, then begins fuzzing.
+This script must be run from within the top level directory of a ycash clone.
 Additional arguments are passed-through to AFL.
 
 Usage:

@@ -16,7 +16,7 @@ usage() {
     echo " -f,--fuzzer <fuzzername> (ignored if building \"depends\")"
     echo " [-s,--sanitizers <sanitizers>]"
     echo " [-i,--instrument <instrument>]"
-    echo " [-l,--logfile <logfile>] # default is ./zcash-build-wrapper.log"
+    echo " [-l,--logfile <logfile>] # default is ./ycash-build-wrapper.log"
     echo " [-h,--help]"
     echo ""
     echo "Where fuzzer is an entry in ./src/fuzzing/*, the default sanitizer"
@@ -114,7 +114,7 @@ then
 fi
 if [ "${LOGFILE:-undefined}" = "undefined" ]
 then
-    export LOGFILE=./zcash-build-wrapper.log
+    export LOGFILE=./ycash-build-wrapper.log
 fi
 
 set -x
@@ -139,7 +139,7 @@ else
     cp "./src/fuzzing/$FUZZER_NAME/fuzz.cpp" src/fuzz.cpp || die "Can't copy fuzz.cpp for that fuzzer"
 fi
 
-# sneak the variable into zcashd's build.sh
+# sneak the variable into ycashd's build.sh
 
 export BUILD_STAGE
 
@@ -148,5 +148,5 @@ export BUILD_STAGE
 CONFIGURE_FLAGS="--enable-tests=no --disable-bench" \
     "$ZCUTIL/build.sh" \
     -j$(nproc) \
-    "CC=$ZCUTIL/libfuzzer/zcash-wrapper-clang" \
-    "CXX=$ZCUTIL/libfuzzer/zcash-wrapper-clang++" "${POSITIONAL[@]:1}" || die "Build failed at stage $BUILD_STAGE."
+    "CC=$ZCUTIL/libfuzzer/ycash-wrapper-clang" \
+    "CXX=$ZCUTIL/libfuzzer/ycash-wrapper-clang++" "${POSITIONAL[@]:1}" || die "Build failed at stage $BUILD_STAGE."

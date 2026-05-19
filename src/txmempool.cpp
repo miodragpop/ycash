@@ -1290,20 +1290,20 @@ void CTxMemPool::UpdateMetrics() const {
         }
     }
 
-    MetricsGauge("zcash.mempool.actions.unpaid", unpaidActionsWithWeightLt20pct, "bk", "< 0.2");
-    MetricsGauge("zcash.mempool.actions.unpaid", unpaidActionsWithWeightLt40pct, "bk", "< 0.4");
-    MetricsGauge("zcash.mempool.actions.unpaid", unpaidActionsWithWeightLt60pct, "bk", "< 0.6");
-    MetricsGauge("zcash.mempool.actions.unpaid", unpaidActionsWithWeightLt80pct, "bk", "< 0.8");
-    MetricsGauge("zcash.mempool.actions.unpaid", unpaidActionsWithWeightLt1, "bk", "< 1");
-    MetricsGauge("zcash.mempool.actions.paid", paidActions);
-    MetricsGauge("zcash.mempool.size.transactions", size());
-    MetricsGauge("zcash.mempool.size.weighted", sizeWithWeightLt1, "bk", "< 1");
-    MetricsGauge("zcash.mempool.size.weighted", sizeWithWeightEq1, "bk", "1");
-    MetricsGauge("zcash.mempool.size.weighted", sizeWithWeightGt1, "bk", "> 1");
-    MetricsGauge("zcash.mempool.size.weighted", sizeWithWeightGt2, "bk", "> 2");
-    MetricsGauge("zcash.mempool.size.weighted", sizeWithWeightGt3, "bk", "> 3");
-    MetricsGauge("zcash.mempool.size.bytes", GetTotalTxSize());
-    MetricsGauge("zcash.mempool.usage.bytes", DynamicMemoryUsage());
+    MetricsGauge("ycash.mempool.actions.unpaid", unpaidActionsWithWeightLt20pct, "bk", "< 0.2");
+    MetricsGauge("ycash.mempool.actions.unpaid", unpaidActionsWithWeightLt40pct, "bk", "< 0.4");
+    MetricsGauge("ycash.mempool.actions.unpaid", unpaidActionsWithWeightLt60pct, "bk", "< 0.6");
+    MetricsGauge("ycash.mempool.actions.unpaid", unpaidActionsWithWeightLt80pct, "bk", "< 0.8");
+    MetricsGauge("ycash.mempool.actions.unpaid", unpaidActionsWithWeightLt1, "bk", "< 1");
+    MetricsGauge("ycash.mempool.actions.paid", paidActions);
+    MetricsGauge("ycash.mempool.size.transactions", size());
+    MetricsGauge("ycash.mempool.size.weighted", sizeWithWeightLt1, "bk", "< 1");
+    MetricsGauge("ycash.mempool.size.weighted", sizeWithWeightEq1, "bk", "1");
+    MetricsGauge("ycash.mempool.size.weighted", sizeWithWeightGt1, "bk", "> 1");
+    MetricsGauge("ycash.mempool.size.weighted", sizeWithWeightGt2, "bk", "> 2");
+    MetricsGauge("ycash.mempool.size.weighted", sizeWithWeightGt3, "bk", "> 3");
+    MetricsGauge("ycash.mempool.size.bytes", GetTotalTxSize());
+    MetricsGauge("ycash.mempool.usage.bytes", DynamicMemoryUsage());
 }
 
 void CTxMemPool::SetMempoolCostLimit(int64_t totalCostLimit, int64_t evictionMemorySeconds) {

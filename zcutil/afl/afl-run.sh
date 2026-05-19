@@ -13,8 +13,8 @@ required_options_count=0
 
 function help {
     cat <<EOF
-Start fuzzing a case in a previously zcashd built for AFL.
-This script must be run from within the top level directory of a zcash clone.
+Start fuzzing a case in a previously ycashd built for AFL.
+This script must be run from within the top level directory of a ycash clone.
 Additional arguments are passed-through to AFL.
 
 Usage:
@@ -59,4 +59,4 @@ if ((required_options_count < 2)); then
     exit 1
 fi
 
-"$AFL_INSTALL_DIR/afl-fuzz" -i "./src/fuzzing/$FUZZ_CASE/input" -o "./src/fuzzing/$FUZZ_CASE/output" "$@" ./src/zcashd @@
+"$AFL_INSTALL_DIR/afl-fuzz" -i "./src/fuzzing/$FUZZ_CASE/input" -o "./src/fuzzing/$FUZZ_CASE/output" "$@" ./src/ycashd @@

@@ -78,9 +78,9 @@ fs::path GetConfigFile(const std::string& confPath);
 fs::path GetPidFile();
 void CreatePidFile(const fs::path &path, pid_t pid);
 #endif
-class missing_zcash_conf : public std::runtime_error {
+class missing_ycash_conf : public std::runtime_error {
 public:
-    missing_zcash_conf() : std::runtime_error("Missing zcash.conf") { }
+    missing_ycash_conf() : std::runtime_error("Missing ycash.conf") { }
 };
 void ReadConfigFile(const std::string& confPath, std::map<std::string, std::string>& mapSettingsRet, std::map<std::string, std::vector<std::string> >& mapMultiSettingsRet);
 #ifdef WIN32
@@ -211,7 +211,7 @@ void RenameThread(const char* name);
  */
 template <typename Callable> void TraceThread(const char* name,  Callable func)
 {
-    std::string s = strprintf("zc-%s", name);
+    std::string s = strprintf("yc-%s", name);
     RenameThread(s.c_str());
     try
     {

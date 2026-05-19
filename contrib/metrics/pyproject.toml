@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "zcash-metrics"
+name = "ycash-metrics"
 version = "0.1.0"
-description = "Zcash Metrics"
+description = "Ycash Metrics"
 authors = [
     "Jack Grigg <jack@electriccoin.co>",
     "Daira Hopwood <daira@jacaranda.org>",
@@ -9,9 +9,9 @@ authors = [
 ]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-homepage = "https://github.com/zcash/zcash/"
-repository = "https://github.com/zcash/zcash/"
-documentation = "https://github.com/zcash/zcash/"
+homepage = "https://github.com/ycashfoundation/ycash/"
+repository = "https://github.com/ycashfoundation/ycash/"
+documentation = "https://github.com/ycashfoundation/ycash/"
 classifiers = [
     "Private :: Do Not Upload",
 ]

@@ -13,9 +13,9 @@ fi
 
 cat <<EOF
 
-This script is no longer needed for users of zcashd. Proving system
+This script is no longer needed for users of ycashd. Proving system
 parameters now only need to be downloaded in order to spend Sprout funds.
-Parameters for other pools are bundled with the zcashd binary or generated
+Parameters for other pools are bundled with the ycashd binary or generated
 when it is run, and do not need to be downloaded or stored separately.
 This script is deprecated and will be removed in a future release.
 
