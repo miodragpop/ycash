@@ -381,10 +381,15 @@ BOOST_AUTO_TEST_CASE(rpc_insightexplorer)
     CheckRPCThrows("getspentinfo {\"txid\":\"hello\",\"index\":0}",
         "txid must be hexadecimal string (not 'hello')");
 
-    // only the mainnet genesis block exists
-    BOOST_CHECK_NO_THROW(CallRPC("getblockdeltas \"00040fe8ec8471911baa1db1266ea15dd06b4a8a5c453883c000b031973dce08\""));
-    // damage the block hash (change last digit)
-    CheckRPCThrows("getblockdeltas \"00040fe8ec8471911baa1db1266ea15dd06b4a8a5c453883c000b031973dce09\"",
+    // Only the active chain's genesis block exists in the test fixture, so
+    // query it by its own hash. getblockdeltas takes a verbatim string arg
+    // (rpcCvtTable {{s}}), so the hash must NOT be wrapped in quotes here.
+    std::string genesisHash = Params().GetConsensus().hashGenesisBlock.GetHex();
+    BOOST_CHECK_NO_THROW(CallRPC("getblockdeltas " + genesisHash));
+    // damage the block hash (flip the last hex digit) -> not found
+    std::string badHash = genesisHash;
+    badHash.back() = (badHash.back() == '0') ? '1' : '0';
+    CheckRPCThrows("getblockdeltas " + badHash,
         "Block not found");
 
     BOOST_CHECK_NO_THROW(CallRPC("getblockhashes 1477641360 1477641360"));
