@@ -361,6 +361,7 @@ DESIRED_WARNING_CXXFLAGS="\
 #    not a shared library, so this is a false positive for us.
 # • `-Wno-unsafe-buffer-usage`: Added in Clang 16, needs consideration
 DISABLED_WARNING_CXXFLAGS="\
+  -Wno-unknown-warning-option \
   -Wno-c++20-compat -Wno-cast-align -Wno-cast-qual -Wno-comma -Wno-conditional-uninitialized \
   -Wno-covered-switch-default -Wno-ctad-maybe-unsupported \
   -Wno-delete-non-abstract-non-virtual-dtor -Wno-deprecated-copy -Wno-deprecated-copy-dtor \
