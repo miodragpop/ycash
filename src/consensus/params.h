@@ -50,6 +50,7 @@ enum UpgradeIndex : uint32_t {
     // upgrade enum ordering shared with upstream tooling.
     UPGRADE_NU6,
     UPGRADE_NU6_1,
+    UPGRADE_NU6_2,
     // Add new network upgrades before this line.
     // NOTE: Also add new upgrades to NetworkUpgradeInfo in upgrades.cpp
     UPGRADE_ZFUTURE,
@@ -201,6 +202,8 @@ struct Params {
 
     bool FutureTimestampSoftForkActive(int nHeight) const;
 
+    bool TemporaryOrchardDisablingSoftForkActive(int nHeight) const;
+
     bool FeatureActive(int nHeight, Consensus::ConsensusFeature feature) const;
 
     bool FeatureRequired(Consensus::ConsensusFeature feature) const;
@@ -297,6 +300,8 @@ struct Params {
      * activation height in chainparams.cpp.
      */
     int nFutureTimestampSoftForkHeight = 2;
+
+    int nTemporaryOrchardDisablingSoftForkHeight = Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT;
 
     /** Proof of work parameters */
     unsigned int nEquihashN = 0;

@@ -1,27 +1,31 @@
+# The Windows cross toolchain is llvm-mingw (see packages/native_llvm_mingw.mk):
+# a self-consistent UCRT bundle of Clang, LLD, mingw-w64, libc++, libc++abi,
+# libunwind, and winpthreads. Using it instead of the host's system mingw-w64
+# means the whole tree shares one CRT (UCRT) and one libc++ ABI.
+mingw32_native_toolchain=native_llvm_mingw
+mingw32_native_binutils=native_llvm_mingw
+
+# native_llvm_mingw symlinks its target-prefixed tools into $(build_prefix)/bin
+# (the native toolchain bin directory), so we reference them by name without a
+# path. That directory is on PATH during package builds and is also the prefix the
+# generated config.site prepends to each tool name; an absolute path here would be
+# doubled by that prefix and break configure. The clang/clang++ wrappers select the
+# mingw target, the bundled UCRT sysroot, libc++, and LLD automatically, so no
+# -target/--sysroot/-stdlib/-fuse-ld flags are needed.
+mingw32_CC=x86_64-w64-mingw32-clang
+mingw32_CXX=x86_64-w64-mingw32-clang++
+mingw32_AR=x86_64-w64-mingw32-ar
+mingw32_RANLIB=x86_64-w64-mingw32-ranlib
+mingw32_NM=x86_64-w64-mingw32-nm
+mingw32_STRIP=x86_64-w64-mingw32-strip
+
 mingw32_CFLAGS=-pipe
-# -nostdinc++: drop clang's default mingw-GCC libstdc++ include dirs so
-# libc++'s `#include_next <math.h>` reaches the mingw-w64 C <math.h>
-# (otherwise libstdc++'s <math.h> shadows it -> FP_NAN undeclared in boost).
-# -Wno-unused-command-line-argument: default_host_CXX carries the link-only
-# -stdlib=libc++; clang flags it unused on compile-only invocations. Silenced
-# here so configure's -Werror probe passes and --enable-werror stays usable
-# (otherwise the probe fails and AX_CHECK_COMPILE_FLAG misdetects clang as
-# accepting GCC-only flags like -Wno-builtin-declaration-mismatch).
-mingw32_CXXFLAGS=$(mingw32_CFLAGS) -nostdinc++ -isystem $(host_prefix)/include/c++/v1 -Wno-unused-command-line-argument
+mingw32_CXXFLAGS=$(mingw32_CFLAGS)
 
-mingw32_LDFLAGS?=-fuse-ld=lld
-mingw32_LDFLAGS+=-L/usr/lib/gcc/x86_64-w64-mingw32/$(shell x86_64-w64-mingw32-g++-posix -dumpversion)
-# Put the staged libc++ (libcxx package) on the search path so the driver's
-# own -stdlib=libc++ -lc++/-lc++abi resolve. Only a search path -- inert for
-# C/non-C++ packages (no library is forced onto them).
-mingw32_LDFLAGS+=-L$(host_prefix)/lib
-
-# secp256k1.h emits __declspec(dllimport) on Windows unless SECP256K1_STATIC
-# is defined; we link libsecp256k1 statically. configure.ac sets this in
-# CORE_CPPFLAGS but that var is never AC_SUBST'd / used, so the define never
-# reaches any TU -> LNK4217 import-vs-local spam. Define it host-wide here
-# (Windows-only macro; harmless to non-secp TUs).
-mingw32_CPPFLAGS=-DSECP256K1_STATIC
+# Target Windows 7, matching configure.ac, so the whole tree agrees on the
+# minimum Windows version rather than inheriting llvm-mingw's newer default.
+# (Boost is held at 1.88.0 for the same reason; see packages/boost.mk.)
+mingw32_CPPFLAGS=-D_WIN32_WINNT=0x0601
 
 mingw32_release_CFLAGS=-O3
 mingw32_release_CXXFLAGS=$(mingw32_release_CFLAGS)

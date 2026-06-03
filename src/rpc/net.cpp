@@ -10,7 +10,7 @@
 #include "main.h"
 #include "net.h"
 #include "netbase.h"
-#include "protocol.h"
+#include "rpc/protocol.h"
 #include "sync.h"
 #include "ui_interface.h"
 #include "util/system.h"
