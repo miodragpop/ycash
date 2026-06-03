@@ -512,9 +512,9 @@ int printMetrics(size_t cols, bool mining)
                     //  - post-fork, before the YDF mandate ends: 5% to the YDF;
                     //  - after the mandate: optional, -ydf=<n>% (default
                     //    DEFAULT_YDF_FEE_PERCENTAGE), 0 disables it.
-                    // Ported/adapted from ycash-official d157c16d5; better-ycash
-                    // previously subtracted no YDF post-fork at all, overstating
-                    // the reward by the entire YDF cut.
+                    // Ported/adapted from current Ycash code d157c16d5; the
+                    // modernized Ycash code previously subtracted no YDF post-fork
+                    // at all, overstating the reward by the entire YDF cut.
                     if (height > 0) {
                         if (!consensusParams.NetworkUpgradeActive(height, Consensus::UPGRADE_YCASH)) {
                             if (height <= consensusParams.GetLastFoundersRewardBlockHeight(height)) {

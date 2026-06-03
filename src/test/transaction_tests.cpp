@@ -805,6 +805,17 @@ BOOST_AUTO_TEST_CASE(test_IsStandardV2)
 
 BOOST_AUTO_TEST_CASE(TxV5)
 {
+    // Skipped on Ycash. The zip0244.json vectors are upstream Zcash v5
+    // (ZIP-225/ZIP-244) transactions encoded against Zcash consensus branch
+    // ids. v5 transactions require NU5, which is NO_ACTIVATION_HEIGHT on Ycash,
+    // so the format is unreachable here and the Ycash-patched librustzcash
+    // (BranchId::Ycash) correctly rejects the vectors in zcash_transaction_digests
+    // -> CTransaction::UpdateHash throws "Invalid transaction format". Same class
+    // as the test_history.cpp / test_checktransaction.cpp branch-id adaptations.
+    // Re-enable with Ycash-branch-id v5 vectors only if/when NU5 activates.
+    BOOST_TEST_MESSAGE("TxV5 skipped: ZIP-244 vectors are Zcash v5 txs; NU5 inactive on Ycash");
+    return;
+
     // [
     //     tx,
     //     txid,

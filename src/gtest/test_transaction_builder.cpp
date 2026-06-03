@@ -206,6 +206,15 @@ TEST(TransactionBuilder, SproutToSproutAndSapling) {
 
 TEST(TransactionBuilder, DuplicateOrchardNullifier)
 {
+    // Skipped on Ycash. txdataOrchardDuplicateNullifiersTestVector is a frozen
+    // upstream Zcash v5 transaction encoded with the Zcash NU5 consensus branch
+    // id (0xc2d6d0b4). The Ycash-patched librustzcash uses the Ycash NU5 branch
+    // id (0xf919a198) and rejects the vector at parse time
+    // (zcash_transaction_digests -> CTransaction::UpdateHash throws). v5/NU5 is
+    // unreachable on Ycash (NU5 = NO_ACTIVATION_HEIGHT). Same class as
+    // transaction_tests/TxV5; re-enable only with a Ycash-branch-id vector.
+    GTEST_SKIP() << "Zcash v5 NU5 vector; NU5 inactive and Ycash branch id differs";
+
     #include "data/tx-orchard-duplicate-nullifiers.h"
 
     RegtestActivateNU5();
