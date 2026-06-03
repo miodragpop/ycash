@@ -10,7 +10,12 @@
  * network protocol versioning
  */
 
-static const int PROTOCOL_VERSION = 270140;
+//! 270013 = the Canopy-era protocol version, the latest network upgrade
+//! active on Ycash (NU5+ are NO_ACTIVATION_HEIGHT). Per the Zcash convention
+//! PROTOCOL_VERSION reflects the era of the currently-active upgrade; on
+//! Ycash that is Canopy. Matches ycashd v4.5.0 and Yolk v4.3.1 on the live
+//! network.
+static const int PROTOCOL_VERSION = 270013;
 
 //! initial proto version, to be increased after version/verack negotiation
 static const int INIT_PROTO_VERSION = 209;
@@ -31,12 +36,19 @@ static const int BIP0031_VERSION = 60000;
 //! "filter*" commands are disabled without NODE_BLOOM after and including this version
 static const int NO_BLOOM_VERSION = 170004;
 
-//! Changes to CInv parsing, starting with this version:
-//! - MSG_WTX type defined, which contains two 32-byte hashes.
-//! In the better-ycash lineage wtx inventory is introduced by this
-//! build (no prior Ycash release spoke MSG_WTX), so this equals
-//! PROTOCOL_VERSION.
-static const int CINV_WTX_VERSION = 270140;
+//! Protocol version at which MSG_WTX (wtxid) inventory becomes usable.
+//! MSG_WTX (ZIP 239) only carries meaning for v5 transactions, which require
+//! NU5 -- inactive on Ycash (NO_ACTIVATION_HEIGHT). The live Ycash network
+//! (ycashd v4.5.0, Yolk) advertises the same Canopy-era 270013 PROTOCOL_VERSION
+//! we do but does NOT speak MSG_WTX, so gating on PROTOCOL_VERSION would make
+//! us send unparseable MSG_WTX inv to those peers. Pin to an unreachable
+//! sentinel so MSG_WTX is never advertised or sent: InvForTransaction only
+//! emits MSG_WTX for nVersion>=5 txs (which cannot exist here), and a peer
+//! that sends us one is rejected at deserialization. The machinery stays
+//! compiled but dormant; flip this to the appropriate bumped version if Ycash
+//! ever activates NU5. 0x7FFFFFFF (INT_MAX) is the unreachable sentinel, the
+//! same idiom UPGRADE_ZFUTURE.nProtocolVersion uses; no <limits> needed here.
+static const int CINV_WTX_VERSION = 0x7FFFFFFF;
 
 //! disconnect from testnet peers older than this proto version.
 //! Same Ycash v4.4.4 floor (270013) as mainnet, aligned with
