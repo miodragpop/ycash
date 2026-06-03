@@ -24,6 +24,7 @@ update_stdlib_hash() {
 
 # For native targets
 # update_rust_hash RUST_TARGET MAKEFILE_PACKAGE_IDENTIFIER
+update_rust_hash aarch64-apple-darwin aarch64_darwin
 update_rust_hash aarch64-unknown-linux-gnu aarch64_linux
 update_rust_hash x86_64-apple-darwin darwin
 update_rust_hash x86_64-unknown-linux-gnu linux
@@ -31,6 +32,7 @@ update_rust_hash x86_64-unknown-freebsd freebsd
 
 # For cross-compilation targets
 # update_stdlib_hash RUST_TARGET
+update_stdlib_hash aarch64-apple-darwin
 update_stdlib_hash aarch64-unknown-linux-gnu
 update_stdlib_hash x86_64-apple-darwin
 update_stdlib_hash x86_64-pc-windows-gnullvm
