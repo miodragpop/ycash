@@ -119,13 +119,16 @@ lto = 'thin'
 panic = 'abort'
 codegen-units = 1
 
-# Patch librustzcash crates with a Ycash-aware fork that adds BranchId::Ycash
-# and the LEGACY_*-aware address encoders. All six crates pinned to the same
-# revision to keep the workspace coherent.
+# Patch librustzcash crates with a Ycash-aware fork (branch ycashd-v6.20.0)
+# that adds the Ycash NetworkUpgrade/BranchId, Ycash activation heights and
+# consensus branch ids, ZIP212_GRACE_PERIOD = 3, and the Ycash address
+# prefixes/HRPs/coin type. All six crates are pinned to the same revision to
+# keep the workspace coherent (f4jumble is a transitive dependency of the
+# patched zcash_address; it is unmodified but must share the same source).
 [patch.crates-io]
-zcash_protocol = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "11244ad8e82a82bb3e9463b518d5773e8ec63b1a" }
-zcash_primitives = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "11244ad8e82a82bb3e9463b518d5773e8ec63b1a" }
-f4jumble = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "11244ad8e82a82bb3e9463b518d5773e8ec63b1a" }
-zcash_address = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "11244ad8e82a82bb3e9463b518d5773e8ec63b1a" }
-zcash_encoding = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "11244ad8e82a82bb3e9463b518d5773e8ec63b1a" }
-zcash_transparent = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "11244ad8e82a82bb3e9463b518d5773e8ec63b1a" }
+zcash_protocol = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
+zcash_primitives = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
+f4jumble = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
+zcash_address = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
+zcash_encoding = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
+zcash_transparent = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
