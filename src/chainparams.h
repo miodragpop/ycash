@@ -241,5 +241,12 @@ void UpdateRegtestPow(
     uint256 powLimit,
     bool noRetargeting);
 
+/**
+ * Allows modifying the regtest temporary Orchard disabling soft fork height.
+ * The soft fork itself never fires on Ycash (NU5 has NO_ACTIVATION_HEIGHT),
+ * but the implementation and its regtest test-utility callers (util/test.cpp)
+ * are carried from upstream, so the declaration must remain.
+ */
+void UpdateRegtestTemporaryOrchardDisablingSoftForkHeight(int nHeight);
 
 #endif // BITCOIN_CHAINPARAMS_H
