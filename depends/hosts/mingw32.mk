@@ -22,10 +22,17 @@ mingw32_STRIP=x86_64-w64-mingw32-strip
 mingw32_CFLAGS=-pipe
 mingw32_CXXFLAGS=$(mingw32_CFLAGS)
 
-# Target Windows 7, matching configure.ac, so the whole tree agrees on the
-# minimum Windows version rather than inheriting llvm-mingw's newer default.
-# (Boost is held at 1.88.0 for the same reason; see packages/boost.mk.)
-mingw32_CPPFLAGS=-D_WIN32_WINNT=0x0601
+# _WIN32_WINNT is a build-time header-version selector, not a runtime OS floor.
+# Set to 0x0602 (Win8), raised from upstream's 0x0601 (Win7) to match Boost 1.91.
+# Boost.Thread's win32 backend (thread_primitives.cpp) includes Boost.Atomic,
+# whose wait_ops_windows.hpp calls boost::winapi::WaitOnAddress unconditionally;
+# that winapi wrapper is gated behind BOOST_WINAPI_VERSION_WIN8, so it is
+# undeclared at 0x0601 and the Boost build fails. (Upstream avoids this by
+# holding Boost at 1.88, which still had a Win7 runtime-dispatch fallback; we
+# keep 1.91 and require Win8 instead.) Do NOT go to 0x0a00 (Win10): llvm-mingw
+# then derives a Win11 NTDDI_VERSION that breaks the libevent iphlpapi.h build.
+# Win8 is the minimum that satisfies Boost 1.91 without tripping that.
+mingw32_CPPFLAGS=-D_WIN32_WINNT=0x0602
 
 mingw32_release_CFLAGS=-O3
 mingw32_release_CXXFLAGS=$(mingw32_release_CFLAGS)
