@@ -21,6 +21,16 @@ void Transform(uint32_t* s, const unsigned char* chunk, size_t blocks);
 #endif
 #endif
 
+#if defined(__linux__) && defined(ENABLE_ARM_SHANI) && !defined(BUILD_BITCOIN_INTERNAL)
+#include <sys/auxv.h>
+#include <asm/hwcap.h>
+#endif
+
+#if defined(MAC_OSX) && defined(ENABLE_ARM_SHANI) && !defined(BUILD_BITCOIN_INTERNAL)
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#endif
+
 namespace sha256d64_sse41
 {
 void Transform_4way(unsigned char* out, const unsigned char* in);
@@ -39,6 +49,16 @@ void Transform_2way(unsigned char* out, const unsigned char* in);
 namespace sha256_shani
 {
 void Transform(uint32_t* s, const unsigned char* chunk, size_t blocks);
+}
+
+namespace sha256_arm_shani
+{
+void Transform(uint32_t* s, const unsigned char* chunk, size_t blocks);
+}
+
+namespace sha256d64_arm_shani
+{
+void Transform_2way(unsigned char* out, const unsigned char* in);
 }
 
 // Internal implementation code.
@@ -634,6 +654,38 @@ std::string SHA256AutoDetect()
         ret += ",avx2(8way)";
     }
 #endif
+#endif
+
+#if defined(ENABLE_ARM_SHANI) && !defined(BUILD_BITCOIN_INTERNAL)
+    bool have_arm_shani = false;
+
+#if defined(__linux__)
+#if defined(__arm__) // 32-bit
+    if (getauxval(AT_HWCAP2) & HWCAP2_SHA2) {
+        have_arm_shani = true;
+    }
+#endif
+#if defined(__aarch64__) // 64-bit
+    if (getauxval(AT_HWCAP) & HWCAP_SHA2) {
+        have_arm_shani = true;
+    }
+#endif
+#endif
+
+#if defined(MAC_OSX)
+    int val = 0;
+    size_t len = sizeof(val);
+    if (sysctlbyname("hw.optional.arm.FEAT_SHA256", &val, &len, nullptr, 0) == 0) {
+        have_arm_shani = val != 0;
+    }
+#endif
+
+    if (have_arm_shani) {
+        Transform = sha256_arm_shani::Transform;
+        TransformD64 = TransformD64Wrapper<sha256_arm_shani::Transform>;
+        TransformD64_2way = sha256d64_arm_shani::Transform_2way;
+        ret = "arm_shani(1way,2way)";
+    }
 #endif
 
     assert(SelfTest());
