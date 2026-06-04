@@ -126,9 +126,9 @@ codegen-units = 1
 # keep the workspace coherent (f4jumble is a transitive dependency of the
 # patched zcash_address; it is unmodified but must share the same source).
 [patch.crates-io]
-zcash_protocol = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
-zcash_primitives = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
-f4jumble = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
-zcash_address = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
-zcash_encoding = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
-zcash_transparent = { git = "http://192.168.1.106:3000/miodrag/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
+zcash_protocol = { git = "https://github.com/miodragpop/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
+zcash_primitives = { git = "https://github.com/miodragpop/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
+f4jumble = { git = "https://github.com/miodragpop/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
+zcash_address = { git = "https://github.com/miodragpop/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
+zcash_encoding = { git = "https://github.com/miodragpop/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
+zcash_transparent = { git = "https://github.com/miodragpop/librustzcash.git", rev = "ec525fae828ff67af0bf5d1995acfe445340ce66" }
