@@ -382,7 +382,10 @@ UniValue importwallet_impl(const UniValue& params, bool fImportZKeys)
     EnsureWalletIsUnlocked();
 
     ifstream file;
-    file.open(params[0].get_str().c_str(), std::ios::in | std::ios::ate);
+    // Binary mode: keep tellg/seekg byte offsets consistent regardless of the
+    // file's line endings. In text mode on Windows, CRLF translation desyncs
+    // the read position and corrupts parsed lines. CR is stripped per line below.
+    file.open(params[0].get_str().c_str(), std::ios::in | std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         int err = errno;
         throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -401,10 +404,17 @@ UniValue importwallet_impl(const UniValue& params, bool fImportZKeys)
     KeyIO keyIO(chainparams);
 
     pwalletMain->ShowProgress(_("Importing..."), 0); // show progress dialog in GUI
+    int64_t nBytesRead = 0;
     while (file.good()) {
-        pwalletMain->ShowProgress("", std::max(1, std::min(99, (int)(((double)file.tellg() / (double)nFilesize) * 100))));
+        pwalletMain->ShowProgress("", std::max(1, std::min(99, (int)(((double)nBytesRead / (double)nFilesize) * 100))));
         std::string line;
         std::getline(file, line);
+        nBytesRead += (int64_t)line.size() + 1; // +1 for the consumed newline
+        // The file may have been written with CRLF line endings (e.g. produced
+        // on Windows). We open in binary mode for consistent tellg/seekg byte
+        // offsets, so strip any trailing CR that getline leaves behind.
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
         if (line.empty() || line[0] == '#')
             continue;
 
