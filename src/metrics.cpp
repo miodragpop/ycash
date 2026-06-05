@@ -657,8 +657,8 @@ void ThreadShowMetricsScreen()
         std::cout << METRICS_ART << std::endl;
         std::cout << std::endl;
 
-        // Thank you text
-        std::cout << strprintf(_("Thank you for running a %s ycashd %s node!"), WhichNetwork(), FormatFullVersion()) << std::endl;
+        // Thank you text (network + version emphasised in bold; see 8a991e57b)
+        std::cout << strprintf(_("Thank you for running a \e[1m%s ycashd %s\e[0m node!"), WhichNetwork(), FormatFullVersion()) << std::endl;
         std::cout << _("You're helping to strengthen the network and contributing to a social good :)") << std::endl;
 
         // Privacy notice text
