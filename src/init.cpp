@@ -1761,6 +1761,20 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         nInsightExplorerDBCache = (nTotalCache - nBlockTreeDBCache) / 2;
         int64_t nInsightExplorerDBCacheArg = GetArg("-dbcache-insight", 0) << 20;
         if (nInsightExplorerDBCacheArg > 0) {
+            // The insight cache is carved out of -dbcache after the block tree
+            // cache. It must leave room for the coin DB and in-memory UTXO
+            // caches; otherwise the remaining budget goes negative and, since
+            // nCoinCacheUsage is unsigned, underflows to a huge bogus value
+            // (disabling cache-pressure flushes -> unbounded coins cache). Reject
+            // an over-subscribed request instead of silently miscomputing.
+            int64_t nAvailableForInsight = nTotalCache - nBlockTreeDBCache - (nMinDbCache << 20);
+            if (nInsightExplorerDBCacheArg > nAvailableForInsight) {
+                return InitError(strprintf(_(
+                    "-dbcache-insight=%d MiB does not fit within -dbcache=%d MiB "
+                    "(block tree cache takes %d MiB, and room must remain for the "
+                    "chain state and UTXO caches). Increase -dbcache or lower -dbcache-insight."),
+                    nInsightExplorerDBCacheArg >> 20, nTotalCache >> 20, nBlockTreeDBCache >> 20));
+            }
             nInsightExplorerDBCache = nInsightExplorerDBCacheArg;
         }
     }
