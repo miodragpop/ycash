@@ -3,8 +3,6 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php .
 
-#include <iostream>
-
 #include "bench.h"
 #include "bloom.h"
 
@@ -23,10 +21,7 @@ static void RollingBloom(benchmark::State& state)
         data[2] = count >> 16;
         data[3] = count >> 24;
         if (countnow == nEntriesPerGeneration) {
-            auto b = benchmark::clock::now();
             filter.insert(data);
-            auto total = std::chrono::duration_cast<std::chrono::nanoseconds>(benchmark::clock::now() - b).count();
-            std::cout << "RollingBloom-refresh,1," << total << "," << total << "," << total << "\n";
             countnow = 0;
         } else {
             filter.insert(data);
