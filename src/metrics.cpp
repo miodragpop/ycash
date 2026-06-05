@@ -710,13 +710,10 @@ void ThreadShowMetricsScreen()
         lines += printInitMessage();
 
         if (isScreen) {
-            // Explain how to exit
+            // Explain how to exit. Ctrl+C now stops the daemon gracefully on
+            // Windows too (see consoleCtrlHandler in init.cpp).
             std::cout << "[";
-#ifdef WIN32
-            std::cout << _("'ycash-cli.exe stop' to exit");
-#else
             std::cout << _("Press Ctrl+C to exit");
-#endif
             std::cout << "] [" << _("Set 'showmetrics=0' to hide") << "]" << std::endl;
         } else {
             // Print delineator

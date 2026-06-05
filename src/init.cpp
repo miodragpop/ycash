@@ -266,6 +266,7 @@ void Shutdown()
 /**
  * Signal handlers are very limited in what they are allowed to do, so:
  */
+#ifndef WIN32
 void HandleSIGTERM(int)
 {
     fRequestShutdown = true;
@@ -275,6 +276,21 @@ void HandleSIGHUP(int)
 {
     fReopenDebugLog = true;
 }
+#else
+// Windows has no POSIX signals; the console sends control events instead.
+// Ctrl+C, Ctrl+Break, and the console close/logoff/shutdown events all arrive
+// here on a thread Windows spawns for the event. We request a graceful shutdown
+// (StartShutdown sets fRequestShutdown, which the main WaitForShutdown loop
+// polls), then Sleep(INFINITE): the handler thread must block so the process
+// stays alive while the main thread flushes — for CTRL_CLOSE_EVENT Windows
+// otherwise force-kills us after ~5s, mid-flush.
+static BOOL WINAPI consoleCtrlHandler(DWORD dwCtrlType)
+{
+    StartShutdown();
+    Sleep(INFINITE);
+    return true;
+}
+#endif
 
 bool static InitError(const std::string &str)
 {
@@ -1067,6 +1083,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     // Ignore SIGPIPE, otherwise it will bring the daemon down if the client closes unexpectedly
     signal(SIGPIPE, SIG_IGN);
+#else
+    // Clean shutdown on Ctrl+C / console-close on Windows (no POSIX signals).
+    SetConsoleCtrlHandler(consoleCtrlHandler, true);
 #endif
 
     std::set_new_handler(new_handler_terminate);
