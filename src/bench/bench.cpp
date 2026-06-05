@@ -28,8 +28,17 @@ benchmark::BenchRunner::RunAll(benchmark::duration elapsedTimeForOne)
     if (std::ratio_less_equal<benchmark::clock::period, std::micro>::value) {
         std::cerr << "WARNING: Clock precision is worse than microsecond - benchmarks may be less accurate!\n";
     }
-    std::cout << "#Benchmark" << "," << "count" << "," << "min(ns)" << "," << "max(ns)" << "," << "average(ns)" << ","
-              << "min_cycles" << "," << "max_cycles" << "," << "average_cycles" << "\n";
+    // Column layout shared with State::KeepRunning() below (keep widths in sync).
+    std::cout << std::left  << std::setw(30) << "Benchmark"
+              << std::right << std::setw(10) << "evals"
+              << std::setw(12) << "min(ns)"
+              << std::setw(12) << "max(ns)"
+              << std::setw(12) << "avg(ns)"
+              << std::setw(14) << "min(cyc)"
+              << std::setw(14) << "max(cyc)"
+              << std::setw(14) << "avg(cyc)"
+              << "\n";
+    std::cout << std::string(118, '-') << "\n";
 
     for (const auto &p: benchmarks()) {
         State state(p.first, elapsedTimeForOne);
@@ -99,8 +108,16 @@ bool benchmark::State::KeepRunning()
     int64_t max_elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(maxTime).count();
     int64_t avg_elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>((now-beginTime)/count).count();
     int64_t averageCycles = (nowCycles-beginCycles)/count;
-    std::cout << std::fixed << std::setprecision(15) << name << "," << count << "," << min_elapsed << "," << max_elapsed << "," << avg_elapsed << ","
-              << minCycles << "," << maxCycles << "," << averageCycles << "\n";
+    // Fixed-width aligned columns (widths must match the header in RunAll()).
+    std::cout << std::left  << std::setw(30) << name
+              << std::right << std::setw(10) << count
+              << std::setw(12) << min_elapsed
+              << std::setw(12) << max_elapsed
+              << std::setw(12) << avg_elapsed
+              << std::setw(14) << minCycles
+              << std::setw(14) << maxCycles
+              << std::setw(14) << averageCycles
+              << "\n";
     std::cout.copyfmt(std::ios(nullptr));
 
     return false;
