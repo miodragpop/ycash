@@ -7,13 +7,13 @@ package=native_llvm_mingw
 #
 # Keep the bundled LLVM version aligned with native_clang (and therefore with the
 # Rust compiler's LLVM) so that LTO between the C/C++ and Rust objects keeps
-# working. 20260324 ships LLVM 22.1.2, matching native_clang.
-$(package)_version=20260324
-$(package)_llvm_version=22.1.2
+# working. 20260602 ships LLVM 22.1.7, matching native_clang.
+$(package)_version=20260602
+$(package)_llvm_version=22.1.7
 $(package)_download_path=https://github.com/mstorsjo/llvm-mingw/releases/download/$($(package)_version)
 $(package)_download_file=llvm-mingw-$($(package)_version)-ucrt-ubuntu-22.04-x86_64.tar.xz
 $(package)_file_name=$($(package)_download_file)
-$(package)_sha256_hash=f92b02c4f835470deb5ac5fb92ddb458239e80ddff9ce8867155679ee5f57ffc
+$(package)_sha256_hash=9d191203f9768ead60662d3ae53cdf28e0a28b1e6d44b7f329b9202cb2add337
 
 # Stage the toolchain under a dedicated subdirectory of the native prefix so its
 # binaries (clang, clang++, lld, llvm-ar, ...) do not collide with native_clang's
