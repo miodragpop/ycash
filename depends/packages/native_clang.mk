@@ -54,10 +54,14 @@ $(package)_download_path_darwin=https://github.com/llvm/llvm-project/releases/do
 $(package)_download_file_darwin=clang+llvm-$($(package)_version)-x86_64-apple-darwin.tar.xz
 $(package)_file_name_darwin=clang-llvm-$($(package)_version)-x86_64-apple-darwin.tar.xz
 $(package)_sha256_hash_darwin=4c98d891c07c8f6661b233bf6652981f28432cfdbd6f07181114195c3536544b
-# LLVM 22.1.x switched Apple Silicon to the LLVM-*-macOS-ARM64 naming.
-$(package)_download_file_aarch64_darwin=LLVM-$($(package)_version)-macOS-ARM64.tar.xz
-$(package)_file_name_aarch64_darwin=LLVM-$($(package)_version)-macOS-ARM64.tar.xz
-$(package)_sha256_hash_aarch64_darwin=4177245188b0a30a6539c96b361dea56f253485756bfd8927a6a59e7301e7806
+# aarch64-darwin resolves to the darwin pin (Clang 15.0.4), not default_version,
+# because the os-only `darwin` override is matched before default. The native
+# Mac build compiles with the system (Xcode) clang anyway; this fetched clang is
+# only for staged aux tools / libc++, so it is intentionally NOT bumped to 22.1.7
+# (and 15.0.4 predates the LLVM-*-macOS-ARM64 naming, using clang+llvm-*).
+$(package)_download_file_aarch64_darwin=clang+llvm-$($(package)_version)-arm64-apple-darwin21.0.tar.xz
+$(package)_file_name_aarch64_darwin=clang-llvm-$($(package)_version)-arm64-apple-darwin.tar.xz
+$(package)_sha256_hash_aarch64_darwin=70e7a6d98fc42d4c36aca1a5b666c57e83ae474df5920382853b9209c829938a
 $(package)_download_path_freebsd=https://github.com/llvm/llvm-project/releases/download/llvmorg-$($(package)_version)
 $(package)_download_file_freebsd=clang+llvm-$($(package)_version)-amd64-unknown-freebsd12.tar.xz
 $(package)_file_name_freebsd=clang-llvm-$($(package)_version)-amd64-unknown-freebsd12.tar.xz
