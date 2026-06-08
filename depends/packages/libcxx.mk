@@ -9,9 +9,20 @@ $(package)_download_path=$(native_clang_download_path)
 $(package)_download_file_aarch64_linux=LLVM-$($(package)_version)-Linux-ARM64.tar.xz
 $(package)_file_name_aarch64_linux=LLVM-$($(package)_version)-Linux-ARM64.tar.xz
 $(package)_sha256_hash_aarch64_linux=cf2e84d965a95954971cafc71d18c0eb38e723c3ac7276286fd5636df4374b3a
+ifeq ($(LEGACY_GLIBC),1)
+# Match native_clang's LEGACY_GLIBC pin (Clang 18.1.8 ubuntu-18.04 tarball,
+# different naming than the default Clang 22 LLVM-*-Linux-X64). This is only
+# reached on a Linux->Linux CROSS build with LEGACY_GLIBC; the common native
+# 18.04 build (build==host) takes the bottom else-branch and stages libc++ from
+# native_clang directly, never fetching here.
+$(package)_download_file_linux=clang+llvm-$($(package)_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+$(package)_file_name_linux=clang-llvm-$($(package)_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+$(package)_sha256_hash_linux=54ec30358afcc9fb8aa74307db3046f5187f9fb89fb37064cdde906e062ebf36
+else
 $(package)_download_file_linux=LLVM-$($(package)_version)-Linux-X64.tar.xz
 $(package)_file_name_linux=LLVM-$($(package)_version)-Linux-X64.tar.xz
 $(package)_sha256_hash_linux=ff32497b6801267ee427bc69cdaeecfb2d19578af8c2a942e864c45215f9a2ac
+endif
 
 # Starting from LLVM 14.0.0, some Clang binary tarballs store libc++ in a
 # target-specific subdirectory.

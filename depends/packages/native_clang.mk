@@ -5,8 +5,22 @@ package=native_clang
 # - Manually fix the versions for packages that don't exist (the LLVM project
 #   doesn't uniformly cut binaries across releases).
 # The Clang compiler should use the same LLVM version as the Rust compiler.
+# LEGACY_GLIBC build (opt-in): set LEGACY_GLIBC=1 to fetch the Clang 18.1.8
+# binary built for Ubuntu 18.04 (glibc 2.27) instead of the default Clang 22.
+# Use this only when building inside an old (e.g. Ubuntu 18.04) environment to
+# produce ycashd binaries that run on those old glibc systems (3rd-party
+# integrators on legacy distros). The default Clang 22 binary requires glibc
+# 2.34 to run and its output requires glibc 2.38, so it neither runs on nor
+# targets 18.04. Rust stays at 1.96 (its binary runs on glibc 2.17); the
+# resulting Clang18<->Rust-LLVM22 mismatch is harmless here because only
+# Rust-internal thin-LTO is used, not cross-language C++/Rust LTO.
+ifeq ($(LEGACY_GLIBC),1)
+$(package)_default_major_version=18
+$(package)_default_version=18.1.8
+else
 $(package)_default_major_version=22
 $(package)_default_version=22.1.2
+endif
 # 2024-05-03: No Intel macOS packages are available for Clang 16, 17, or 18.
 $(package)_major_version_darwin=15
 $(package)_version_darwin=15.0.4
@@ -25,9 +39,16 @@ $(package)_version=$(if $($(package)_version_$(host_arch)_$(host_os)),$($(packag
 $(package)_major_version=$(if $($(package)_major_version_$(host_arch)_$(host_os)),$($(package)_major_version_$(host_arch)_$(host_os)),$(if $($(package)_major_version_$(host_os)),$($(package)_major_version_$(host_os)),$($(package)_default_major_version)))
 
 $(package)_download_path_linux=https://github.com/llvm/llvm-project/releases/download/llvmorg-$($(package)_version)
+ifeq ($(LEGACY_GLIBC),1)
+# Clang 18.1.8 binary built for Ubuntu 18.04 (glibc 2.27) — runs on old distros.
+$(package)_download_file_linux=clang+llvm-$($(package)_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+$(package)_file_name_linux=clang-llvm-$($(package)_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+$(package)_sha256_hash_linux=54ec30358afcc9fb8aa74307db3046f5187f9fb89fb37064cdde906e062ebf36
+else
 $(package)_download_file_linux=LLVM-$($(package)_version)-Linux-X64.tar.xz
 $(package)_file_name_linux=LLVM-$($(package)_version)-Linux-X64.tar.xz
 $(package)_sha256_hash_linux=ff32497b6801267ee427bc69cdaeecfb2d19578af8c2a942e864c45215f9a2ac
+endif
 $(package)_download_path_darwin=https://github.com/llvm/llvm-project/releases/download/llvmorg-$($(package)_version)
 $(package)_download_file_darwin=clang+llvm-$($(package)_version)-x86_64-apple-darwin.tar.xz
 $(package)_file_name_darwin=clang-llvm-$($(package)_version)-x86_64-apple-darwin.tar.xz
@@ -45,9 +66,14 @@ $(package)_file_name_aarch64_linux=LLVM-$($(package)_version)-Linux-ARM64.tar.xz
 $(package)_sha256_hash_aarch64_linux=cf2e84d965a95954971cafc71d18c0eb38e723c3ac7276286fd5636df4374b3a
 
 ifeq ($(build_os),linux)
+ifeq ($(LEGACY_GLIBC),1)
+# The Clang 18.1.8 ubuntu-18.04 ld.lld does not need libxml2 staged.
+$(package)_dependencies=native_libtinfo5
+else
 # native_libxml2 supplies libxml2.so.2, which the downloaded ld.lld/lld link
 # against; depending on it here stages the library before any host package links.
 $(package)_dependencies=native_libtinfo5 native_libxml2
+endif
 endif
 
 # Ensure we have clang native to the builder, not the target host. Prefer the
