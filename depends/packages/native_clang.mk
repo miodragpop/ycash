@@ -19,9 +19,10 @@ $(package)_default_major_version=18
 $(package)_default_version=18.1.8
 else
 $(package)_default_major_version=22
-$(package)_default_version=22.1.2
+$(package)_default_version=22.1.7
 endif
 # 2024-05-03: No Intel macOS packages are available for Clang 16, 17, or 18.
+# x86_64-apple-darwin is being abandoned; only aarch64-darwin is maintained.
 $(package)_major_version_darwin=15
 $(package)_version_darwin=15.0.4
 # 2023-02-16: No FreeBSD packages are available for Clang 15.
@@ -47,15 +48,16 @@ $(package)_sha256_hash_linux=54ec30358afcc9fb8aa74307db3046f5187f9fb89fb37064cdd
 else
 $(package)_download_file_linux=LLVM-$($(package)_version)-Linux-X64.tar.xz
 $(package)_file_name_linux=LLVM-$($(package)_version)-Linux-X64.tar.xz
-$(package)_sha256_hash_linux=ff32497b6801267ee427bc69cdaeecfb2d19578af8c2a942e864c45215f9a2ac
+$(package)_sha256_hash_linux=edb0522b41e261819c06ea437d249f9b8acfa413d3805bc9920eec6fb76ff830
 endif
 $(package)_download_path_darwin=https://github.com/llvm/llvm-project/releases/download/llvmorg-$($(package)_version)
 $(package)_download_file_darwin=clang+llvm-$($(package)_version)-x86_64-apple-darwin.tar.xz
 $(package)_file_name_darwin=clang-llvm-$($(package)_version)-x86_64-apple-darwin.tar.xz
 $(package)_sha256_hash_darwin=4c98d891c07c8f6661b233bf6652981f28432cfdbd6f07181114195c3536544b
-$(package)_download_file_aarch64_darwin=clang+llvm-$($(package)_version)-arm64-apple-darwin21.0.tar.xz
-$(package)_file_name_aarch64_darwin=clang-llvm-$($(package)_version)-arm64-apple-darwin.tar.xz
-$(package)_sha256_hash_aarch64_darwin=70e7a6d98fc42d4c36aca1a5b666c57e83ae474df5920382853b9209c829938a
+# LLVM 22.1.x switched Apple Silicon to the LLVM-*-macOS-ARM64 naming.
+$(package)_download_file_aarch64_darwin=LLVM-$($(package)_version)-macOS-ARM64.tar.xz
+$(package)_file_name_aarch64_darwin=LLVM-$($(package)_version)-macOS-ARM64.tar.xz
+$(package)_sha256_hash_aarch64_darwin=4177245188b0a30a6539c96b361dea56f253485756bfd8927a6a59e7301e7806
 $(package)_download_path_freebsd=https://github.com/llvm/llvm-project/releases/download/llvmorg-$($(package)_version)
 $(package)_download_file_freebsd=clang+llvm-$($(package)_version)-amd64-unknown-freebsd12.tar.xz
 $(package)_file_name_freebsd=clang-llvm-$($(package)_version)-amd64-unknown-freebsd12.tar.xz
@@ -63,7 +65,7 @@ $(package)_sha256_hash_freebsd=b0a7b86dacb12afb8dd2ca99ea1b894d9cce84aab7711cb19
 $(package)_download_path_aarch64_linux=https://github.com/llvm/llvm-project/releases/download/llvmorg-$($(package)_version)
 $(package)_download_file_aarch64_linux=LLVM-$($(package)_version)-Linux-ARM64.tar.xz
 $(package)_file_name_aarch64_linux=LLVM-$($(package)_version)-Linux-ARM64.tar.xz
-$(package)_sha256_hash_aarch64_linux=cf2e84d965a95954971cafc71d18c0eb38e723c3ac7276286fd5636df4374b3a
+$(package)_sha256_hash_aarch64_linux=118ca2d3ad9da34367e05735317854e7977db45dc4c02a32af58da64c23b8789
 
 ifeq ($(build_os),linux)
 ifeq ($(LEGACY_GLIBC),1)

@@ -8,7 +8,7 @@ ifneq ($(host_os),mingw32)
 $(package)_download_path=$(native_clang_download_path)
 $(package)_download_file_aarch64_linux=LLVM-$($(package)_version)-Linux-ARM64.tar.xz
 $(package)_file_name_aarch64_linux=LLVM-$($(package)_version)-Linux-ARM64.tar.xz
-$(package)_sha256_hash_aarch64_linux=cf2e84d965a95954971cafc71d18c0eb38e723c3ac7276286fd5636df4374b3a
+$(package)_sha256_hash_aarch64_linux=118ca2d3ad9da34367e05735317854e7977db45dc4c02a32af58da64c23b8789
 ifeq ($(LEGACY_GLIBC),1)
 # Match native_clang's LEGACY_GLIBC pin (Clang 18.1.8 ubuntu-18.04 tarball,
 # different naming than the default Clang 22 LLVM-*-Linux-X64). This is only
@@ -21,7 +21,7 @@ $(package)_sha256_hash_linux=54ec30358afcc9fb8aa74307db3046f5187f9fb89fb37064cdd
 else
 $(package)_download_file_linux=LLVM-$($(package)_version)-Linux-X64.tar.xz
 $(package)_file_name_linux=LLVM-$($(package)_version)-Linux-X64.tar.xz
-$(package)_sha256_hash_linux=ff32497b6801267ee427bc69cdaeecfb2d19578af8c2a942e864c45215f9a2ac
+$(package)_sha256_hash_linux=edb0522b41e261819c06ea437d249f9b8acfa413d3805bc9920eec6fb76ff830
 endif
 
 # Starting from LLVM 14.0.0, some Clang binary tarballs store libc++ in a
