@@ -889,6 +889,17 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([
 )
 LDFLAGS="$TEMP_LDFLAGS"
 
+dnl Used by AllocateFileRange() to preallocate block/undo files in one syscall
+dnl (falls back to manual zero-fill if unavailable).
+AC_MSG_CHECKING(for posix_fallocate)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+  #define _POSIX_C_SOURCE 200112L
+  #include <fcntl.h>]],
+ [[ posix_fallocate(0, 0, 0); ]])],
+ [ AC_MSG_RESULT(yes); AC_DEFINE(HAVE_POSIX_FALLOCATE, 1, [Define this symbol if you have posix_fallocate]) ],
+ [ AC_MSG_RESULT(no) ]
+)
+
 dnl LevelDB platform checks
 AC_MSG_CHECKING(for fdatasync)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <unistd.h>]],
