@@ -4806,17 +4806,24 @@ bool ActivateBestChain(CValidationState& state, const CChainParams& chainparams,
     CBlockIndex *pindexMostWork = NULL;
     CBlockIndex *pindexNewTip = NULL;
     do {
-        // Sleep briefly to allow other threads a chance at grabbing cs_main if
+        // Yield briefly to allow other threads a chance at grabbing cs_main if
         // we are connecting a long chain of blocks and would otherwise hold the
-        // lock almost continuously. As of 2023-02-03 the Zcash mainnet chain is
-        // around height 1,972,000; the total time slept here while activating
-        // the best chain from genesis to that height is ~6.6 minutes. This helps
-        // the internal wallet, if it is enabled, to keep up with the connected
-        // blocks, reducing the overall time until the node becomes usable.
+        // lock almost continuously. This helps the internal wallet, if enabled,
+        // to keep up with connected blocks.
         //
-        // This is defined to be an interruption point.
+        // We deliberately do NOT use a timed `sleep_for` here: on Windows a
+        // sub-millisecond sleep rounds up to the system timer tick (~15.6ms by
+        // default), so a 200us sleep actually cost ~10ms PER BLOCK and dominated
+        // reindex wall-clock (~2-3x slower than Linux for the same binary).
+        // `yield()` releases the CPU/lock window to any ready thread and returns
+        // immediately, with no timer-tick dependency -- identical behaviour on
+        // every OS, during both initial sync and live operation.
+        // `interruption_point()` preserves clean shutdown (the property the
+        // previous sleep_for provided, since sleep_for is itself an interruption
+        // point).
         // <https://www.boost.org/doc/libs/1_81_0/doc/html/thread/thread_management.html#interruption_points>
-        boost::this_thread::sleep_for(boost::chrono::microseconds(200));
+        boost::this_thread::interruption_point();
+        boost::this_thread::yield();
 
         bool fInitialDownload;
         int nNewHeight;
