@@ -652,6 +652,13 @@ endif
 
 if TARGET_WINDOWS
 ycashd_SOURCES += bitcoind-res.rc
+# Route malloc/free (and thus operator new) through jemalloc on Windows too,
+# now that the per-block sleep_for bug (which masked any allocator effect) is
+# fixed. jemalloc is built for mingw with --with-jemalloc-prefix= so it defines
+# the program's malloc; --whole-archive forces those symbols to win over the
+# CRT's. No -ldl (Windows has no libdl); jemalloc uses Win32 TLS/VirtualAlloc
+# (kernel32, auto-linked). ycashd only.
+ycashd_LDFLAGS += -Wl,--whole-archive -ljemalloc -Wl,--no-whole-archive
 endif
 
 ycashd_LDADD = \

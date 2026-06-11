@@ -9,10 +9,12 @@ native_packages += native_libtinfo5
 native_packages += native_libxml2
 endif
 
-# jemalloc is linked only for Linux targets, where it beats glibc malloc on the
-# coins-cache allocation churn during reindex. linux_packages gates on the HOST
-# (target) OS, so the mingw32/darwin cross builds correctly exclude it.
+# jemalloc beats the platform allocator on the coins-cache allocation churn
+# during reindex; built for the Linux and Windows (mingw) targets. These gate on
+# the HOST (target) OS, so the darwin cross build excludes it (Apple's libmalloc
+# needs zone interposition, not plain symbol override). See jemalloc.mk.
 linux_packages += jemalloc
+mingw32_packages += jemalloc
 
 wallet_packages=bdb
 
