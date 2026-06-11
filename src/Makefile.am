@@ -638,6 +638,18 @@ ycashd_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 ycashd_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 ycashd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
+if TARGET_LINUX
+# Route malloc/free (and thus operator new, which libstdc++ implements on top of
+# malloc) through jemalloc on Linux -- faster than glibc malloc for the
+# coins-cache allocation churn during reindex. jemalloc is built unprefixed
+# (depends/packages/jemalloc.mk); --whole-archive forces its malloc symbols to
+# define the program's allocator instead of glibc's. ycashd only (the node);
+# the cli/tx tools do no allocation-heavy work. -lpthread -ldl are jemalloc's
+# own runtime deps. These are linker flags (not libraries), so they live in
+# LDFLAGS to keep the --whole-archive bracketing intact on the link line.
+ycashd_LDFLAGS += -Wl,--whole-archive -ljemalloc -Wl,--no-whole-archive -lpthread -ldl
+endif
+
 if TARGET_WINDOWS
 ycashd_SOURCES += bitcoind-res.rc
 endif
