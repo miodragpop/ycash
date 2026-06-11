@@ -2,6 +2,14 @@ ACLOCAL_AMFLAGS = -I build-aux/m4
 .PHONY: gen
 .INTERMEDIATE: $(GENBIN)
 
+# univalue.h uses C++11 (move ctors, noexcept, = default). This sub-project's
+# configure does not set a standard, so it relied on the compiler defaulting to
+# >=C++11 -- which fails on older toolchains (e.g. the Apple clang on macOS
+# Monterey, which defaults to ~C++98). Pin C++17 to match the parent project
+# (configure.ac AX_CXX_COMPILE_STDCXX([17])). Appended to each target's CXXFLAGS
+# below because a per-target _CXXFLAGS overrides (does not merge with) AM_CXXFLAGS.
+UNIVALUE_STD = -std=c++17
+
 include_HEADERS = include/univalue.h
 noinst_HEADERS = lib/univalue_escapes.h lib/univalue_utffilter.h
 
@@ -19,7 +27,7 @@ libunivalue_la_SOURCES = \
 libunivalue_la_LDFLAGS = \
 	-version-info $(LIBUNIVALUE_CURRENT):$(LIBUNIVALUE_REVISION):$(LIBUNIVALUE_AGE) \
 	-no-undefined
-libunivalue_la_CXXFLAGS = -I$(top_srcdir)/include
+libunivalue_la_CXXFLAGS = -I$(top_srcdir)/include $(UNIVALUE_STD)
 
 TESTS = test/object test/unitester test/no_nul
 
@@ -40,22 +48,22 @@ TEST_DATA_DIR=test
 
 test_unitester_SOURCES = test/unitester.cpp
 test_unitester_LDADD = libunivalue.la
-test_unitester_CXXFLAGS = -I$(top_srcdir)/include -DJSON_TEST_SRC=\"$(srcdir)/$(TEST_DATA_DIR)\"
+test_unitester_CXXFLAGS = -I$(top_srcdir)/include -DJSON_TEST_SRC=\"$(srcdir)/$(TEST_DATA_DIR)\" $(UNIVALUE_STD)
 test_unitester_LDFLAGS = -static $(LIBTOOL_APP_LDFLAGS) -lpthread
 
 test_test_json_SOURCES = test/test_json.cpp
 test_test_json_LDADD = libunivalue.la
-test_test_json_CXXFLAGS = -I$(top_srcdir)/include
+test_test_json_CXXFLAGS = -I$(top_srcdir)/include $(UNIVALUE_STD)
 test_test_json_LDFLAGS = -static $(LIBTOOL_APP_LDFLAGS) -lpthread
 
 test_no_nul_SOURCES = test/no_nul.cpp
 test_no_nul_LDADD = libunivalue.la
-test_no_nul_CXXFLAGS = -I$(top_srcdir)/include
+test_no_nul_CXXFLAGS = -I$(top_srcdir)/include $(UNIVALUE_STD)
 test_no_nul_LDFLAGS = -static $(LIBTOOL_APP_LDFLAGS) -lpthread
 
 test_object_SOURCES = test/object.cpp
 test_object_LDADD = libunivalue.la
-test_object_CXXFLAGS = -I$(top_srcdir)/include
+test_object_CXXFLAGS = -I$(top_srcdir)/include $(UNIVALUE_STD)
 test_object_LDFLAGS = -static $(LIBTOOL_APP_LDFLAGS) -lpthread
 
 TEST_FILES = \
