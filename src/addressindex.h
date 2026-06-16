@@ -11,6 +11,8 @@
 #include "amount.h"
 #include "script/script.h"
 
+#include <utility>
+
 struct CAddressUnspentKey {
     unsigned int type;
     uint160 hashBytes;
@@ -68,10 +70,12 @@ struct CAddressUnspentValue {
         READWRITE(blockHeight);
     }
 
-    CAddressUnspentValue(CAmount sats, CScript scriptPubKey, int height) {
-        satoshis = sats;
-        script = scriptPubKey;
-        blockHeight = height;
+    CAddressUnspentValue(CAmount sats, CScript scriptPubKey, int height)
+        : satoshis(sats), script(std::move(scriptPubKey)), blockHeight(height) {
+        // scriptPubKey is taken by value and moved into the member: the caller's
+        // const source is copied once into the parameter (unavoidable), and that
+        // copy is moved (not copied again) into `script`. Hot path: one entry per
+        // unspent transparent output per block during insight/lightwalletd index.
     }
 
     CAddressUnspentValue() {

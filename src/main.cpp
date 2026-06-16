@@ -3578,7 +3578,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (fAddressIndex || fSpentIndex) {
                 for (size_t j = 0; j < tx.vin.size(); j++) {
 
-                    const CTxIn input = tx.vin[j];
+                    const CTxIn& input = tx.vin[j];
                     const CTxOut &prevout = allPrevOutputs[j];
                     auto [scriptType, addrHash] = prevout.scriptPubKey.AddressIndexKey();
                     if (fAddressIndex && scriptType != CScript::UNKNOWN) {
