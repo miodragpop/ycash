@@ -4806,24 +4806,37 @@ bool ActivateBestChain(CValidationState& state, const CChainParams& chainparams,
     CBlockIndex *pindexMostWork = NULL;
     CBlockIndex *pindexNewTip = NULL;
     do {
-        // Yield briefly to allow other threads a chance at grabbing cs_main if
-        // we are connecting a long chain of blocks and would otherwise hold the
-        // lock almost continuously. This helps the internal wallet, if enabled,
-        // to keep up with connected blocks.
+        // Release cs_main periodically so other threads (the metrics UI, the
+        // internal wallet) can grab it when we are connecting a long chain of
+        // blocks and would otherwise hold the lock almost continuously.
         //
-        // We deliberately do NOT use a timed `sleep_for` here: on Windows a
-        // sub-millisecond sleep rounds up to the system timer tick (~15.6ms by
-        // default), so a 200us sleep actually cost ~10ms PER BLOCK and dominated
-        // reindex wall-clock (~2-3x slower than Linux for the same binary).
-        // `yield()` releases the CPU/lock window to any ready thread and returns
-        // immediately, with no timer-tick dependency -- identical behaviour on
-        // every OS, during both initial sync and live operation.
-        // `interruption_point()` preserves clean shutdown (the property the
-        // previous sleep_for provided, since sleep_for is itself an interruption
-        // point).
-        // <https://www.boost.org/doc/libs/1_81_0/doc/html/thread/thread_management.html#interruption_points>
+        // `yield()` every iteration is cheap and timer-independent, but it only
+        // OFFERS the CPU to a ready thread on the same scheduler pass -- the
+        // CPU-hot connect loop tends to immediately reacquire cs_main, so the
+        // metrics thread can starve (frozen height display) on a fast reindex.
+        // A timed `sleep_for` gives a GUARANTEED release window, but on Windows
+        // a sub-ms sleep rounds up to the system timer tick (~15.6ms), and at
+        // per-block cadence that dominated reindex wall-clock (~2-3x slowdown).
+        //
+        // Compromise: yield() every iteration (cheap, timer-independent), plus a
+        // real short sleep at most once every few seconds of wall-clock. The
+        // timed sleep is what reliably hands cs_main to the metrics/wallet
+        // thread; gating it on elapsed TIME (not block count) keeps the UI
+        // refresh cadence constant regardless of block density, and bounds the
+        // Windows timer-tick cost (a sub-ms sleep rounds up to ~15ms there) to
+        // one tick per interval -- negligible amortized over thousands of
+        // blocks, vs the ~2-3x reindex slowdown a per-block sleep caused. The
+        // 200us request is honored exactly on Linux and rounds to one tick on
+        // Windows; either way it yields a guaranteed release window.
         boost::this_thread::interruption_point();
-        boost::this_thread::yield();
+        static int64_t nLastActivateSleepMs = 0;
+        int64_t nNowMs = GetTimeMillis();
+        if (nNowMs - nLastActivateSleepMs >= 5000) {
+            nLastActivateSleepMs = nNowMs;
+            boost::this_thread::sleep_for(boost::chrono::microseconds(200));
+        } else {
+            boost::this_thread::yield();
+        }
 
         bool fInitialDownload;
         int nNewHeight;
