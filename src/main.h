@@ -157,7 +157,7 @@ static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
 static const bool DEFAULT_PERMIT_BAREMULTISIG = true;
 static const bool DEFAULT_CHECKPOINTS_ENABLED = true;
 static const bool DEFAULT_IBD_SKIP_TX_VERIFICATION = false;
-static const bool DEFAULT_REINDEX_ONE_PHASE = false;
+static const bool DEFAULT_REINDEX_ONE_PHASE = true;
 static const bool DEFAULT_TXINDEX = false;
 static const unsigned int DEFAULT_BANSCORE_THRESHOLD = 100;
 
