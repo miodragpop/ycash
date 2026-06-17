@@ -893,7 +893,7 @@ void BatchWriteAnchors(
 
 void BatchWriteHistory(CHistoryCacheMap& historyCacheMap, CHistoryCacheMap& historyCacheMapIn) {
     for (auto nextHistoryCache = historyCacheMapIn.begin(); nextHistoryCache != historyCacheMapIn.end(); nextHistoryCache++) {
-        auto historyCacheIn = nextHistoryCache->second;
+        const auto& historyCacheIn = nextHistoryCache->second;
         auto epochId = nextHistoryCache->first;
 
         auto historyCache = historyCacheMap.find(epochId);
@@ -905,7 +905,7 @@ void BatchWriteHistory(CHistoryCacheMap& historyCacheMap, CHistoryCacheMap& hist
             // auto-indexes the nodes, so we need to extend in the same order as
             // this cache is indexed.
             for (size_t i = historyCacheIn.updateDepth; i < historyCacheIn.length; i++) {
-                historyCache->second.Extend(historyCacheIn.appends[i]);
+                historyCache->second.Extend(historyCacheIn.appends.at(i));
             }
 
             // the lengths should now match

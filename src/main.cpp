@@ -1455,7 +1455,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
                     REJECT_INVALID, "bad-tx-version-group-id");
         }
     }
-    auto orchard_bundle = tx.GetOrchardBundle();
+    const auto& orchard_bundle = tx.GetOrchardBundle();
 
     // Check Orchard action fields that are not validated by the proof circuit:
     // - rk must not be the identity (causes a crash in proof verification)
