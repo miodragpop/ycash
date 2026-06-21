@@ -481,6 +481,7 @@ std::string HelpMessage(HelpMessageMode mode)
         _("For multiple specific categories use -debug=<category> multiple times."));
     strUsage += HelpMessageOpt("-experimentalfeatures", _("Enable use of experimental features"));
     strUsage += HelpMessageOpt("-atomicswaps", _("Enable atomic-swap (HTLC) RPCs: initiateswap, participateswap, claimswap, refundswap, auditswap, monitorswap, listatomicswaps, getswapsecret, deleteswap, initiateswapfromhash. Requires -experimentalfeatures. Swap records are persisted in wallet.dat."));
+    strUsage += HelpMessageOpt("-compactblocks", _("Enable the getcompactblock and getcompactblockrange RPCs, which emit lightwalletd-ready compact blocks (CompactBlock protobuf, hex-encoded). Advertised as \"compactblocks\" in getexperimentalfeatures. Requires -experimentalfeatures."));
     if (showDebug)
         strUsage += HelpMessageOpt("-nodebug", "Turn off debugging messages, same as -debug=0");
     strUsage += HelpMessageOpt("-help-debug", _("Show all debugging options (usage: --help -help-debug)"));

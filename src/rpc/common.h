@@ -53,6 +53,8 @@ static const CRPCConvertTable rpcCvtTable =
     { "getblockhash",                {{o}, {}} },
     { "getblockheader",              {{s}, {o}} },
     { "getblock",                    {{s}, {o}} },
+    { "getcompactblock",             {{s}, {}} },
+    { "getcompactblockrange",        {{o, o}, {}} },
     { "gettxoutsetinfo",             {{}, {}} },
     { "gettxout",                    {{s, o}, {o}} },
     { "verifychain",                 {{}, {o, o}} },

@@ -26,6 +26,7 @@
 
 #include <univalue.h>
 
+#include <iterator>
 #include <mutex>
 #include <optional>
 #include <regex>
@@ -316,6 +317,250 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
     return result;
 }
+
+namespace {
+// ---------------------------------------------------------------------------
+// Compact-block serialization for the getcompactblock / getcompactblockrange
+// RPCs (the lightwalletd fast path). We hand-emit the proto3 wire format of the
+// `cash.z.wallet.sdk.rpc.CompactBlock` message (compact_formats.proto) so the
+// light-wallet backend receives ready-made compact blocks and does not parse,
+// strip, and marshal every transaction itself. No protobuf library is linked;
+// the schema is small and stable.
+//
+// This mirrors the canonical Go transform in lightwalletd parser/{block,
+// transaction}.go `ToCompact()`. It handles both shielded pools generically:
+// Sapling today, and Orchard with zero code change if/when NU5 activates on
+// Ycash (the empty-pool fast paths are reached via cheap count guards, so there
+// is no runtime cost while the pools are empty).
+//
+// proto3 semantics: zero-valued scalar fields are omitted on the wire; repeated
+// and embedded-message fields are simply not written when empty. The varint
+// field helper below omits zeros accordingly, matching a proto3 marshaller.
+
+void pbVarint(std::vector<unsigned char>& out, uint64_t v)
+{
+    while (v >= 0x80) {
+        out.push_back((unsigned char)(v) | 0x80);
+        v >>= 7;
+    }
+    out.push_back((unsigned char)v);
+}
+
+// Tag = (fieldNum << 3) | wireType. Wire type 0 = varint, 2 = length-delimited.
+void pbTag(std::vector<unsigned char>& out, uint32_t fieldNum, uint32_t wireType)
+{
+    pbVarint(out, ((uint64_t)fieldNum << 3) | wireType);
+}
+
+// uint32/uint64 scalar field (proto3: omit when zero).
+void pbVarintField(std::vector<unsigned char>& out, uint32_t fieldNum, uint64_t v)
+{
+    if (v == 0) return;
+    pbTag(out, fieldNum, 0);
+    pbVarint(out, v);
+}
+
+// Raw length-delimited field (tag + length + bytes). Always emitted, even when
+// empty -- used for embedded messages, including a present-but-empty repeated
+// message element (a zero-valued TxOut is still an element at its position).
+void pbLenDelim(std::vector<unsigned char>& out, uint32_t fieldNum, const unsigned char* p, size_t n)
+{
+    pbTag(out, fieldNum, 2);
+    pbVarint(out, n);
+    out.insert(out.end(), p, p + n);
+}
+
+// `bytes` scalar field. Canonical proto3 omits an empty bytes field, so a
+// zero-length value writes nothing (matches the Go marshaller). The fixed-size
+// callers here (hashes, commitments, ciphertexts) are never empty; the variable
+// one (scriptPubKey, below) relies on this to omit an empty script.
+void pbBytesField(std::vector<unsigned char>& out, uint32_t fieldNum, const unsigned char* p, size_t n)
+{
+    if (n == 0) return;
+    pbLenDelim(out, fieldNum, p, n);
+}
+
+// `bytes` field from an iterator range (for containers without raw .data(), e.g.
+// CScript / prevector, whose begin()/end() yield iterator objects). Same
+// canonical proto3 empty-omission as pbBytesField.
+template <typename It>
+void pbBytesFieldRange(std::vector<unsigned char>& out, uint32_t fieldNum, It first, It last)
+{
+    size_t n = (size_t)std::distance(first, last);
+    if (n == 0) return;
+    pbTag(out, fieldNum, 2);
+    pbVarint(out, (uint64_t)n);
+    out.insert(out.end(), first, last);
+}
+
+// Embedded message field -- always emitted (so a present repeated element or an
+// explicitly-empty submessage is preserved on the wire).
+void pbMessageField(std::vector<unsigned char>& out, uint32_t fieldNum, const std::vector<unsigned char>& child)
+{
+    pbLenDelim(out, fieldNum, child.data(), child.size());
+}
+
+// First 52 bytes of the encrypted note ciphertext are the compact form.
+static const size_t COMPACT_CIPHERTEXT_LEN = 52;
+
+// CompactTx (compact_formats.proto). `index` is the tx's position in the block.
+std::vector<unsigned char> SerializeCompactTx(const CTransaction& tx, size_t index)
+{
+    std::vector<unsigned char> ctx;
+
+    // (1) index
+    pbVarintField(ctx, 1, (uint64_t)index);
+
+    // (2) txid -- raw 32 internal bytes (protocol order, NOT hex/reversed)
+    {
+        uint256 txid = tx.GetHash();
+        pbBytesField(ctx, 2, txid.begin(), txid.size());
+    }
+
+    // (3) fee -- omitted (requires prior-tx lookup for transparent inputs).
+
+    // (4) Sapling spends: { nf }
+    if (tx.GetSaplingSpendsCount() > 0) {
+        for (const auto& spend : tx.GetSaplingSpends()) {
+            std::vector<unsigned char> s;
+            auto nf = spend.nullifier();
+            pbBytesField(s, 1, nf.data(), nf.size());
+            pbMessageField(ctx, 4, s);
+        }
+    }
+
+    // (5) Sapling outputs: { cmu, ephemeralKey, ciphertext[0:52] }
+    if (tx.GetSaplingOutputsCount() > 0) {
+        for (const auto& output : tx.GetSaplingOutputs()) {
+            std::vector<unsigned char> o;
+            auto cmu = output.cmu();
+            auto epk = output.ephemeral_key();
+            auto enc = output.enc_ciphertext(); // 580 bytes
+            pbBytesField(o, 1, cmu.data(), cmu.size());
+            pbBytesField(o, 2, epk.data(), epk.size());
+            pbBytesField(o, 3, enc.data(), COMPACT_CIPHERTEXT_LEN);
+            pbMessageField(ctx, 5, o);
+        }
+    }
+
+    // (6) Orchard actions: { nullifier, cmx, ephemeralKey, ciphertext[0:52] }.
+    // Handled generically (NU5-ready). On current Ycash GetNumActions() is 0, so
+    // this is a cheap no-op with no FFI clone; when NU5/Orchard activates it
+    // serializes actions with no code change.
+    if (tx.GetOrchardBundle().GetNumActions() > 0) {
+        for (const auto& action : tx.GetOrchardBundle().GetDetails()->actions()) {
+            std::vector<unsigned char> a;
+            auto nf = action.nullifier();
+            auto cmx = action.cmx();
+            auto epk = action.ephemeral_key();
+            auto enc = action.enc_ciphertext(); // 580 bytes
+            pbBytesField(a, 1, nf.data(), nf.size());
+            pbBytesField(a, 2, cmx.data(), cmx.size());
+            pbBytesField(a, 3, epk.data(), epk.size());
+            pbBytesField(a, 4, enc.data(), COMPACT_CIPHERTEXT_LEN);
+            pbMessageField(ctx, 6, a);
+        }
+    }
+
+    // (7) transparent inputs (vin) -- omitted for coinbase (index 0).
+    if (index > 0) {
+        for (const auto& in : tx.vin) {
+            std::vector<unsigned char> v;
+            pbBytesField(v, 1, in.prevout.hash.begin(), in.prevout.hash.size()); // raw 32
+            pbVarintField(v, 2, (uint64_t)in.prevout.n);
+            pbMessageField(ctx, 7, v);
+        }
+    }
+
+    // (8) transparent outputs (vout): { value, scriptPubKey }
+    for (const auto& out : tx.vout) {
+        std::vector<unsigned char> v;
+        pbVarintField(v, 1, (uint64_t)out.nValue);
+        const CScript& spk = out.scriptPubKey;
+        pbBytesFieldRange(v, 2, spk.begin(), spk.end());
+        pbMessageField(ctx, 8, v);
+    }
+
+    return ctx;
+}
+
+// Caches the last (root -> tree size) lookup so a getcompactblockrange over the
+// sparse-shielded Ycash chain (where consecutive blocks usually share a final
+// root) collapses to ~one anchor-frontier load per distinct tree state.
+struct CompactTreeSizeCache {
+    uint256 lastSaplingRoot; uint64_t lastSaplingSize = 0; bool haveSapling = false;
+    uint256 lastOrchardRoot; uint64_t lastOrchardSize = 0; bool haveOrchard = false;
+};
+
+uint64_t SaplingTreeSizeCached(const CBlockIndex* pindex, CompactTreeSizeCache& cache)
+{
+    if (pcoinsTip == nullptr) return 0;
+    const uint256& root = pindex->hashFinalSaplingRoot;
+    if (cache.haveSapling && cache.lastSaplingRoot == root) return cache.lastSaplingSize;
+    SaplingMerkleTree tree;
+    if (!pcoinsTip->GetSaplingAnchorAt(root, tree)) return 0;
+    cache.lastSaplingRoot = root;
+    cache.lastSaplingSize = (uint64_t)tree.size();
+    cache.haveSapling = true;
+    return cache.lastSaplingSize;
+}
+
+uint64_t OrchardTreeSizeCached(const CBlockIndex* pindex, CompactTreeSizeCache& cache)
+{
+    if (pcoinsTip == nullptr) return 0;
+    const uint256& root = pindex->hashFinalOrchardRoot;
+    if (cache.haveOrchard && cache.lastOrchardRoot == root) return cache.lastOrchardSize;
+    OrchardMerkleFrontier tree;
+    if (!pcoinsTip->GetOrchardAnchorAt(root, tree)) return 0;
+    cache.lastOrchardRoot = root;
+    cache.lastOrchardSize = (uint64_t)tree.size();
+    cache.haveOrchard = true;
+    return cache.lastOrchardSize;
+}
+
+// CompactBlock (compact_formats.proto). Unlike the Go parser (which leaves
+// chainMetadata empty for the frontend to fill from a separate getblock), we
+// populate the commitment-tree sizes here -- that is the point of the RPC.
+//
+// This function is PURE: it touches no shared state (no cs_main, no pcoinsTip).
+// The caller captures the block, its height/hash, and the tree sizes under a
+// short cs_main critical section and passes them in, so this (CPU-bound)
+// serialization -- including the FFI shielded-bundle work -- runs lock-free.
+// That keeps cs_main free between blocks in getcompactblockrange instead of
+// being held across an entire multi-thousand-block range pull.
+std::vector<unsigned char> SerializeCompactBlock(const CBlock& block, int nHeight, const uint256& blockHash,
+                                                 uint64_t saplingTreeSize, uint64_t orchardTreeSize)
+{
+    std::vector<unsigned char> cb;
+
+    // (1) protoVersion -- omitted (reference leaves it unset/0).
+    // (2) height
+    pbVarintField(cb, 2, (uint64_t)nHeight);
+    // (3) hash -- raw 32 internal bytes
+    pbBytesField(cb, 3, blockHash.begin(), blockHash.size());
+    // (4) prevHash -- raw 32 internal bytes
+    pbBytesField(cb, 4, block.hashPrevBlock.begin(), block.hashPrevBlock.size());
+    // (5) time
+    pbVarintField(cb, 5, (uint64_t)block.nTime);
+    // (6) header -- omitted.
+
+    // (7) vtx
+    for (size_t i = 0; i < block.vtx.size(); i++) {
+        std::vector<unsigned char> ctx = SerializeCompactTx(block.vtx[i], i);
+        pbMessageField(cb, 7, ctx);
+    }
+
+    // (8) chainMetadata: { saplingCommitmentTreeSize, orchardCommitmentTreeSize }
+    {
+        std::vector<unsigned char> meta;
+        pbVarintField(meta, 1, saplingTreeSize);
+        pbVarintField(meta, 2, orchardTreeSize);
+        pbMessageField(cb, 8, meta);
+    }
+
+    return cb;
+}
+} // anonymous namespace
 
 UniValue getblockcount(const UniValue& params, bool fHelp)
 {
@@ -1961,6 +2206,158 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
+// Max blocks returned by a single getcompactblockrange call (DoS guard).
+static const int COMPACTBLOCKRANGE_MAX_COUNT = 10000;
+
+UniValue getcompactblock(const UniValue& params, bool fHelp)
+{
+    std::string disabledMsg = "";
+    if (!fExperimentalCompactBlocks) {
+        disabledMsg = experimentalDisabledHelpMsg("getcompactblock", {"compactblocks"});
+    }
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "getcompactblock \"hash_or_height\"\n"
+            "\nReturns the compact representation of a block as a hex-encoded\n"
+            "`cash.z.wallet.sdk.rpc.CompactBlock` protobuf (compact_formats.proto),\n"
+            "ready for consumption by a lightwalletd-style backend. The embedded\n"
+            "chainMetadata carries the Sapling and Orchard commitment tree sizes.\n"
+            + disabledMsg +
+            "\nArguments:\n"
+            "1. \"hash_or_height\"     (string, required) The block hash or height\n"
+            "\nResult:\n"
+            "\"data\"                  (string) the hex-encoded serialized CompactBlock\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getcompactblock", "12800")
+            + HelpExampleRpc("getcompactblock", "\"00000000febc373a1da2bd9f887b105ad79ddc26ac26c2b28652d64e5207c5b5\"")
+        );
+
+    if (!fExperimentalCompactBlocks) {
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND,
+            "Error: getcompactblock is disabled. "
+            "Restart with -experimentalfeatures and -compactblocks to enable it.");
+    }
+
+    // Capture everything that needs cs_main (block index resolution, the block
+    // read, and the pcoinsTip anchor reads for tree sizes) inside this short
+    // critical section; the (CPU-bound) serialization runs afterwards lock-free.
+    CBlock block;
+    int nHeight;
+    uint256 blockHash;
+    uint64_t saplingSize, orchardSize;
+    {
+        LOCK(cs_main);
+
+        std::string strHash = params[0].get_str();
+        if (strHash.size() < (2 * sizeof(uint256))) {
+            strHash = chainActive[parseHeightArg(strHash, chainActive.Height())]->GetBlockHash().GetHex();
+        }
+        uint256 hash(uint256S(strHash));
+
+        if (mapBlockIndex.count(hash) == 0)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
+
+        CBlockIndex* pblockindex = mapBlockIndex[hash];
+        if (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0)
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
+
+        if (!ReadBlockFromDisk(block, pblockindex, Params().GetConsensus()))
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
+
+        nHeight = pblockindex->nHeight;
+        blockHash = pblockindex->GetBlockHash();
+        CompactTreeSizeCache cache;
+        saplingSize = SaplingTreeSizeCached(pblockindex, cache);
+        orchardSize = OrchardTreeSizeCached(pblockindex, cache);
+    }
+
+    std::vector<unsigned char> cb = SerializeCompactBlock(block, nHeight, blockHash, saplingSize, orchardSize);
+    return HexStr(cb.begin(), cb.end());
+}
+
+UniValue getcompactblockrange(const UniValue& params, bool fHelp)
+{
+    std::string disabledMsg = "";
+    if (!fExperimentalCompactBlocks) {
+        disabledMsg = experimentalDisabledHelpMsg("getcompactblockrange", {"compactblocks"});
+    }
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "getcompactblockrange start count\n"
+            "\nReturns compact representations of a contiguous range of blocks as an\n"
+            "array of hex-encoded `cash.z.wallet.sdk.rpc.CompactBlock` protobufs\n"
+            "(compact_formats.proto), starting at height `start` for `count` blocks.\n"
+            "This is the batched, single-call fast path for a lightwalletd backend.\n"
+            + disabledMsg +
+            "\nArguments:\n"
+            "1. start                 (numeric, required) The starting block height\n"
+            "2. count                 (numeric, required) The number of blocks (1.."
+            + strprintf("%d", COMPACTBLOCKRANGE_MAX_COUNT) + ")\n"
+            "\nResult:\n"
+            "[                        (array) one hex-encoded CompactBlock per block\n"
+            "  \"data\", ...\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getcompactblockrange", "12800 100")
+            + HelpExampleRpc("getcompactblockrange", "12800, 100")
+        );
+
+    if (!fExperimentalCompactBlocks) {
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND,
+            "Error: getcompactblockrange is disabled. "
+            "Restart with -experimentalfeatures and -compactblocks to enable it.");
+    }
+
+    int start = params[0].get_int();
+    int count = params[1].get_int();
+    if (count < 1 || count > COMPACTBLOCKRANGE_MAX_COUNT)
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+            strprintf("count must be between 1 and %d", COMPACTBLOCKRANGE_MAX_COUNT));
+    if (start < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "start height out of range");
+
+    UniValue result(UniValue::VARR);
+    result.reserve(count);
+    // The tree-size cache persists across the range; it is only ever read/written
+    // inside the per-block cs_main section below, so it stays single-threaded.
+    CompactTreeSizeCache cache;
+
+    // Hold cs_main only per-block (resolve + read + anchor reads), releasing it
+    // between blocks so block validation, the metrics UI, and other RPCs are not
+    // starved across a multi-thousand-block range pull. The CPU-bound serialize
+    // runs outside the lock. Like the Go lightwalletd's per-height getblock, a
+    // range may span a tip reorg; historical ranges (the bulk-sync case) are
+    // stable, and the tip is re-checked under the lock each iteration.
+    for (int i = 0, height = start; i < count; i++, height++) {
+        CBlock block;
+        int nHeight;
+        uint256 blockHash;
+        uint64_t saplingSize, orchardSize;
+        {
+            LOCK(cs_main);
+            if (height > chainActive.Height())
+                break; // reached the tip
+            CBlockIndex* pblockindex = chainActive[height];
+            if (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0)
+                throw JSONRPCError(RPC_INTERNAL_ERROR,
+                    strprintf("Block at height %d not available (pruned data)", height));
+
+            if (!ReadBlockFromDisk(block, pblockindex, Params().GetConsensus()))
+                throw JSONRPCError(RPC_INTERNAL_ERROR,
+                    strprintf("Can't read block at height %d from disk", height));
+
+            nHeight = pblockindex->nHeight;
+            blockHash = pblockindex->GetBlockHash();
+            saplingSize = SaplingTreeSizeCached(pblockindex, cache);
+            orchardSize = OrchardTreeSizeCached(pblockindex, cache);
+        } // release cs_main before serializing
+
+        std::vector<unsigned char> cb = SerializeCompactBlock(block, nHeight, blockHash, saplingSize, orchardSize);
+        result.push_back(HexStr(cb.begin(), cb.end()));
+    }
+    return result;
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         okSafeMode
   //  --------------------- ------------------------  -----------------------  ----------
@@ -1968,6 +2365,8 @@ static const CRPCCommand commands[] =
     { "blockchain",         "getbestblockhash",       &getbestblockhash,       true  },
     { "blockchain",         "getblockcount",          &getblockcount,          true  },
     { "blockchain",         "getblock",               &getblock,               true  },
+    { "blockchain",         "getcompactblock",        &getcompactblock,        true  },
+    { "blockchain",         "getcompactblockrange",   &getcompactblockrange,   true  },
     { "blockchain",         "getblockhash",           &getblockhash,           true  },
     { "blockchain",         "getblockheader",         &getblockheader,         true  },
     { "blockchain",         "getchaintips",           &getchaintips,           true  },
